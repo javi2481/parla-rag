@@ -28,7 +28,12 @@ Saldo inicial informado: **29.443** de 30.000, el 13/11/2026. Las horas están e
 
 **Conciliación con el panel de LlamaCloud (13/11, antes de #9):** el usuario informó **28.463**. Lo conocido hasta #8 sumaba 820, lo que daba 28.623 esperado. La diferencia, **160 créditos**, es lo que cobraron **juntos** Classify (#4), Generate schema (#5) y Extract (#6), que no informan `usage`.
 
-**Saldo estimado después de #10:** 28.463 − 15 − 1.310 = **27.138**. Hay que confirmarlo con el panel.
+| 11 | 13/11 17:24 | Parse de nuevo, con el pedido final, desde el wizard | Comunicado, 10 págs. | `pjb-jtmlf3lmvd4kjbw2g6rhtc07q58p` | agentic · todas + 3 salidas extra · sin `max_pages` | 210 | — |
+| 12 | 13/11 17:25 | Parse de nuevo, con el pedido final, desde el wizard | Presentación, 15 págs. | `pjb-io2lmikjekdgmo6r7e3u97gkc89e` | agentic · todas + 3 salidas extra · sin `max_pages` | 585 | — |
+
+**Saldo estimado después de #12:** 28.463 − 15 − 1.310 − 210 − 585 = **26.343**. Hay que confirmarlo con el panel.
+
+Repetir un parse **no** usa caché: #11 y #12 cobraron lo mismo que #1 y #2.
 
 **Llamadas que no costaron nada** (comprobado): volver a pedir el resultado de un parse terminado (`parsing.get`, varias veces), `validate_schema`, `configurations.create` (dos configuraciones de parse: `cfg-lhr7sirebo2m6rhmyx9dc89bk9xy` y `cfg-bmherk6gqi5cmvozygan96hjlel5`) y la subida de archivos. Las 3 salidas extra de `additional_outputs` tampoco suman costo: la página 4 costó 15 con y sin ellas.
 
@@ -141,3 +146,17 @@ Saldo inicial informado: **29.443** de 30.000, el 13/11/2026. Las horas están e
   - Se corrigieron los plurales.
   - Se recalculó la interpretación de las 3 corridas a partir de lo guardado, sin llamadas.
 - **Datos crudos:** `backend/data/verificacion/2026-11-13_fase3/validacion_gratuita/` y `eeff_pagina_pedido_final/`, más la corrida `2026-11-13_171702_byma-eeff-30-09-2026-vf`.
+
+### 13/11 · Se vuelven a parsear el comunicado y la presentación con el pedido final
+- **Pedido del usuario:** que los 3 documentos queden parseados con los ajustes actuales.
+- **Qué se hizo:** los dos parses desde el wizard (#11 y #12), 795 créditos en total. Las corridas viejas **no se borraron**: quedan para comparar.
+  - Corridas nuevas: `2026-11-13_172416_byma-comunicado-de-prensa-3t26` y `2026-11-13_172453_presentacion-de-resultados-3t26`.
+  - Corridas viejas: `…164319_byma-comunicado…` y `…165433_presentacion…`.
+- **Resultado:** las dos traen los 10 archivos descargables, `raw_words` incluido, y sirven para Split. Tardaron 14 y 18 s de procesamiento.
+- **Hallazgos:**
+  - 🔴 **El parse no es determinístico.** Mismo archivo, misma versión fija (`2026-10-16`) y mismas opciones, y el resultado cambia:
+    - **Comunicado:** la confianza de la página 8 (los gráficos) pasó de 0,30 a **1,00**, y la del documento de 93% a 100%. El contenido es igual; solo falta un "639" del logo.
+    - **Presentación:** la confianza pasó de 89% a 91% (las páginas 5 y 9, de 0,85 a 1,00). En varias tablas cambió solo el formato de los números (`12,467` → `12467`).
+  - 🔴 **El parse viejo había inventado valores de un gráfico.** En la página 5 de la presentación, la serie "Datos de Mercado" del gráfico dice 250, 232, 973, 354, 291, 300… (se comprobó en la captura). El parse nuevo los leyó bien. El viejo había puesto **1.350, 1.203, 1.457, 1.679, 966**, que no aparecen en el gráfico.
+  - **Lección para la clase y para la plantilla:** los datos que vienen de gráficos leídos con IA hay que verificarlos contra la captura. La confianza por página no siempre lo avisa: la página 5 vieja tenía 0,85 con valores inventados.
+  - **LlamaCloud versiona las configuraciones solo.** Cada `configurations.create` con el mismo nombre crea una versión nueva con otro ID; hay 4 versiones de `parla-parse-agentic-2026-10-16`. `configurations.list(latest_only=True)` devuelve la última. Cada corrida guarda el ID de la versión que usó.
