@@ -14,9 +14,12 @@ RESPONSE = {
     },
     "text": {"pages": [{"text": "uno dos tres"}, {"text": "cuatro"}, {"text": ""}]},
     "items": {"pages": [
-        {"items": [{"type": "heading"}, {"type": "table"}]},
-        {"items": [{"type": "table"}, {"type": "table"}]},
-        {"items": []},
+        {"page_number": 1, "items": [{"type": "heading"}, {"type": "table"}]},
+        {"page_number": 2, "items": [{"type": "table", "merged_from_pages": [2, 3],
+                    "parse_concerns": [{"type": "header_value_type_mismatch", "details": "..."},
+                                       {"type": "multi_table_page", "details": "2 tables"}]},
+                   {"type": "table"}]},
+        {"page_number": 3, "items": []},
     ]},
     "images_content_metadata": {"images": [
         {"filename": "page_2_chart_1_v2.jpg", "category": "layout"},
@@ -37,6 +40,8 @@ def test_metrics():
     assert metrics["Confianza del documento"] == "75%"
     assert metrics["Créditos"] == 63.0
     assert metrics["Tiempo de procesamiento"] == "9,5 s"
+    assert metrics["Tablas unidas entre páginas"] == 1
+    assert metrics["Dudas de LlamaParse para revisar"] == 1
     assert metrics["Tokens del modelo (entrada / salida)"] == "1.000 / 200"
 
 
@@ -44,6 +49,9 @@ def test_metrics():
 def test_interpretation():
     text = " ".join(summarize(RESPONSE)["interpretacion"])
     assert "cobró 63 créditos (21 por página)" in text
-    assert "Conviene revisar la página 2: tiene 30% de confianza" in text
-    assert "1 gráficos que convirtió en tablas" in text
+    assert "Conviene revisar la página 2: tiene 30% de confianza. LlamaParse no informa el motivo" in text
+    assert "incluido 1 gráfico que convirtió en tabla" in text
+    assert "Unió 1 tabla que seguía en la página siguiente (páginas 2–3)" in text
+    assert "duda en la página 2: columna con un valor de otro tipo" in text
+    assert "varias tablas" not in text  # el aviso informativo no se lista como duda
     assert "girada" in text

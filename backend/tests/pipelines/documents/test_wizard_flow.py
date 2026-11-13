@@ -26,11 +26,17 @@ class FakeLlamaCloud:
         self.calls = []
         self.files = SimpleNamespace(create=self.upload, delete=self.delete_file)
         self.parsing = SimpleNamespace(create=self.create_parse, get=self.get_parse, delete=self.delete_parse)
+        self.configurations = SimpleNamespace(create=self.save_configuration)
 
     # Imita files.create.
     async def upload(self, file, purpose):
         self.calls.append(("upload", file[0], purpose))
         return Obj(id="dfl-1", name=file[0])
+
+    # Imita configurations.create.
+    async def save_configuration(self, name, parameters):
+        self.calls.append(("configuration", name, parameters["product_type"]))
+        return Obj(id="cfg-1", name=name)
 
     # Imita parsing.create.
     async def create_parse(self, file_id, **request):
@@ -87,6 +93,8 @@ def test_upload_parse_and_delete(setup):
 
     run = client.post(f"/api/documents/runs/{run['id']}/steps/parse").json()
     assert run["steps"][1]["state"] == "running"
+    assert run["steps"][1]["configuration_id"] == "cfg-1"
+    assert ("configuration", "parla-parse-agentic-2026-10-16", "parse_v2") in fake.calls
 
     run = client.get(f"/api/documents/runs/{run['id']}/steps/parse").json()
     assert run["steps"][1]["state"] == "running" and run["steps"][1]["job_status"] == "RUNNING"

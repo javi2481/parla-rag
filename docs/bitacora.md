@@ -23,9 +23,14 @@ Saldo inicial informado: **29.443** de 30.000, el 13/11/2026. Las horas están e
 | 7 | 13/11 17:08 | Parse de 1 página, todas las opciones | EEFF, página 4 | `pjb-a9ctaro0h54b33zmwq9geim6mhh9` | agentic · todas | 15 | −15 |
 | 8 | 13/11 17:08 | Parse de 1 página, sin gráficos IA ni confianza "high" | EEFF, página 4 | `pjb-6h37rk3t3zsz9h94iz6x71fapfak` | agentic · sin 2 opciones | 10 | −10 |
 
-**Pendiente de auditar:** Classify, Generate schema y Extract no informan créditos en su respuesta. Para saber cuánto costaron hay que comparar con el saldo del panel de LlamaCloud. Lo que sí se conoce suma **820 créditos** (210 + 585 + 15 + 10). Si el panel muestra menos de **28.623**, la diferencia es lo que cobraron esos tres pasos juntos.
+| 9 | 13/11 17:15 | Parse de 1 página con el pedido final (con `additional_outputs`) | EEFF, página 4 | `pjb-97ekchfjv49nwhxn1jqxcyb2llh0` | agentic · todas + 3 salidas extra | 15 | — |
+| 10 | 13/11 17:17 | **Parse completo desde el wizard** | **EEFF, 86 págs.** | `pjb-skkwahpft8n75q9osbrctxpvyn6b` | agentic · todas + 3 salidas extra · sin `max_pages` | **1.310** | — |
 
-Pedir de nuevo el resultado de un job que ya terminó (`parsing.get`) **no cobra créditos**: se comprobó el 13/11, el job #2 siguió marcando 585.
+**Conciliación con el panel de LlamaCloud (13/11, antes de #9):** el usuario informó **28.463**. Lo conocido hasta #8 sumaba 820, lo que daba 28.623 esperado. La diferencia, **160 créditos**, es lo que cobraron **juntos** Classify (#4), Generate schema (#5) y Extract (#6), que no informan `usage`.
+
+**Saldo estimado después de #10:** 28.463 − 15 − 1.310 = **27.138**. Hay que confirmarlo con el panel.
+
+**Llamadas que no costaron nada** (comprobado): volver a pedir el resultado de un parse terminado (`parsing.get`, varias veces), `validate_schema`, `configurations.create` (dos configuraciones de parse: `cfg-lhr7sirebo2m6rhmyx9dc89bk9xy` y `cfg-bmherk6gqi5cmvozygan96hjlel5`) y la subida de archivos. Las 3 salidas extra de `additional_outputs` tampoco suman costo: la página 4 costó 15 con y sin ellas.
 
 ---
 
@@ -105,3 +110,34 @@ Pedir de nuevo el resultado de un job que ya terminó (`parsing.get`) **no cobra
   - Al guardar un schema generado, forzar citas, confianza y tier `agentic`.
 - **Estimación nueva para los EEFF (86 págs.):** entre ~860 y ~1.290 créditos.
 - **Datos crudos:** `backend/data/verificacion/2026-11-13_fase3/` (split, classify, schema, extract, eeff_pagina).
+
+### 13/11 · Pedido final de Parse y parse completo de los EEFF
+- **Pedido del usuario:** aprovechar LlamaParse al máximo y no tener que volver a parsear. El proyecto tiene que quedar como plantilla.
+- **Qué se revisó antes de gastar:** la documentación de **todas** las opciones de Parse, sacada del SDK.
+- **Lo que se encontró en esa revisión:**
+  - `raw_words` no venía porque hay que pedirlo con `additional_outputs: ["word_bbox"]`. Hay dos salidas extra más: `stripped_md` (texto sin formato por página, para búsqueda) y `concatenated_stripped_txt` (todo el texto en un archivo, para embeddings).
+  - `confidence_score_effort: "high"` cuesta **+5 créditos por página**. Explica el 15 contra 10 de la verificación 2.
+  - Con la lista completa de `expand`, LlamaCloud también entrega texto, Markdown, items, metadata y formularios **como archivos descargables**. Así no se pierde nada en documentos largos.
+  - La configuración de parse (`parse_v2`) admite todas las opciones y **el índice puede usarla** (`product_config_id`).
+- **Cambios en el paso Parse:**
+  - Se agregaron las 3 `additional_outputs` y la lista completa de `expand`.
+  - Se bajan **todos** los archivos descargables, incluidos los desconocidos, que van a `archivos/`.
+  - Se guarda el pedido como configuración en LlamaCloud y su ID queda en `run.json`.
+- **Validación antes de gastar:**
+  - Gratis: se volvió a pedir el comunicado con el `expand` nuevo y se guardó la configuración.
+  - Con 15 créditos: una página con el pedido final (#9). Salieron los 10 archivos descargables, incluido `raw_words`.
+- **Parse completo de los EEFF desde el wizard (#10):**
+  - 1.310 créditos (15 por página), 32,7 s de procesamiento y 82 s en total, sin errores.
+  - Confianza del documento: **98%**.
+  - 119 tablas, 313 títulos, 35.123 palabras.
+  - 195 imágenes y 101 MB guardados.
+- **Hallazgos:**
+  - **La página 43 tiene 65% y LlamaParse no dice por qué.** Se revisó a mano: es texto, la nota 39 de hechos posteriores, y el Markdown está completo, con firmas incluidas. La interpretación decía *"suele pasar en páginas con gráficos"*: **era una frase inventada nuestra y estaba mal**. Se reemplazó por *"LlamaParse no informa el motivo; compará su captura con el Markdown"*.
+  - **Tablas unidas entre páginas** (`merged_from_pages`): 6 en los EEFF (páginas 6–7, 35–36, 37–38, 62–64, 65–66, 70–71).
+  - **Dudas propias de LlamaParse** (`parse_concerns`, en cada tabla): 7 tipos encontrados en los 3 documentos. `multi_table_page` es solo un aviso. Las otras son para revisar: `header_value_type_mismatch` (por ejemplo, en la página 17 de los EEFF la columna "Total" tiene un texto), `header_row_in_body`, `inconsistent_row_cell_count`, `possible_merged_columns`, `multi_color_table_text` y `layout_lvm_disagreement`.
+- **Cambios en la interpretación:**
+  - Se suman las métricas "Tablas unidas entre páginas" y "Dudas de LlamaParse para revisar".
+  - Hay una frase por cada tipo de duda, con sus páginas.
+  - Se corrigieron los plurales.
+  - Se recalculó la interpretación de las 3 corridas a partir de lo guardado, sin llamadas.
+- **Datos crudos:** `backend/data/verificacion/2026-11-13_fase3/validacion_gratuita/` y `eeff_pagina_pedido_final/`, más la corrida `2026-11-13_171702_byma-eeff-30-09-2026-vf`.
