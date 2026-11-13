@@ -106,13 +106,24 @@ class RunStore:
         return self.root / run_id
 
     # Devuelve (y crea si hace falta) la carpeta de un paso, por ejemplo "2_parse".
-    # Con reset=True la vacía antes, para que no queden archivos de una ejecución anterior.
+    # Con reset=True arranca vacía: lo de la ejecución anterior no se borra, se mueve al historial.
     def step_dir(self, run_id: str, folder: str, reset: bool = False) -> Path:
         path = self.run_dir(run_id) / folder
         if reset:
-            shutil.rmtree(path, ignore_errors=True)
+            self.archive(run_id, folder)
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    # Mueve la carpeta de un paso a historial/<carpeta>_<fecha>, para poder auditar las ejecuciones anteriores.
+    # Si la carpeta no existe o está vacía, no hace nada.
+    def archive(self, run_id: str, folder: str) -> None:
+        path = self.run_dir(run_id) / folder
+        if not path.is_dir() or not any(path.iterdir()):
+            return
+        history = self.run_dir(run_id) / "historial"
+        history.mkdir(exist_ok=True)
+        stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S_%f")
+        path.rename(history / f"{folder}_{stamp}")
 
     # Lista los archivos que guardó un paso, con su ruta relativa a la corrida y su tamaño.
     def list_files(self, run_id: str, folder: str) -> list[dict]:

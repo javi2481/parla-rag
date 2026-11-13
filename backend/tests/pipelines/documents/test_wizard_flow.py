@@ -27,9 +27,9 @@ class FakeLlamaCloud:
         self.files = SimpleNamespace(create=self.upload, delete=self.delete_file)
         self.parsing = SimpleNamespace(create=self.create_parse, get=self.get_parse, delete=self.delete_parse)
         self.configurations = SimpleNamespace(create=self.save_configuration)
-        self.split = SimpleNamespace(create=self.create_split, get=self.get_split)
-        self.classify = SimpleNamespace(create=self.create_classify, get=self.get_classify)
-        self.extract = SimpleNamespace(create=self.create_extract, get=self.get_extract,
+        self.split = SimpleNamespace(create=self.create_split, get=self.get_split, delete=self.delete_job)
+        self.classify = SimpleNamespace(create=self.create_classify, get=self.get_classify, delete=self.delete_job)
+        self.extract = SimpleNamespace(create=self.create_extract, get=self.get_extract, delete=self.delete_job,
                                        generate_schema=self.generate_schema, validate_schema=self.validate_schema)
 
     # Imita files.create.
@@ -107,6 +107,10 @@ class FakeLlamaCloud:
     # Imita parsing.delete.
     async def delete_parse(self, job_id):
         self.calls.append(("delete_parse", job_id))
+
+    # Imita el delete de split, classify y extract.
+    async def delete_job(self, job_id):
+        self.calls.append(("delete_job", job_id))
 
     # Imita files.delete.
     async def delete_file(self, file_id):
@@ -215,3 +219,14 @@ def test_split_classify_schema_extract(setup):
     boxes = client.get(f"{base}/files/6_extract/boxes.json").json()
     assert boxes == [{"field": "ingresos", "value": 78124, "confidence": 0.95, "page": 3, "text": "78,124",
                       "page_width": 612, "page_height": 792, "x": 10, "y": 20, "w": 30, "h": 5}]
+
+    # Repetir Split: lo anterior va al historial y los pasos siguientes vuelven a pendiente.
+    client.post(f"{base}/steps/split", json={"categories": categories})
+    run = client.get(f"{base}/steps/split").json()
+    assert [step["state"] for step in run["steps"]] == ["done", "done", "done", "pending", "pending", "pending"]
+    history = sorted(p.name.rsplit("_", 3)[0] for p in (tmp_path / "documents" / "runs" / run["id"] / "historial").iterdir())
+    assert history == ["3_split", "4_classify", "5_schema", "5_schema", "6_extract"]
+
+    # Al borrar la corrida se borran en LlamaCloud todos sus jobs.
+    client.delete(base)
+    assert ("delete_job", "spl-1") in fake.calls and ("delete_job", "clj-1") in fake.calls and ("delete_job", "ext-1") in fake.calls

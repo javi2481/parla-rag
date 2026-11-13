@@ -74,11 +74,11 @@ Los créditos son de la cuenta de **LlamaCloud**, la plataforma de la empresa Ll
 | # | Paso | Producto de LlamaCloud | Qué se pide (lo máximo) | Qué se guarda | Qué se mide e interpreta |
 |---|---|---|---|---|---|
 | 1 | **Subir** | `files.create` | — | El archivo original y la respuesta | Tipo, tamaño, páginas, `file_id` |
-| 2 | **Parse** | `parsing.create` / `get` | Tier y versión fijos, rango de páginas (`page_ranges`), corrección de fotos de celular, tablas (incluso las que siguen en otra página), gráficos, imágenes, formularios, confianza, número de página impreso, marcas de agua. `expand` con todo: markdown, text, items, metadata, forms, images, job_metadata, usage | `document.md`, `text.txt`, `items.json`, `metadata.json`, `forms.json`, `images/` | Páginas, palabras, tablas, imágenes, gráficos, confianza por página y del documento (con la peor página), rotación, marca de agua, créditos, tiempo |
+| 2 | **Parse** | `parsing.create` / `get` | Tier y versión fijos, **sin límite de páginas** (Split rechaza los parses limitados), corrección de fotos de celular, tablas (incluso las que siguen en otra página), gráficos, imágenes, formularios, confianza, número de página impreso, marcas de agua. `expand` con todo y las 3 salidas extra (`stripped_md`, `concatenated_stripped_txt`, `word_bbox`) | `document.md`, `text.txt`, `items.json`, `metadata.json`, `forms.json`, `images/` | Páginas, palabras, tablas, imágenes, gráficos, confianza por página y del documento (con la peor página), rotación, marca de agua, créditos, tiempo |
 | 3 | **Split** | `split.create` / `get` | Entrada: el parse (`pjb-...`). Categorías editables (por ejemplo, para los EEFF: balance, estado de resultados, flujo de efectivo, notas, informe del auditor) y estrategia de corte | `segments.json` | Cantidad de segmentos, rango de páginas y categoría de cada uno |
 | 4 | **Classify** | `classify.create` / `get` | Entrada: el parse. Reglas editables (tipo más descripción), por ejemplo: estados financieros, comunicado, presentación, factura | `result.json`, con type, confidence y **reasoning** | Confianza, créditos y el **razonamiento del modelo**, tal cual |
 | 5 | **Schema** | `extract.generate_schema`, `validate_schema`, `configurations` | **Manual:** el editor de campos. **Automático:** el agente propone los campos a partir del documento (y de una indicación opcional). En los dos casos se valida y se guarda como configuración con nombre | `schema.json`, `validation.json`, `configuration.json` | Cantidad de campos y tipos, origen (manual o agente) y diferencias entre los dos |
-| 6 | **Extract** | `extract.create` / `get` | Entrada: el parse. `configuration_id` del paso 5, **páginas elegidas a partir de un segmento del Split**, `cite_sources`, `advanced_citations`, `confidence_scores` | `result.json` (tal cual), `metadata.json` (por documento, página y fila), `boxes.json` | Campos encontrados y vacíos, confianza promedio, mínima y máxima, campos a revisar, citas sobre el documento, créditos |
+| 6 | **Extract** | `extract.create` / `get` | Entrada: el parse. `configuration_id` del paso 5, **páginas elegidas a partir de un segmento del Split**, `cite_sources`, `advanced_citations`, `confidence_scores` | `result.json` (tal cual), `metadata.json`, `fields.json` (cada campo con valor, confianza y citas), `boxes.json` | Campos encontrados y vacíos, confianza promedio, mínima y máxima, campos a revisar, citas sobre el documento, créditos |
 | 7 | **Biblioteca** | `beta.directories.files.add`, `indexes.sync` | Elegir una biblioteca (o crear una) y sumar el documento a su índice | El vínculo con la biblioteca en `run.json` | — (el detalle se ve en la biblioteca) |
 
 ### Schema manual o automático (paso 5)
@@ -226,13 +226,13 @@ El relevamiento completo de la API de LlamaCloud y 16 hallazgos sobre el código
 **Después se construye:**
 - `core/runs/` con la carpeta-DB y el estado de los pasos.
 - El wizard base en el frontend: el stepper, el panel de paso, los visores y la lista de corridas.
-- Los pasos **1 Subir** y **2 Parse** completos, con todo lo que ofrece Parse. Los límites de archivo se adaptan a los documentos grandes y el de páginas se maneja con `page_ranges`.
+- Los pasos **1 Subir** y **2 Parse** completos, con todo lo que ofrece Parse. Los límites de archivo se adaptan a los documentos grandes. No hay límite de páginas: Split rechaza los parses con `max_pages`.
 
 **Se elimina:** `jobs.py`, la barra de progreso simulada, el cleanup automático y el conteo de páginas con pypdf.
 **Hallazgos que resuelve:** #5, #7, #8, #9, #10 y #12.
 **Listo cuando:** se suben el comunicado y la presentación, se corre Parse, aparece el tilde y se ven el `.md`, las páginas, los gráficos, la confianza, los créditos y la interpretación. Además, la corrida sobrevive a reiniciar el servidor.
 
-### Fase 3 · Split, Classify, Schema y Extract
+### Fase 3 · Split, Classify, Schema y Extract · en curso (código hecho, probado en los EEFF; falta la comparación manual contra automático)
 - Los pasos **3 Split** y **4 Classify**, encadenados al parse (`pjb-...`), con categorías y reglas editables.
 - El paso **5 Schema**, manual o automático: el editor, `generate_schema`, `validate_schema` y las plantillas en `configurations`. Se crea la plantilla "Factura AR".
 - El paso **6 Extract** con la configuración guardada, las citas avanzadas y toda la metadata, **sobre las páginas de un segmento del Split**. Las cajas se dibujan sobre el documento.

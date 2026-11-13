@@ -22,10 +22,12 @@ export type PanelStep = {
 // `children` es la vista del resultado propia de cada paso (por ejemplo el Markdown del parse).
 // `options` es el editor de opciones del paso (categorías, reglas, schema…), si las tiene:
 // se muestra abierto antes de correr el paso y plegado cuando ya terminó, para cambiarlas y repetir.
-export function StepPanel({ step, onStart, canStart = true, fileHref, options, children }: {
+// `busy` es true mientras se espera la respuesta al arrancar el paso.
+export function StepPanel({ step, onStart, canStart = true, busy = false, fileHref, options, children }: {
   step: PanelStep;
   onStart?: () => void;
   canStart?: boolean;
+  busy?: boolean;
   fileHref: (path: string) => string;
   options?: ReactNode;
   children?: ReactNode;
@@ -39,7 +41,7 @@ export function StepPanel({ step, onStart, canStart = true, fileHref, options, c
           <h2 className="mt-1 font-display text-3xl">{step.title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">{step.explicacion}</p>
         </div>
-        <StepAction step={step} onStart={onStart} canStart={canStart} />
+        <StepAction step={step} onStart={onStart} canStart={canStart} busy={busy} />
       </header>
 
       {options && !step.locked && step.state !== 'running' && (
@@ -103,7 +105,10 @@ export function StepPanel({ step, onStart, canStart = true, fileHref, options, c
 }
 
 // El botón o el estado del paso: bloqueado, listo para correr, corriendo, terminado (con opción de repetir).
-function StepAction({ step, onStart, canStart }: { step: PanelStep; onStart?: () => void; canStart: boolean }) {
+function StepAction({ step, onStart, canStart, busy }: { step: PanelStep; onStart?: () => void; canStart: boolean; busy: boolean }) {
+  if (busy) {
+    return <span className="flex items-center gap-2 text-sm text-primary"><LoaderCircle className="size-4 animate-spin" /> Esperando a LlamaCloud…</span>;
+  }
   if (step.locked) {
     return <span className="flex items-center gap-2 text-sm text-muted-foreground"><Lock className="size-4" /> Primero terminá el paso anterior</span>;
   }

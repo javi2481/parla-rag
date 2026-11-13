@@ -6,13 +6,13 @@ Parla junta en una sola app tres tareas que suelen pedir tres herramientas disti
 
 | | Qué hace | Con qué |
 | --- | --- | --- |
-| 📄 **Documentos** | Subís un documento y lo recorrés en un **wizard paso por paso**: en cada paso ves todo lo que devolvió LlamaCloud, cuánto costó y qué significa. Hoy: Subir y Parse (Markdown, tablas en Excel, gráficos convertidos en datos, confianza por página). | LlamaCloud · LlamaParse |
+| 📄 **Documentos** | Subís un documento y lo recorrés en un **wizard paso por paso**: en cada paso ves todo lo que devolvió LlamaCloud, cuánto costó y qué significa. Hoy: Subir, Parse (Markdown, tablas en Excel, gráficos convertidos en datos, confianza por página), Split, Classify, Schema (manual o propuesto por el agente) y Extract con la cita de cada dato. | LlamaCloud · LlamaParse |
 | 🔊 **Texto a voz** | Pegás un texto y lo escuchás con tu **voz clonada**. Cada audio muestra lo que costó, y lo repetido sale de la caché sin volver a cobrarse. | ElevenLabs Flash v2.5 |
 | 🎙️ **Voz a texto** | Grabás o subís un audio y obtenés la transcripción **sin muletillas, tartamudeos ni repeticiones**, lista para copiar. | ElevenLabs Scribe |
 
 ### Por qué está bueno
 
-- **Se ve de dónde sale cada dato**: las cajas de color unen cada campo extraído con su lugar en la factura.
+- **Se ve de dónde sale cada dato**: las cajas de color unen cada campo extraído con su lugar en la página, y los datos sin cita o con confianza baja se marcan para revisar.
 - **Gasta lo justo**: usa el modelo de voz que cuesta la mitad por carácter, quita lo que no hace falta leer y guarda en disco todo lo ya generado.
 - **Pipeline prolijo**: un archivo por paso y cada corrida guardada en una carpeta, con lo que se pidió y lo que respondió LlamaCloud.
 - **Privado**: las API keys viven solo en el servidor. Al borrar una corrida se borra también en LlamaCloud.
@@ -36,7 +36,7 @@ backend/
 │       │   ├── client.py       cliente de LlamaCloud
 │       │   ├── pipeline.py     el orden de los pasos del wizard
 │       │   ├── router.py       /api/documents/runs/...
-│       │   └── steps/          s1_upload · s2_parse (siguen Split, Classify, Schema, Extract…)
+│       │   └── steps/          s1_upload · s2_parse · s3_split · s4_classify · s5_schema · s6_extract · jobs
 │       └── audio/              ── AUDIO (ElevenLabs)               → ver su README.md
 │           ├── settings.py     API key, voz, modelos, caché, límites
 │           ├── client.py       URL y errores de ElevenLabs
@@ -61,7 +61,7 @@ frontend/src/
 
 ### Pipeline de documentos
 
-Un wizard: `Subir → Parse → …`, con cada paso guardado, medido e interpretado. El plan completo está en
+Un wizard: `Subir → Parse → Split → Classify → Schema → Extract`, con cada paso guardado, medido e interpretado. El plan completo está en
 [docs/plan.md](docs/plan.md) y el detalle de cada paso en
 [backend/app/pipelines/documents/README.md](backend/app/pipelines/documents/README.md).
 

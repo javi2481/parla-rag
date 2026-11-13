@@ -216,3 +216,17 @@ Repetir un parse **no** usa caché: #11 y #12 cobraron lo mismo que #1 y #2.
   - **Redacción:** se cambió "páginas 4" por "página 4" cuando la parte tiene una sola página.
   - Los resúmenes se volvieron a generar a partir de las respuestas guardadas, sin volver a llamar a LlamaCloud.
 - **Lección para el schema:** las guías de los campos tienen que servir para el tipo de documento. "Histórico" tiene sentido en el comunicado, que trae los dos valores, pero no en los EEFF.
+
+### 13/11 · Auditoría del proyecto (sin costo)
+
+- **Revisado y bien:**
+  - No quedan restos del extractor de facturas viejo (`clean_amount`, `normalize_result`, `pdfjs`…).
+  - Ni la `.env` ni las corridas están en el historial de git. Solo están las muestras públicas de BYMA, a propósito (unos 12 MB).
+  - `.env.example` no tiene claves.
+  - Los tests pasan (20), `ruff` y TypeScript no dan errores y el build del frontend compila.
+- **Problemas encontrados y corregidos:**
+  1. **Repetir un paso borraba su ejecución anterior** (`step_dir(reset=True)` hacía `rmtree`). Ahora la carpeta se mueve a `historial/<carpeta>_<fecha>`, porque hay que poder auditar todo.
+  2. **Repetir un paso dejaba los siguientes con resultados viejos.** Por ejemplo, Extract seguía con las páginas de un Split anterior. Ahora los pasos siguientes vuelven a pendiente y su carpeta pasa al historial.
+  3. **Al borrar una corrida quedaban jobs vivos en LlamaCloud:** solo se borraban el archivo y el parse. Ahora se borran también Split, Classify y Extract, incluidos los de ejecuciones anteriores (que quedan en `run.json` → `historial`). El test lo detectó.
+  4. **Mientras Schema esperaba al agente** (unos 25 segundos), la pantalla no mostraba nada y se podía apretar el botón dos veces. Ahora muestra "Esperando a LlamaCloud…" y bloquea el botón y los editores.
+  5. **Documentación desactualizada:** el plan seguía hablando de `page_ranges`, y los README mostraban solo Subir y Parse. Se actualizaron.

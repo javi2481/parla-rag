@@ -93,7 +93,29 @@ async def start_step(client: AsyncLlamaCloud, store: RunStore, settings: Documen
         raise ValueError("Primero tiene que terminar el paso anterior.")
     if step_state(run, name)["state"] == "running":
         raise ValueError("Este paso ya está corriendo.")
+    previous = dict(step_state(run, name))
     await step.start(client, store, run, settings, options)
+    remember(run, name, previous)
+    reset_following(store, run, index)
+
+
+# Guarda en run["historial"] el estado anterior de un paso (con su job_id), para que quede auditado
+# y para poder borrar ese job en LlamaCloud cuando se borre la corrida.
+def remember(run: dict, name: str, state: dict) -> None:
+    if state.get("state") != "pending":
+        run.setdefault("historial", []).append({"step": name, **state})
+
+
+# Cuando un paso se corre de nuevo, los que vienen después quedan desactualizados (usaban el resultado anterior).
+# Vuelven a pendiente y su carpeta pasa al historial, así no se mezcla lo viejo con lo nuevo.
+def reset_following(store: RunStore, run: dict, index: int) -> None:
+    for later in STEPS[index + 1:]:
+        if step_state(run, later.NAME)["state"] == "pending":
+            continue
+        store.archive(run["id"], later.FOLDER)
+        remember(run, later.NAME, run["steps"][later.NAME])
+        run["steps"][later.NAME] = {"state": "pending"}
+    store.save(run)
 
 
 # Consulta un paso que está corriendo (si no está corriendo, no hace nada).
@@ -103,14 +125,25 @@ async def check_step(client: AsyncLlamaCloud, store: RunStore, run: dict, name: 
         await step.check(client, store, run)
 
 
-# Borra en LlamaCloud lo que creó la corrida (el archivo y los jobs). Si algo falla, solo se anota en el log.
+# Borra en LlamaCloud lo que creó la corrida: los jobs de cada paso y el archivo subido.
+# Las configuraciones no se borran: son plantillas que pueden usar otras corridas.
+# Si algo falla, solo se anota en el log.
 async def delete_remote(client: AsyncLlamaCloud, run: dict) -> None:
+    deleters = {"parse": client.parsing.delete, "split": client.split.delete,
+                "classify": client.classify.delete, "extract": client.extract.delete}
+    jobs = [(name, state.get("job_id")) for name, state in run["steps"].items()]
+    jobs += [(old["step"], old.get("job_id")) for old in run.get("historial", [])]
+    for name, job_id in jobs:
+        delete = deleters.get(name)
+        if not job_id or not delete:
+            continue
+        try:
+            await delete(job_id)
+        except Exception as e:
+            log.warning("No se pudo borrar en LlamaCloud el job %s de la corrida %s: %s", job_id, run["id"], e)
     file_id = run["steps"]["upload"].get("file_id")
-    parse_job_id = run["steps"]["parse"].get("job_id")
-    try:
-        if parse_job_id:
-            await client.parsing.delete(parse_job_id)
-        if file_id:
+    if file_id:
+        try:
             await client.files.delete(file_id)
-    except Exception as e:
-        log.warning("No se pudo borrar en LlamaCloud la corrida %s: %s", run["id"], e)
+        except Exception as e:
+            log.warning("No se pudo borrar en LlamaCloud el archivo de la corrida %s: %s", run["id"], e)

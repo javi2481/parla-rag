@@ -46,6 +46,8 @@ export function DocumentsWizard({ ready, maxUploadMb }: { ready: boolean; maxUpl
   const [error, setError] = useState('');
   // Las opciones que se van editando en cada paso, por nombre de paso.
   const [options, setOptions] = useState<Record<string, unknown>>({});
+  // true mientras se espera la respuesta al arrancar un paso (Schema responde en el momento, pero tarda).
+  const [busy, setBusy] = useState(false);
 
   // Al cambiar de corrida, los editores vuelven a arrancar con lo guardado en esa corrida.
   useEffect(() => { setOptions({}); }, [run?.id]);
@@ -115,8 +117,9 @@ export function DocumentsWizard({ ready, maxUploadMb }: { ready: boolean; maxUpl
 
   // Arranca (o repite) el paso elegido, con las opciones del editor si el paso las tiene.
   async function start(target: Step) {
-    if (!run) return;
+    if (!run || busy) return;
     setError('');
+    setBusy(true);
     try {
       const config = STEP_OPTIONS[target.name];
       const value = options[target.name] ?? config?.initial(target);
@@ -124,6 +127,10 @@ export function DocumentsWizard({ ready, maxUploadMb }: { ready: boolean; maxUpl
       setRun(await startStep(run.id, target.name, body));
     } catch (e) {
       setError(message(e));
+      // Si el paso falló en el backend, se vuelve a pedir la corrida para mostrar su estado y su error.
+      getRun(run.id).then(setRun, () => {});
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -156,9 +163,9 @@ export function DocumentsWizard({ ready, maxUploadMb }: { ready: boolean; maxUpl
             <Stepper steps={run.steps} selected={selected} onSelect={setSelected} />
             {step && (
               <StepPanel step={step} fileHref={path => fileUrl(run.id, path)}
-                onStart={step.name === 'upload' ? undefined : () => start(step)} canStart={!anyRunning}
+                onStart={step.name === 'upload' ? undefined : () => start(step)} canStart={!anyRunning && !busy} busy={busy}
                 options={optionsConfig && step.defaults && (
-                  <optionsConfig.Editor runId={run.id} step={step} disabled={anyRunning}
+                  <optionsConfig.Editor runId={run.id} step={step} disabled={anyRunning || busy}
                     value={options[step.name] ?? optionsConfig.initial(step)}
                     onChange={value => setOptions(current => ({ ...current, [step.name]: value }))} />
                 )}>
