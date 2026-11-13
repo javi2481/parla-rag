@@ -104,3 +104,28 @@ Para bajar el costo del EEFF hay dos caminos:
 - **Bajar el tier:** usar `cost_effective`.
 
 Antes de decidir conviene medir **una sola página** del EEFF con cada variante. Cuesta poco y dice exactamente cuánto suma cada opción.
+
+---
+
+## 8. Segunda prueba: la presentación, desde el wizard (13/11/2026)
+
+Prueba real de punta a punta **desde la pantalla**: se subió `Presentacion_de_Resultados-3T26.pdf`, se apretó "Correr Parse" y se esperó el tilde. Job `pjb-s5617m4umqypr1wpme452lkzdxxq`.
+
+| | Comunicado | Presentación |
+|---|---|---|
+| Páginas | 10 | 15 |
+| Gráficos convertidos en tablas | 3 | **18** |
+| Tablas en total (incluye gráficos) | 9 | 24 |
+| Confianza del documento | 93% | 89% (páginas 6 y 12 para revisar; la 12 con 30%) |
+| Tiempo de procesamiento | 21 s | 37 s |
+| **Créditos** | 210 (21 por página) | **585 (39 por página)** |
+
+**Lo que aprendimos:**
+- **El costo depende de cuántos gráficos tiene el documento, no solo de las páginas.** La presentación tiene 18 gráficos y costó casi el doble por página. La estimación anterior (~315) quedó corta.
+- **El wizard funciona con LlamaCloud real.** Consultó cada ~3 segundos, mostró RUNNING mientras corría y al terminar guardó todo, sin errores en la consola.
+- **La descarga era lenta**: la última consulta tardó 46 s porque bajaba las 55 imágenes de a una. Se cambió a descarga en paralelo, y ahora pedir el resultado y bajar todo tarda unos 10 s.
+- **El ID del archivo no tiene prefijo.** LlamaCloud devolvió un UUID común, no `dfl-...` como decía la documentación. Se corrigió el texto del paso Subir.
+
+**Créditos usados hasta ahora:** 210 + 585 = **795**. El saldo estimado es de unos **28.648**.
+
+**Nueva estimación para los EEFF (86 páginas):** son casi todo texto y tablas, con pocos gráficos. Debería quedar más cerca de 21 que de 39 créditos por página, o sea entre **~1.800 y ~3.400**. Antes de correrlo conviene probar una sola página con y sin las opciones caras (gráficos con IA y confianza "high") para saber el número exacto.

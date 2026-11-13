@@ -17,7 +17,7 @@ FOLDER = "1_upload"
 TITLE = "Subir"
 EXPLICACION = (
     "El archivo se sube a LlamaCloud Files, el almacenamiento de la plataforma. "
-    "LlamaCloud le asigna un ID (dfl-…) que usan todos los pasos siguientes. "
+    "LlamaCloud le asigna un ID que usan todos los pasos siguientes. "
     "Todavía no se leyó nada: subir no cuesta créditos."
 )
 

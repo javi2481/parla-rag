@@ -38,7 +38,7 @@ También queda `backend/data/samples/factura_ejemplo.pdf`, una factura simple de
 
 Los créditos son de la cuenta de **LlamaCloud**, la plataforma de la empresa LlamaIndex. **LlamaParse** es el nombre de sus productos de documentos (Parse, Extract, Split, Classify…). No son dos saldos distintos: todos los productos descuentan del mismo saldo.
 
-- **Saldo al 13/11:** 29.443 de 30.000.
+- **Saldo al 13/11:** 29.443 de 30.000 al empezar; después de las dos pruebas de Parse (795 créditos), unos 28.648.
 - **Cuánto cuesta cada cosa:** el costo depende del producto, del tier y de la cantidad de páginas. Cada job devuelve lo que cobró (`usage`), así que no hace falta adivinar. En la fase 2 se mide el costo real con el comunicado (10 páginas) y con eso se calcula el resto antes de procesar el de 86.
 - **Cómo se ahorra con los documentos grandes**, sin código nuestro:
   - Cada documento se **parsea una sola vez**. Split, Classify y Extract usan ese parse (`pjb-...`) y no vuelven a leer el documento.
@@ -213,7 +213,7 @@ Cada pipeline quedó autocontenido en su carpeta, con un README por pipeline y u
 ### ✅ Fase 1 · Informe (commit `ea47134`)
 El relevamiento completo de la API de LlamaCloud y 16 hallazgos sobre el código actual. Ver [informe-fase-1.md](informe-fase-1.md).
 
-### Fase 2 · Verificación, motor de corridas, Subir y Parse · 🔧 hecha (falta la prueba real)
+### Fase 2 · Verificación, motor de corridas, Subir y Parse · ✅ terminada
 
 **Primero se verifica** con llamadas reales: se prueba a mano con el **comunicado** (10 páginas, barato) y se guarda lo que devuelve cada producto.
 1. El **costo real** de Parse, Split, Classify y Extract, y con eso la estimación para los EEFF de 86 páginas.

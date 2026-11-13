@@ -7,6 +7,9 @@ en tablas, capturas de cada página y recortes de cada tabla o gráfico.
     start()  crea el job en LlamaCloud y guarda lo que se pidió
     check()  consulta el job; cuando termina, guarda todo, mide e interpreta
 """
+import asyncio
+from pathlib import Path
+
 import httpx
 from llama_cloud import AsyncLlamaCloud
 
@@ -110,7 +113,7 @@ async def check(client: AsyncLlamaCloud, store: RunStore, run: dict) -> None:
 
 
 # Guarda la respuesta completa y, aparte, cada salida en su propio archivo para leerla fácil.
-async def save_outputs(folder, response: dict) -> None:
+async def save_outputs(folder: Path, response: dict) -> None:
     write_json(folder / "response.json", response)
 
     markdown_pages = (response.get("markdown") or {}).get("pages") or []
@@ -134,22 +137,31 @@ async def save_outputs(folder, response: dict) -> None:
 
 # Descarga lo que LlamaCloud devuelve como link temporal: imágenes, el Excel con las tablas
 # y los items con las cajas por línea y palabra.
-async def download_files(folder, response: dict) -> None:
+# Se bajan todos a la vez (en paralelo): un documento largo puede traer cientos de imágenes.
+async def download_files(folder: Path, response: dict) -> None:
     images = (response.get("images_content_metadata") or {}).get("images") or []
     extra_files = response.get("result_content_metadata") or {}
 
-    async with httpx.AsyncClient(timeout=120) as http:
-        for image in images:
-            if image.get("presigned_url"):
-                res = await http.get(image["presigned_url"])
-                (folder / "images").mkdir(exist_ok=True)
-                (folder / "images" / image["filename"]).write_bytes(res.content)
+    # Arma la lista de (link, archivo de destino).
+    downloads = []
+    (folder / "images").mkdir(exist_ok=True)
+    for image in images:
+        if image.get("presigned_url"):
+            # Path(...).name se queda solo con el nombre, por si viniera algo como "../x".
+            downloads.append((image["presigned_url"], folder / "images" / Path(image["filename"]).name))
+    for key, filename in (("xlsx", "tables.xlsx"), ("grounded_items", "grounded_items.jsonl")):
+        url = (extra_files.get(key) or {}).get("presigned_url")
+        if url:
+            downloads.append((url, folder / filename))
 
-        for key, filename in (("xlsx", "tables.xlsx"), ("grounded_items", "grounded_items.jsonl")):
-            url = (extra_files.get(key) or {}).get("presigned_url")
-            if url:
-                res = await http.get(url)
-                (folder / filename).write_bytes(res.content)
+    async with httpx.AsyncClient(timeout=120) as http:
+        # Baja un archivo y lo guarda.
+        async def download(url: str, destination: Path) -> None:
+            res = await http.get(url)
+            res.raise_for_status()
+            destination.write_bytes(res.content)
+
+        await asyncio.gather(*[download(url, destination) for url, destination in downloads])
 
 
 # ── Métricas e interpretación ────────────────────────────────────────────
