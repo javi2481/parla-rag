@@ -7,6 +7,8 @@ Dos modos, que terminan en lo mismo:
 En los dos casos el schema se valida (extract.validate_schema) y se guarda como configuración en LlamaCloud
 (extract_v2) con citas, confianza y tier agentic. Este paso no crea un job: responde en el momento.
 """
+import json
+
 from llama_cloud import AsyncLlamaCloud
 
 from app.core.runs.store import RunStore, mark_done, mark_failed, mark_running, slugify, write_json
@@ -83,6 +85,8 @@ TEMPLATES = {
 
 DEFAULTS = {
     "mode": "manual",
+    # En modo automático viene prendido: el agente suele marcar todo como obligatorio (ver docs/bitacora.md).
+    "only_identity_required": True,
     "templates": TEMPLATES,
     "fields": TEMPLATES["Resultados trimestrales"],
     "prompt": "Datos clave de un informe de resultados trimestrales: empresa, período, ingresos, gastos, resultado neto, EBITDA y márgenes, con sus variaciones interanuales.",
@@ -98,6 +102,28 @@ def fields_to_schema(fields: list[dict]) -> dict:
         if field.get("required"):
             required.append(field["name"])
     return {"type": "object", "properties": properties, "required": required}
+
+
+# Deja obligatorios solo los datos de identidad: los campos sueltos del primer nivel (empresa, ticker, período, fecha…).
+# Todo lo que está dentro de un grupo (resultados, variaciones…) pasa a opcional, así Extract puede dejarlo
+# vacío si no está en el documento en lugar de inventarlo. Devuelve un schema nuevo; el original no se toca.
+def only_identity_required(schema: dict) -> dict:
+    copy = json.loads(json.dumps(schema))
+    properties = copy.get("properties") or {}
+    copy["required"] = [name for name in copy.get("required") or [] if properties.get(name, {}).get("type") != "object"]
+    for field in properties.values():
+        clear_required(field)
+    return copy
+
+
+# Saca "obligatorio" de un grupo y de todo lo que tiene adentro.
+def clear_required(field: dict) -> None:
+    if field.get("type") == "object":
+        field["required"] = []
+        for child in (field.get("properties") or {}).values():
+            clear_required(child)
+    elif field.get("type") == "array" and isinstance(field.get("items"), dict):
+        clear_required(field["items"])
 
 
 # Arma el schema según el modo: el JSON escrito a mano, la tabla de campos o la propuesta del agente.
@@ -136,6 +162,8 @@ async def save_schema(client: AsyncLlamaCloud, store: RunStore, run: dict, folde
     data_schema, generated = await build_schema(client, run, options)
     if generated:
         write_json(folder / "generated.json", generated)
+    if option(options, "only_identity_required", False):
+        data_schema = only_identity_required(data_schema)
     write_json(folder / "schema.json", data_schema)
 
     validation = await client.extract.validate_schema(data_schema=data_schema)

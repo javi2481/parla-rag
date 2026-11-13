@@ -7,32 +7,35 @@ import { fetchJson, type Step } from '../api';
 
 // Un campo de la tabla del modo manual. El backend lo traduce a JSON Schema.
 type Field = { name: string; type: string; required: boolean; description: string };
-type Defaults = { mode: string; templates: Record<string, Field[]>; fields: Field[]; prompt: string };
+type Defaults = { mode: string; templates: Record<string, Field[]>; fields: Field[]; prompt: string; only_identity_required: boolean };
 type JsonSchema = { type?: string | string[]; description?: string; properties?: Record<string, JsonSchema>; items?: JsonSchema; required?: string[] };
 
 // Lo que guarda el editor. `editor` dice si el modo manual se edita con la tabla o como JSON.
-export type SchemaOptionsValue = { mode: 'manual' | 'auto'; editor: 'tabla' | 'json'; fields: Field[]; json: string; prompt: string };
+// `onlyIdentity`: dejar obligatorios solo los datos de identidad (los campos sueltos del primer nivel).
+export type SchemaOptionsValue = { mode: 'manual' | 'auto'; editor: 'tabla' | 'json'; fields: Field[]; json: string; prompt: string; onlyIdentity: boolean };
 
 const FIELD_TYPES = ['texto', 'número', 'fecha', 'sí/no', 'lista'];
 
 // Arranca con lo de la última vez (si se corrió) o con la plantilla de por defecto.
 export function initialSchemaOptions(step: Step): SchemaOptionsValue {
   const defaults = step.defaults as Defaults;
-  const request = (step.request ?? {}) as { mode?: 'manual' | 'auto'; fields?: Field[]; data_schema?: unknown; prompt?: string };
+  const request = (step.request ?? {}) as { mode?: 'manual' | 'auto'; fields?: Field[]; data_schema?: unknown; prompt?: string; only_identity_required?: boolean };
   return {
     mode: request.mode ?? 'manual',
     editor: request.data_schema ? 'json' : 'tabla',
     fields: request.fields ?? defaults.fields,
     json: request.data_schema ? JSON.stringify(request.data_schema, null, 2) : '',
     prompt: request.prompt ?? defaults.prompt,
+    onlyIdentity: request.only_identity_required ?? defaults.only_identity_required,
   };
 }
 
 // Pasa lo del editor al pedido que entiende el backend. Si el JSON está mal escrito, lanza un error para mostrar.
 export function schemaRequest(value: SchemaOptionsValue) {
-  if (value.mode === 'auto') return { mode: 'auto', prompt: value.prompt };
+  const only_identity_required = value.onlyIdentity;
+  if (value.mode === 'auto') return { mode: 'auto', prompt: value.prompt, only_identity_required };
   if (value.editor === 'json') {
-    try { return { mode: 'manual', data_schema: JSON.parse(value.json) }; } catch { throw new Error('El JSON Schema no es un JSON válido.'); }
+    try { return { mode: 'manual', data_schema: JSON.parse(value.json), only_identity_required }; } catch { throw new Error('El JSON Schema no es un JSON válido.'); }
   }
   return { mode: 'manual', fields: value.fields.filter(field => field.name.trim()) };
 }
@@ -65,6 +68,16 @@ export function SchemaOptions({ runId, step, value, onChange, disabled }: {
         <label className="block space-y-1 text-sm">
           <span className="text-muted-foreground">Qué datos te interesan (opcional, ayuda al agente):</span>
           <textarea className={`${INPUT} min-h-20`} value={value.prompt} disabled={disabled} onChange={e => onChange({ ...value, prompt: e.target.value })} />
+        </label>
+      )}
+
+      {(value.mode === 'auto' || value.editor === 'json') && (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={value.onlyIdentity} disabled={disabled} onChange={e => onChange({ ...value, onlyIdentity: e.target.checked })} />
+          <span>
+            Dejar obligatorios solo los datos de identidad (los campos sueltos: empresa, período, fecha…).
+            <span className="block text-xs text-muted-foreground">Los datos dentro de grupos pasan a opcionales: si no están en el documento, Extract los deja vacíos en lugar de inventarlos.</span>
+          </span>
         </label>
       )}
 

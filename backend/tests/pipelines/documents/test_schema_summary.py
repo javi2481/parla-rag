@@ -1,5 +1,5 @@
 """La interpretación del paso Schema, con schemas armados a mano (sin red ni créditos)."""
-from app.pipelines.documents.steps.s5_schema import fields_to_schema, forced_fields, summarize, TEMPLATES
+from app.pipelines.documents.steps.s5_schema import TEMPLATES, fields_to_schema, forced_fields, only_identity_required, summarize
 
 NUMBER = {"type": "number"}
 
@@ -29,3 +29,23 @@ def test_template_only_requires_identity_fields():
     schema = fields_to_schema(TEMPLATES["Resultados trimestrales"])
     assert schema["required"] == ["emisor", "razon_social", "periodo", "fecha_de_cierre"]
     assert not any("puede inventarlo" in s for s in summarize(schema, "manual", "cfg")["interpretacion"])
+
+
+# La opción A: solo quedan obligatorios los campos sueltos del primer nivel; los grupos y su contenido, no.
+def test_only_identity_required():
+    schema = {
+        "type": "object", "required": ["ticker", "periodo", "resultados"],
+        "properties": {
+            "ticker": {"type": "string"}, "periodo": {"type": "string"},
+            "resultados": {"type": "object", "required": ["ebitda"], "properties": {
+                "ebitda": NUMBER,
+                "ajustado": {"type": "object", "required": ["ebitda"], "properties": {"ebitda": NUMBER}},
+            }},
+        },
+    }
+    fixed = only_identity_required(schema)
+    assert fixed["required"] == ["ticker", "periodo"]
+    assert fixed["properties"]["resultados"]["required"] == []
+    assert fixed["properties"]["resultados"]["properties"]["ajustado"]["required"] == []
+    assert forced_fields(fixed) == 2
+    assert schema["required"] == ["ticker", "periodo", "resultados"]  # el original no se toca
