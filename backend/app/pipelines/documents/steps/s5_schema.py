@@ -168,6 +168,21 @@ def leaf_fields(schema: dict, prefix: str = "") -> list[tuple[str, str]]:
     return leaves
 
 
+# Cuenta los campos finales que son obligatorios en todo su camino (el campo y todos los grupos que lo contienen).
+# Extract tiene que devolver un valor para cada uno, aunque el dato no esté en el documento.
+def forced_fields(schema: dict) -> int:
+    count = 0
+    required = set(schema.get("required") or [])
+    for name, field in (schema.get("properties") or {}).items():
+        if name not in required:
+            continue
+        if field.get("type") == "object":
+            count += forced_fields(field)
+        else:
+            count += 1
+    return count
+
+
 # Calcula las métricas y arma la interpretación del schema guardado.
 def summarize(schema: dict, mode: str, configuration_name: str) -> dict:
     leaves = leaf_fields(schema)
@@ -175,12 +190,13 @@ def summarize(schema: dict, mode: str, configuration_name: str) -> dict:
     for _, kind in leaves:
         by_type[kind] = by_type.get(kind, 0) + 1
     nested = sum(1 for path, _ in leaves if "." in path)
+    forced = forced_fields(schema)
 
     metricas = [
         {"label": "Origen", "value": "agente de LlamaExtract" if mode == "auto" else "manual"},
         {"label": "Campos", "value": len(leaves)},
         {"label": "Tipos", "value": ", ".join(f"{kind}: {count}" for kind, count in sorted(by_type.items()))},
-        {"label": "Obligatorios", "value": len(schema.get("required") or [])},
+        {"label": "Obligatorios", "value": f"{forced} de {len(leaves)}"},
         {"label": "Configuración", "value": configuration_name},
         {"label": "Créditos", "value": "no informa"},
     ]
@@ -192,5 +208,12 @@ def summarize(schema: dict, mode: str, configuration_name: str) -> dict:
         interpretacion.append(f"El schema tiene {len(leaves)} campos escritos a mano.")
     if nested:
         interpretacion.append(f"{nested} campos están agrupados dentro de otros (por ejemplo, resultados históricos y ajustados por separado).")
+    if forced and forced == len(leaves):
+        interpretacion.append(
+            "Todos los campos son obligatorios: si un dato no está en el documento, Extract igual tiene que devolver un valor "
+            "y puede inventarlo (por ejemplo, un 0 con una cita que no corresponde). Conviene sacar 'obligatorio' de los datos que pueden faltar."
+        )
+    elif forced:
+        interpretacion.append(f"{forced} campos son obligatorios: Extract tiene que devolver un valor para cada uno aunque no esté en el documento.")
     interpretacion.append("LlamaExtract validó el schema y quedó guardado en LlamaCloud con citas, confianza por campo y tier agentic.")
     return {"metricas": metricas, "interpretacion": interpretacion}

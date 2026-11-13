@@ -232,7 +232,7 @@ El relevamiento completo de la API de LlamaCloud y 16 hallazgos sobre el código
 **Hallazgos que resuelve:** #5, #7, #8, #9, #10 y #12.
 **Listo cuando:** se suben el comunicado y la presentación, se corre Parse, aparece el tilde y se ven el `.md`, las páginas, los gráficos, la confianza, los créditos y la interpretación. Además, la corrida sobrevive a reiniciar el servidor.
 
-### Fase 3 · Split, Classify, Schema y Extract · en curso (código hecho, probado en los EEFF; falta la comparación manual contra automático)
+### ✅ Fase 3 · Split, Classify, Schema y Extract · terminada (probada en los EEFF y en el comunicado; ver la bitácora)
 - Los pasos **3 Split** y **4 Classify**, encadenados al parse (`pjb-...`), con categorías y reglas editables.
 - El paso **5 Schema**, manual o automático: el editor, `generate_schema`, `validate_schema` y las plantillas en `configurations`. Se crea la plantilla "Factura AR".
 - El paso **6 Extract** con la configuración guardada, las citas avanzadas y toda la metadata, **sobre las páginas de un segmento del Split**. Las cajas se dibujan sobre el documento.

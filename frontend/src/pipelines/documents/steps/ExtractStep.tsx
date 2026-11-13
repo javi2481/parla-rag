@@ -119,7 +119,7 @@ export function ExtractStep({ runId, step }: { runId: string; step: Step }) {
       </TabsList>
 
       <TabsContent value="campos" className="mt-4">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
           <div className="max-h-[48rem] overflow-auto rounded-xl border border-glass-border">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 bg-background text-xs text-muted-foreground">

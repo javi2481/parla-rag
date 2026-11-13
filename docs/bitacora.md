@@ -44,6 +44,19 @@ Repetir un parse **no** usa caché: #11 y #12 cobraron lo mismo que #1 y #2.
 | 15 | 13/11 19:47 | Schema manual: validar y guardar | EEFF | `cfg-kjttpzbm0quqlynf6o2hm2mg48ln` | plantilla "Resultados trimestrales" | no informa (validar y guardar no cobraban antes) | — |
 | 16 | 13/11 19:47 | Extract sobre la parte «estado_de_resultados» | EEFF, página 4 | `ext-5pys8mwxjblusy937p3f9sp39856` | configuración #15 + `target_pages: "4"` | **15** (`extract_credits: 15.0`) | — |
 
+**Comparación de schema manual contra automático en el comunicado** (sobre el parse #11):
+
+| # | Fecha | Qué | Documento | Job | Opciones | Créditos | Saldo estimado |
+|---|---|---|---|---|---|---|---|
+| 17 | 13/11 20:11 | Split | Comunicado, 10 págs. | `spl-3nnb029laeo750vd39iev3zuzu1e` | 5 categorías de comunicado | **no informa** | ? |
+| 18 | 13/11 20:11 | Classify | Comunicado | `clj-gh98j8aavgog0o8oxirggwp9yx1a` | 4 reglas | **0** | — |
+| 19 | 13/11 20:11 | Schema manual | Comunicado | `cfg-9ft6h0k6apx7j3x8nj3aq22qvxaw` | plantilla "Resultados trimestrales" | no informa | — |
+| 20 | 13/11 20:11 | Extract con el schema manual | Comunicado, todo | `ext-wg2nii8ypgsesep0dhytnsk2dirv` | configuración #19 | **150** | — |
+| 21 | 13/11 20:12 | Schema automático (`generate_schema`) | Comunicado (`file_id`) | `cfg-tloj0e9e26i9ewkaq4fi80yxtg4r` | con indicación en español | **no informa** | ? |
+| 22 | 13/11 20:12 | Extract con el schema automático | Comunicado, todo | `ext-7h3ycvz9w2aj5l7vkb1gooqyi76k` | configuración #21 | **150** | — |
+
+Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 página → 15, 10 páginas → 150, sin importar cuántos campos tenga el schema (11 o 37).
+
 **Llamadas que no costaron nada** (comprobado): volver a pedir el resultado de un parse terminado (`parsing.get`, varias veces), `validate_schema`, `configurations.create` (dos configuraciones de parse: `cfg-lhr7sirebo2m6rhmyx9dc89bk9xy` y `cfg-bmherk6gqi5cmvozygan96hjlel5`) y la subida de archivos. Las 3 salidas extra de `additional_outputs` tampoco suman costo: la página 4 costó 15 con y sin ellas.
 
 ---
@@ -230,3 +243,20 @@ Repetir un parse **no** usa caché: #11 y #12 cobraron lo mismo que #1 y #2.
   3. **Al borrar una corrida quedaban jobs vivos en LlamaCloud:** solo se borraban el archivo y el parse. Ahora se borran también Split, Classify y Extract, incluidos los de ejecuciones anteriores (que quedan en `run.json` → `historial`). El test lo detectó.
   4. **Mientras Schema esperaba al agente** (unos 25 segundos), la pantalla no mostraba nada y se podía apretar el botón dos veces. Ahora muestra "Esperando a LlamaCloud…" y bloquea el botón y los editores.
   5. **Documentación desactualizada:** el plan seguía hablando de `page_ranges`, y los README mostraban solo Subir y Parse. Se actualizaron.
+
+### 13/11 · Fase 3 · Schema manual contra automático en el comunicado (registro de créditos #17 a #22)
+
+- **Split** dividió el comunicado en 5 partes: resumen (1 y 2), estados contables (3 y 10), ingresos (4 a 6) y gastos y eficiencia (7 a 9). **Classify:** comunicado de prensa, 95%, 0 créditos.
+- **Schema manual** (11 campos, solo 4 obligatorios): **11 de 11 con valor y con cita**, confianza mínima 82%. Todas las cifras coinciden con el documento (ingresos 78.124, gastos 27.548, resultado neto 52.414, EBITDA 63.036, margen 71%). `fecha_de_cierre` volvió a venir como texto ("30 de septiembre del 2026") y no como AAAA-MM-DD.
+- **Schema automático:** el agente propuso **37 campos**, todos en inglés, separados en histórico y ajustado por inflación, y **todos obligatorios**. Extract devolvió 37 de 37 con valor y una confianza promedio de 90%, pero:
+  - **8 campos son ceros inventados.** El comunicado **no tiene** EBITDA ni márgenes ajustados por inflación, ni la variación interanual de los márgenes. Como el schema los obligaba, Extract devolvió **0**, con confianza de 0,82 a 0,87. La cita de casi todos es un "0%" que **sí existe** en la página 3, pero en el renglón **"Mercado"** (variación de esos ingresos). Lo vimos dibujando la caja en la captura. El EBITDA ajustado vino directamente **sin cita**.
+  - `reportDate = 2026-11-06` es correcto, pero su cita dice «reportDate», el nombre del campo. Ya había pasado en la verificación 2.
+  - Las otras 28 cifras son correctas y tienen cita.
+- **Comparación de citas contra el texto del parse** (hecha a mano para la auditoría): de los 37 campos, 35 tienen una cita que aparece en el texto de su página, 1 no tiene cita y la de `reportDate` no está en el texto. **Igual no alcanza:** los ceros inventados pasan este control porque "0%" está en la página. Solo la caja sobre la captura muestra que es otro renglón.
+- **Lecciones:**
+  1. **Un campo obligatorio obliga a Extract a devolver algo, aunque no exista.** Con el schema manual (pocos obligatorios y la regla "null si no consta") no inventó nada, ni en el comunicado ni en los EEFF. Con el automático (todo obligatorio) inventó 8 ceros.
+  2. **Una confianza alta y una cita válida no garantizan el dato.** Lo que sí ayuda es ver la caja en la página.
+  3. **Al schema automático hay que revisarlo:** traducirlo, sacar "obligatorio" de los datos que pueden faltar y ajustar las guías. El editor ya permite cargarlo y corregirlo en JSON.
+- **Cambio en el código:** la interpretación de Schema ahora cuenta los campos **obligatorios en todo su camino**. Cuando todos lo son, avisa: *"si un dato no está en el documento, Extract igual tiene que devolver un valor y puede inventarlo"*. Se volvió a generar sin costo para las dos corridas y tiene 3 tests nuevos (23 en total).
+- **Repetir pasos funciona:** al correr el schema automático, el manual y su Extract pasaron solos a `historial/` y quedaron en `run.json`. Se pueden auditar los dos.
+- **Detalle de la prueba:** en la captura automática el clic sobre una fila caía en la barra superior fija y no seleccionaba el campo. Es un problema del script, no de la app: con el clic dentro de la página funciona.
