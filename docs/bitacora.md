@@ -35,6 +35,15 @@ Saldo inicial informado: **29.443** de 30.000, el 13/11/2026. Las horas están e
 
 Repetir un parse **no** usa caché: #11 y #12 cobraron lo mismo que #1 y #2.
 
+**Prueba real de la fase 3 en los EEFF** (sobre el parse #10, sin volver a leer el documento):
+
+| # | Fecha | Qué | Documento | Job | Opciones | Créditos | Saldo estimado |
+|---|---|---|---|---|---|---|---|
+| 13 | 13/11 19:46 | Split desde el wizard | EEFF, 86 págs. | `spl-zjhcnd2v4rvltbjybamgsy4zhxfg` | 7 categorías de estados financieros · `include` | **no informa** (hay que mirarlo en el panel) | ? |
+| 14 | 13/11 19:47 | Classify desde el wizard | EEFF | `clj-yonw8z4ffmegkxtx07rif4w7srlo` | 4 reglas · FAST · `expand=usage` | **0** (informado: `credits: 0.0`) | — |
+| 15 | 13/11 19:47 | Schema manual: validar y guardar | EEFF | `cfg-kjttpzbm0quqlynf6o2hm2mg48ln` | plantilla "Resultados trimestrales" | no informa (validar y guardar no cobraban antes) | — |
+| 16 | 13/11 19:47 | Extract sobre la parte «estado_de_resultados» | EEFF, página 4 | `ext-5pys8mwxjblusy937p3f9sp39856` | configuración #15 + `target_pages: "4"` | **15** (`extract_credits: 15.0`) | — |
+
 **Llamadas que no costaron nada** (comprobado): volver a pedir el resultado de un parse terminado (`parsing.get`, varias veces), `validate_schema`, `configurations.create` (dos configuraciones de parse: `cfg-lhr7sirebo2m6rhmyx9dc89bk9xy` y `cfg-bmherk6gqi5cmvozygan96hjlel5`) y la subida de archivos. Las 3 salidas extra de `additional_outputs` tampoco suman costo: la página 4 costó 15 con y sin ellas.
 
 ---
@@ -185,3 +194,25 @@ Repetir un parse **no** usa caché: #11 y #12 cobraron lo mismo que #1 y #2.
   - **`extract.create` con `configuration_id` no permite cambiar las páginas.** Para usar una parte del Split se copia la configuración guardada y se le agrega `target_pages`.
 - **Corridas viejas:** se abren con los pasos nuevos como pendientes, sin migrar nada.
 - **Tests:** 20, todos pasan. Uno nuevo recorre Split → Classify → Schema (automático y manual) → Extract sobre una parte del Split.
+
+### 13/11 · Fase 3 · Prueba real en los EEFF (registro de créditos #13 a #16)
+
+- **Split acertó en todo:**
+  - Asignó las 86 páginas en 15 partes, todas con confianza "high".
+  - Encontró **dos juegos de estados**: los consolidados (páginas 1 a 43) y los separados (44 a 78). Se comprobó leyendo los títulos de las páginas 1, 4, 44 y 46.
+  - Dividió bien los informes: reseña informativa (79 a 82), comisión fiscalizadora (83 y 84) y auditor PwC (85 y 86).
+  - Tardó 12 segundos. No informa créditos.
+- **Classify:** `estados_financieros`, 100% de confianza, **0 créditos**. Confirma lo que dice el SDK. El razonamiento enumera los estados, las notas, los informes y la norma (NIIF, NIC 29).
+- **Schema manual:** validado y guardado. `format: date` es aceptado.
+- **Extract sobre la página 4** (15 créditos), comparado contra el Markdown del parse:
+  - `resultado_neto = 22.161.940`. ✅ Es la columna correcta, la del trimestre (01/07 al 30/09/2026), y coincide con los 22.162 millones ajustados del comunicado. La guía del campo decía "valor histórico (sin ajustar)", pero los EEFF solo vienen en moneda constante: el valor es correcto y la guía de la plantilla no aplica a este documento.
+  - `razon_social`, `unidad` y `moneda` ✅, con cita.
+  - `fecha_de_cierre = "30/09/2026"` ✅, pero **no vino en formato AAAA-MM-DD**, aunque el schema dice `format: date`.
+  - `emisor = BYMA` y `periodo = 3T26`: **deducidos, sin cita**, con 45% y 47% de confianza. "BYMA" y "3T26" no aparecen escritos en la página 4. La identidad se resolvió (Bolsas y Mercados Argentinos S.A. → BYMA), y LlamaCloud avisó bien que es una deducción: sin cita y con confianza baja.
+  - **`ingresos`, `gastos`, `ebitda` y `margen_ebitda` no los devolvió.** ✅ Es correcto: el estado no tiene renglón de ingresos totales (tiene dos, que sumados dan 81.147.620 = los 81.148 millones del comunicado) ni EBITDA. **No sumó ni inventó**, como pide el `system_prompt`.
+- **Corregido:**
+  - **El resumen de Extract no contaba los campos que LlamaCloud no devuelve.** Ahora se comparan contra el schema y aparecen como "No los devolvió".
+  - **En la tabla de campos,** los campos vacíos mostraban "sin cita" en rojo. Ahora muestran "—".
+  - **Redacción:** se cambió "páginas 4" por "página 4" cuando la parte tiene una sola página.
+  - Los resúmenes se volvieron a generar a partir de las respuestas guardadas, sin volver a llamar a LlamaCloud.
+- **Lección para el schema:** las guías de los campos tienen que servir para el tipo de documento. "Histórico" tiene sentido en el comunicado, que trae los dos valores, pero no en los EEFF.

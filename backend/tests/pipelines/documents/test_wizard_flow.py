@@ -208,7 +208,8 @@ def test_split_classify_schema_extract(setup):
     assert request["configuration"]["target_pages"] == "1-3" and request["configuration"]["cite_sources"] is True
     extract = client.get(f"{base}/steps/extract").json()["steps"][5]
     assert extract["state"] == "done" and extract["credits"] == 9.0
-    assert "Encontró valor para 2 de 3 campos." in extract["interpretacion"]
+    assert "Encontró valor para 2 de 11 campos del schema." in extract["interpretacion"]
+    assert any(s.startswith("No los devolvió") and "razon_social" in s for s in extract["interpretacion"])
     assert "Revisá «emisor» (confianza 70%)." in extract["interpretacion"]
     assert any("no cita" in s and "emisor" in s for s in extract["interpretacion"])
     boxes = client.get(f"{base}/files/6_extract/boxes.json").json()

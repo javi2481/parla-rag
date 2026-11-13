@@ -116,7 +116,8 @@ def summarize(response: dict) -> dict:
     interpretacion = []
     for segment in segments:
         interpretacion.append(
-            f"{segment['category']}: páginas {pages_text(segment['pages'])} (confianza {segment.get('confidence_category', '—')})."
+            f"{segment['category']}: {'página' if len(segment['pages']) == 1 else 'páginas'} {pages_text(segment['pages'])} "
+            f"(confianza {segment.get('confidence_category', '—')})."
         )
     missing = [name for name in names if name not in found]
     if missing:

@@ -135,7 +135,8 @@ export function ExtractStep({ runId, step }: { runId: string; step: Step }) {
                       {field.confidence == null ? '—' : `${Math.round(field.confidence * 100)}%`}
                     </td>
                     <td className="p-2 text-xs text-muted-foreground">
-                      {field.citations.length === 0 ? <span className="text-destructive">sin cita</span>
+                      {field.value == null || field.value === '' ? '—'
+                        : field.citations.length === 0 ? <span className="text-destructive">sin cita</span>
                         : field.citations.map((c, i) => <div key={i}>pág. {c.page}: «{c.text}»</div>)}
                     </td>
                   </tr>

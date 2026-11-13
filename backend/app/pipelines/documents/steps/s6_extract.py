@@ -13,6 +13,7 @@ from app.core.runs.store import RunStore, mark_done, mark_running, read_json, wr
 from ..settings import DocumentsSettings
 from .jobs import LOW_CONFIDENCE, option, parse_job_id, poll
 from .s2_parse import percent
+from .s5_schema import leaf_fields
 
 NAME = "extract"
 FOLDER = "6_extract"
@@ -68,7 +69,8 @@ async def check(client: AsyncLlamaCloud, store: RunStore, run: dict) -> None:
     write_json(folder / "result.json", response.get("extract_result"))
     write_json(folder / "metadata.json", response.get("extract_metadata"))
 
-    fields = collect_fields(response)
+    schema = read_json(store.run_dir(run["id"]) / "5_schema" / "schema.json")
+    fields = add_missing(collect_fields(response), schema)
     write_json(folder / "fields.json", fields)
     write_json(folder / "boxes.json", collect_boxes(fields))
     request = read_json(folder / "request.json")
@@ -134,6 +136,16 @@ def collect_fields(response: dict) -> list[dict]:
     return fields
 
 
+# Extract no devuelve los campos que no encontró. Se agregan como vacíos, comparando contra el schema,
+# para que se vea qué datos del schema no aparecieron en el documento.
+def add_missing(fields: list[dict], schema: dict) -> list[dict]:
+    present = {field["field"] for field in fields}
+    for path, _ in leaf_fields(schema):
+        if "[]" not in path and path not in present:
+            fields.append({"field": path, "value": None, "confidence": None, "citations": [], "missing": True})
+    return fields
+
+
 # Una caja por renglón, lista para dibujar sobre la captura de su página.
 def collect_boxes(fields: list[dict]) -> list[dict]:
     boxes = []
@@ -177,13 +189,18 @@ def summarize(response: dict, fields: list[dict], request: dict) -> dict:
         {"label": "Créditos", "value": usage.get("extract_credits")},
     ]
 
-    interpretacion = [f"Encontró valor para {len(filled)} de {len(fields)} campos."]
+    interpretacion = [f"Encontró valor para {len(filled)} de {len(fields)} campos del schema."]
     if target_pages:
         segment = request.get("segment")
         where = f" (la parte «{segment}» del Split)" if segment else ""
-        interpretacion.append(f"Solo analizó las páginas {target_pages}{where}.")
-    if empty:
-        interpretacion.append("Quedaron vacíos: " + ", ".join(f["field"] for f in empty) + ".")
+        several = "," in target_pages or "-" in target_pages
+        interpretacion.append(f"Solo analizó {'las páginas' if several else 'la página'} {target_pages}{where}.")
+    missing = [f for f in empty if f.get("missing")]
+    nulls = [f for f in empty if not f.get("missing")]
+    if missing:
+        interpretacion.append("No los devolvió (no los encontró en las páginas analizadas): " + ", ".join(f["field"] for f in missing) + ".")
+    if nulls:
+        interpretacion.append("Los devolvió vacíos: " + ", ".join(f["field"] for f in nulls) + ".")
     for field in low:
         cited = field["citations"][0]["text"] if field["citations"] else None
         detail = f": la cita dice «{cited}»" if cited else ""
