@@ -1,37 +1,50 @@
 # Pipeline de documentos (LlamaCloud)
 
-Recibe un PDF o una foto de un comprobante y devuelve sus datos (fecha, proveedor, CUIT, importes, IVA…),
-con la confianza de cada campo y el lugar del documento de donde salió cada dato.
+Un **wizard** que recorre un documento paso por paso con los productos de LlamaCloud.
+En cada paso se guarda **todo** lo que devolvió la plataforma, se mide y se interpreta.
 
-Todo el trabajo pesado lo hace **LlamaCloud** con su SDK oficial (`llama-cloud`).
+Regla: no se implementa nada que LlamaCloud no haga de forma nativa. Nuestro código solo
+pide, guarda, cuenta y explica.
 
 ## El flujo
 
 ```
-start()                                       poll()  (el navegador consulta cada tanto)
-  1 validar  →  2 subir  →  3 crear job   ···   3 ¿terminó?  →  4 post-procesar  →  5 limpiar
+1 Subir  →  2 Parse  →  (próximas fases: Split · Classify · Schema · Extract · Biblioteca)
 ```
 
-| Paso | Archivo | Qué hace | ¿Usa LlamaCloud? |
+| Paso | Archivo | Qué hace | Producto de LlamaCloud |
 |---|---|---|---|
-| 1 | `steps/validate.py` | Revisa el tipo real del archivo, el tamaño (5 MB) y las páginas (3). Si falla, no se gasta nada. | No |
-| 2 | `steps/upload.py` | Sube el archivo a LlamaCloud Files. | Sí: `files.create` |
-| 3 | `steps/extract.py` | Crea el job de LlamaExtract con el schema y consulta su estado. | Sí: `extract.create` / `extract.get` |
-| 4 | `steps/postprocess.py` | Deja solo los campos conocidos y convierte las citas en cajas para dibujar. | No |
-| 5 | `steps/cleanup.py` | Borra el archivo y el job en LlamaCloud. | Sí: `files.delete` / `extract.delete` |
+| 1 | `steps/s1_upload.py` | Sube el archivo y guarda una copia. Solo controla el tamaño. | `files.create` |
+| 2 | `steps/s2_parse.py` | Lee el documento pidiendo **todo**: Markdown, texto, items con cajas, confianza por página, tablas en Excel, gráficos convertidos en tablas, capturas de página. | `parsing.create` / `parsing.get` |
+
+Cada paso tiene:
+- `EXPLICACION`: el texto para la clase.
+- `start()`: arranca el job en LlamaCloud.
+- `check()`: consulta el job y, cuando termina, guarda todo.
+- `summarize()`: arma las métricas y la interpretación.
+
+## Dónde se guarda
+
+Cada corrida es una carpeta en `backend/data/documents/runs/<id>/` (ver `app/core/runs/store.py`):
+
+```
+run.json             estado de cada paso, IDs de LlamaCloud, créditos
+1_upload/            original.pdf · request.json · response.json · metrics.json
+2_parse/             request.json · response.json · document.md · text.txt · items.json
+                     metadata.json · forms.json · job_metadata.json · tables.xlsx
+                     grounded_items.jsonl · images/ · metrics.json
+```
+
+`request.json` es lo que se le pidió a LlamaCloud y `response.json`, su respuesta completa.
+El resto son partes de esa respuesta separadas para leerlas fácil.
 
 ## Los archivos
 
 | Archivo | Para qué |
 |---|---|
-| `settings.py` | API key, región, tier y versión de LlamaExtract, límite diario |
+| `pipeline.py` | La lista ordenada de pasos (**empezá a leer por acá**) |
+| `steps/` | Un archivo por paso |
+| `router.py` | Rutas HTTP: `/api/documents/runs/...` |
+| `settings.py` | API key, región, tier y versión de Parse, máximos |
 | `client.py` | Crea el cliente de LlamaCloud |
-| `schema.py` | Qué campos se extraen, la guía de cada uno y la configuración de LlamaExtract |
-| `pipeline.py` | Encadena los pasos en orden (**empezá a leer por acá**) |
-| `jobs.py` | Tickets en memoria: el navegador nunca ve los IDs de LlamaCloud |
-| `router.py` | Rutas HTTP: `POST /api/documents/extract` y `GET /api/documents/status/{ticket}` |
 | `errors.py` | `DocumentError`: errores con mensaje para el usuario |
-
-## Para cambiar qué se extrae
-
-Se edita `schema.py`. La guía de cada campo va en su `description`, como recomienda la documentación de LlamaExtract.

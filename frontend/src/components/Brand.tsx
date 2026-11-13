@@ -13,7 +13,7 @@ export function BrandMark({ className = 'size-8' }: { className?: string }) {
 // Logo más el nombre, con link al inicio.
 export function Brand() {
   return (
-    <a href="#facturas" className="flex items-center gap-2.5" aria-label="Parla, inicio">
+    <a href="#documentos" className="flex items-center gap-2.5" aria-label="Parla, inicio">
       <BrandMark />
       <span className="font-display text-2xl leading-none tracking-tight">Parla</span>
     </a>

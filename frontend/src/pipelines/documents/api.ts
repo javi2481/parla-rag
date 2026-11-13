@@ -1,16 +1,64 @@
 import { api } from '@/lib/api';
-import type { PdfBox } from '@/pipelines/documents/PdfPreview';
-import type { Invoice } from './invoice';
 
-// Sube el archivo y arranca la extracción. Devuelve un ticket para consultar.
-export function extractInvoice(file: File) {
+// Un archivo guardado por un paso, con su ruta dentro de la corrida y su tamaño.
+export type RunFile = { path: string; size: number };
+
+// Un paso del wizard, tal como lo arma el backend (pipeline.describe_run).
+export type Step = {
+  number: number;
+  name: string;
+  title: string;
+  explicacion: string;
+  folder: string;
+  locked: boolean;
+  state: 'pending' | 'running' | 'done' | 'failed';
+  job_status?: string;
+  started_at?: string;
+  finished_at?: string;
+  credits?: number | null;
+  error?: string;
+  file_id?: string;
+  request: unknown;
+  metricas: { label: string; value: string | number | null }[];
+  interpretacion: string[];
+  files: RunFile[];
+};
+
+// Una corrida: un documento con todos sus pasos.
+export type Run = { id: string; name: string; created_at: string; total_credits: number; steps: Step[] };
+
+const BASE = '/api/documents/runs';
+
+// Lista las corridas guardadas, de la más nueva a la más vieja.
+export const listRuns = () => api<Run[]>(BASE);
+
+// Sube un archivo y crea una corrida nueva (el paso 1 ya queda hecho).
+export function createRun(file: File) {
   const form = new FormData();
   form.append('file', file);
-  return api<{ ticket: string }>('/api/documents/extract', { method: 'POST', body: form });
+  return api<Run>(BASE, { method: 'POST', body: form });
 }
 
-export type InvoiceStatus =
-  | { status: 'pending'; data: null; boxes: PdfBox[]; confidence: Record<string, number> }
-  | { status: 'complete'; data: Invoice; boxes: PdfBox[]; confidence: Record<string, number> };
-// Consulta cómo va la extracción de un ticket.
-export const invoiceStatus = (ticket: string) => api<InvoiceStatus>(`/api/documents/status/${encodeURIComponent(ticket)}`);
+// Trae una corrida con todos sus pasos.
+export const getRun = (runId: string) => api<Run>(`${BASE}/${runId}`);
+
+// Arranca un paso (por ejemplo "parse").
+export const startStep = (runId: string, step: string) => api<Run>(`${BASE}/${runId}/steps/${step}`, { method: 'POST' });
+
+// Consulta un paso que está corriendo. El backend le pregunta a LlamaCloud y devuelve la corrida actualizada.
+export const checkStep = (runId: string, step: string) => api<Run>(`${BASE}/${runId}/steps/${step}`);
+
+// Borra la corrida (la carpeta y lo que haya en LlamaCloud).
+export const deleteRun = (runId: string) => api<{ deleted: string }>(`${BASE}/${runId}`, { method: 'DELETE' });
+
+// Devuelve la URL para ver o descargar un archivo guardado en la corrida.
+export function fileUrl(runId: string, path: string) {
+  return `${BASE}/${runId}/files/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+// Trae el contenido de un archivo de texto guardado en la corrida (por ejemplo el .md).
+export async function fetchText(runId: string, path: string) {
+  const res = await fetch(fileUrl(runId, path));
+  if (!res.ok) throw new Error('No se pudo leer el archivo.');
+  return res.text();
+}

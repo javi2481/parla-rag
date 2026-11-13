@@ -11,13 +11,18 @@ class DocumentsSettings(BaseSettings):
     # Región EU: https://api.cloud.eu.llamaindex.ai
     llama_cloud_base_url: str = "https://api.cloud.llamaindex.ai"
 
-    # Tier de LlamaExtract (créditos por página): cost_effective 8 · agentic 25 · agentic_plus 60 · turbo 35
-    extract_tier: str = "agentic"
-    # Versión del extractor: "latest" o una fija (ej. "2.5") para resultados reproducibles.
-    extract_version: str = "latest"
+    # Parse: tier (fast · cost_effective · agentic · agentic_plus) y versión fija,
+    # para que el mismo documento dé el mismo resultado en cada clase.
+    parse_tier: str = "agentic"
+    parse_version: str = "2026-10-16"
+    # Cantidad máxima de páginas que se parsean de un documento.
+    parse_max_pages: int = 100
 
-    # Cantidad máxima de extracciones por IP por día (0 = sin límite).
-    documents_daily_limit: int = 50
+    # Tamaño máximo del archivo que se puede subir, en megas.
+    max_upload_mb: int = 50
+
+    # Cantidad máxima de documentos que se pueden subir por IP por día (0 = sin límite).
+    documents_daily_limit: int = 0
 
     # Dice si el pipeline está listo para usarse (o sea, si hay API key).
     @property

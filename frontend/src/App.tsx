@@ -3,15 +3,15 @@ import { AudioLines, FileText, LoaderCircle, Mic } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Brand } from '@/components/Brand';
 import { getConfig, type AppConfig } from '@/lib/api';
-import { InvoiceExtractor } from '@/pipelines/documents/InvoiceExtractor';
+import { DocumentsWizard } from '@/pipelines/documents/DocumentsWizard';
 import { TextToSpeech } from '@/pipelines/audio/TextToSpeech';
 import { SpeechToText } from '@/pipelines/audio/SpeechToText';
 
 const TABS = [
   {
-    id: 'facturas', label: 'Facturas', icon: FileText, eyebrow: '01 · Documentos',
-    title: <>Facturas que se <em className="text-primary">leen solas</em></>,
-    lead: 'Subí un PDF o una foto. Extraemos los datos clave, los marcamos sobre el documento y te los llevás en CSV, Markdown o en audio.',
+    id: 'documentos', label: 'Documentos', icon: FileText, eyebrow: '01 · Documentos',
+    title: <>Documentos que se <em className="text-primary">leen solos</em></>,
+    lead: 'Subí un documento y recorré el pipeline paso por paso: en cada paso ves qué hizo LlamaCloud, cuánto costó y qué significa el resultado.',
   },
   {
     id: 'tts', label: 'Texto a voz', icon: AudioLines, eyebrow: '02 · Voz',
@@ -26,10 +26,10 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
-// Lee la pestaña inicial desde la URL (#facturas, #tts, #stt).
+// Lee la pestaña inicial desde la URL (#documentos, #tts, #stt).
 function initialTab(): TabId {
   const h = window.location.hash.slice(1);
-  return TABS.some(t => t.id === h) ? (h as TabId) : 'facturas';
+  return TABS.some(t => t.id === h) ? (h as TabId) : 'documentos';
 }
 
 const MODEL_NAMES: Record<string, string> = {
@@ -66,7 +66,7 @@ export function App() {
             ))}
           </TabsList>
           <div className="hidden items-center gap-2 md:flex">
-            <Status label="LlamaCloud" detail={config?.documents.tier} ok={config?.documents.ready} />
+            <Status label="LlamaCloud" detail={config?.documents.parseTier} ok={config?.documents.ready} />
             <Status label="ElevenLabs" detail={config && (MODEL_NAMES[config.audio.ttsModel] ?? config.audio.ttsModel)} ok={config?.audio.ready} />
           </div>
         </div>
@@ -82,8 +82,8 @@ export function App() {
         {error && <p role="alert" className="mt-8 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">{error} ¿Está corriendo el backend en el puerto 8000?</p>}
         {!config && !error && <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" /> Conectando…</p>}
         {config && <>
-          <TabsContent value="facturas">
-            <InvoiceExtractor ready={config.documents.ready} fields={config.documents.fields} maxPages={config.documents.maxPages} dailyLimit={config.documents.dailyLimit} audioReady={config.audio.ready} />
+          <TabsContent value="documentos">
+            <DocumentsWizard ready={config.documents.ready} maxUploadMb={config.documents.maxUploadMb} />
           </TabsContent>
           <TabsContent value="tts"><TextToSpeech ready={config.audio.ready} maxChars={config.audio.ttsMaxChars} model={MODEL_NAMES[config.audio.ttsModel] ?? config.audio.ttsModel} /></TabsContent>
           <TabsContent value="stt"><SpeechToText ready={config.audio.ready} maxSeconds={config.audio.sttMaxSeconds} /></TabsContent>

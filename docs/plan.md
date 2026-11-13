@@ -213,7 +213,7 @@ Cada pipeline quedó autocontenido en su carpeta, con un README por pipeline y u
 ### ✅ Fase 1 · Informe (commit `ea47134`)
 El relevamiento completo de la API de LlamaCloud y 16 hallazgos sobre el código actual. Ver [informe-fase-1.md](informe-fase-1.md).
 
-### Fase 2 · Verificación, motor de corridas, Subir y Parse
+### Fase 2 · Verificación, motor de corridas, Subir y Parse · 🔧 hecha (falta la prueba real)
 
 **Primero se verifica** con llamadas reales: se prueba a mano con el **comunicado** (10 páginas, barato) y se guarda lo que devuelve cada producto.
 1. El **costo real** de Parse, Split, Classify y Extract, y con eso la estimación para los EEFF de 86 páginas.

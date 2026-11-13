@@ -18,21 +18,10 @@ def test_config_and_missing_keys():
     with TestClient(app) as client:
         config = client.get("/api/config").json()
         assert config["documents"]["ready"] is False
-        assert "total" in config["documents"]["fields"]
+        assert config["documents"]["parseTier"]
         assert config["audio"]["ready"] is False
 
         assert client.post("/api/audio/tts", json={"text": "hola"}).status_code == 503
         pdf = {"file": ("f.pdf", b"%PDF-", "application/pdf")}
-        assert client.post("/api/documents/extract", files=pdf).status_code == 503
-    app.dependency_overrides.clear()
-
-
-# Un archivo que dice ser PDF pero no lo es se rechaza con 400, sin llegar a LlamaCloud.
-def test_rejects_fake_pdf_with_400():
-    use_settings(llama_key="x")
-    with TestClient(app) as client:
-        fake = {"file": ("f.pdf", b"MZ......not a pdf", "application/pdf")}
-        response = client.post("/api/documents/extract", files=fake)
-        assert response.status_code == 400
-        assert "no es un PDF" in response.json()["detail"]
+        assert client.post("/api/documents/runs", files=pdf).status_code == 503
     app.dependency_overrides.clear()

@@ -15,19 +15,19 @@ from app.core.settings import get_core_settings
 from app.pipelines.audio import router as audio
 from app.pipelines.audio.settings import AudioSettings, get_audio_settings
 from app.pipelines.documents import router as documents
-from app.pipelines.documents.pipeline import create_pipeline
+from app.pipelines.documents.client import make_client
 from app.pipelines.documents.settings import DocumentsSettings, get_documents_settings
 
 logging.basicConfig(level=logging.INFO)
 
 
-# Lo que pasa al arrancar y al apagar el servidor: se crea el pipeline de documentos
-# (con su conexión a LlamaCloud) y al final se cierra esa conexión.
+# Lo que pasa al arrancar y al apagar el servidor: se crea el cliente de LlamaCloud
+# y al final se cierra su conexión.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.documents_pipeline = create_pipeline(get_documents_settings())
+    app.state.documents_client = make_client(get_documents_settings())
     yield
-    await app.state.documents_pipeline.close()
+    await app.state.documents_client.close()
 
 
 app = FastAPI(title="Parla API", lifespan=lifespan)
