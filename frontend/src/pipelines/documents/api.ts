@@ -18,7 +18,9 @@ export type Step = {
   credits?: number | null;
   error?: string;
   file_id?: string;
+  configuration_id?: string;
   request: unknown;
+  defaults: Record<string, unknown> | null;
   metricas: { label: string; value: string | number | null }[];
   interpretacion: string[];
   files: RunFile[];
@@ -42,8 +44,14 @@ export function createRun(file: File) {
 // Trae una corrida con todos sus pasos.
 export const getRun = (runId: string) => api<Run>(`${BASE}/${runId}`);
 
-// Arranca un paso (por ejemplo "parse").
-export const startStep = (runId: string, step: string) => api<Run>(`${BASE}/${runId}/steps/${step}`, { method: 'POST' });
+// Arranca un paso (por ejemplo "split"), con las opciones elegidas en el wizard si las hay.
+export function startStep(runId: string, step: string, options?: unknown) {
+  return api<Run>(`${BASE}/${runId}/steps/${step}`, {
+    method: 'POST',
+    headers: options === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: options === undefined ? undefined : JSON.stringify(options),
+  });
+}
 
 // Consulta un paso que está corriendo. El backend le pregunta a LlamaCloud y devuelve la corrida actualizada.
 export const checkStep = (runId: string, step: string) => api<Run>(`${BASE}/${runId}/steps/${step}`);
@@ -62,3 +70,11 @@ export async function fetchText(runId: string, path: string) {
   if (!res.ok) throw new Error('No se pudo leer el archivo.');
   return res.text();
 }
+
+// Trae un archivo JSON guardado en la corrida (por ejemplo los segmentos del Split).
+export async function fetchJson<T>(runId: string, path: string): Promise<T> {
+  return JSON.parse(await fetchText(runId, path)) as T;
+}
+
+// La ruta de la captura de una página, guardada por el paso Parse.
+export const screenshotPath = (page: number) => `2_parse/images/page_${page}.jpg`;

@@ -89,7 +89,8 @@ async def save_configuration(client: AsyncLlamaCloud, request: dict) -> dict:
 
 
 # Crea el job de Parse para el archivo subido en el paso 1.
-async def start(client: AsyncLlamaCloud, store: RunStore, run: dict, settings: DocumentsSettings) -> None:
+# (Parse no tiene opciones en el wizard: siempre pide todo. `options` se recibe para que todos los pasos sean iguales.)
+async def start(client: AsyncLlamaCloud, store: RunStore, run: dict, settings: DocumentsSettings, options: dict | None = None) -> None:
     folder = store.step_dir(run["id"], FOLDER, reset=True)
     request = build_request(settings)
     write_json(folder / "request.json", request)

@@ -6,7 +6,7 @@ Son finas a propósito: reciben el pedido, llaman al pipeline y traducen los err
     POST   /runs                       sube un archivo y crea la corrida (paso 1)
     GET    /runs/{id}                  la corrida con todos sus pasos
     DELETE /runs/{id}                  borra la corrida (la carpeta y lo que haya en LlamaCloud)
-    POST   /runs/{id}/steps/{paso}     arranca un paso
+    POST   /runs/{id}/steps/{paso}     arranca un paso (en el cuerpo, las opciones elegidas en el wizard)
     GET    /runs/{id}/steps/{paso}     consulta un paso (si está corriendo, pregunta a LlamaCloud)
     GET    /runs/{id}/files/{ruta}     descarga un archivo guardado
 """
@@ -14,7 +14,7 @@ import logging
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from llama_cloud import APIError, AsyncLlamaCloud
 
@@ -127,12 +127,13 @@ async def delete_run(run_id: str, client: ClientDep, store: StoreDep):
     return {"deleted": run_id}
 
 
-# POST /runs/{id}/steps/{paso}: arranca un paso.
+# POST /runs/{id}/steps/{paso}: arranca un paso con las opciones del wizard (si las hay).
 @router.post("/runs/{run_id}/steps/{step_name}")
-async def start_step(run_id: str, step_name: str, client: ClientDep, store: StoreDep, settings: SettingsDep):
+async def start_step(run_id: str, step_name: str, client: ClientDep, store: StoreDep, settings: SettingsDep,
+                     options: Annotated[dict | None, Body()] = None):
     run = find_run(store, run_id)
     try:
-        await pipeline.start_step(client, store, settings, run, step_name)
+        await pipeline.start_step(client, store, settings, run, step_name, options)
     except LookupError as e:
         raise HTTPException(404, str(e)) from e
     except ValueError as e:

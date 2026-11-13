@@ -171,3 +171,17 @@ Repetir un parse **no** usa caché: #11 y #12 cobraron lo mismo que #1 y #2.
   - **`alpha.verify` no sirve para esto.** Es un análisis forense del documento: integridad, metadatos, detección de adulteraciones. No controla si una respuesta de IA está inventada.
   - **El chat muestra de dónde saca cada respuesta.** El stream emite eventos `tool_call` y `tool_result`, con los fragmentos recuperados y `image_attachment`, la captura de la página.
   - **`retrieval` acepta `custom_filters`** sobre metadata propia de cada archivo. Sirve para dar identidad a cada documento (por ejemplo, "emisor: BYMA").
+
+### 13/11 · Fase 3 · Código de Split, Classify, Schema y Extract (sin costo: probado con el cliente falso)
+
+- **Pasos nuevos:** `s3_split.py`, `s4_classify.py`, `s5_schema.py`, `s6_extract.py`, más `jobs.py` con lo que comparten (consultar el job y leer las opciones). Las opciones del wizard (categorías, reglas, schema, páginas) viajan en el cuerpo del `POST /steps/{paso}`.
+- **Cajas sobre las capturas:** en Parse, una caja por cada elemento identificado (título, texto, tabla, imagen), con su tipo y confianza. En Extract, la caja de la cita de cada campo, verde o roja según la confianza, más los campos **sin cita** marcados aparte: son los que no se pueden ubicar en el documento.
+- **Hallazgos al leer el SDK 2.19.0:**
+  - **Classify y Extract sí informan créditos con `expand=["usage"]`.** En la verificación 2 no lo pedimos y por eso vino `usage: null`.
+  - **Classify sobre un parse ya hecho no cobra aparte.** Lo dice la documentación del tipo `Usage`: *"A job run on a parse job you created bills nothing of its own"*.
+  - **En Extract, `usage.credits` incluye el parse que usó.** Lo propio de Extract está en `usage.extract_credits`, y eso es lo que se registra.
+  - **`allow_uncategorized` de Split no es sí/no.** Es `include`, `omit` o `forbid`. En la verificación 2 mandamos `true`, aunque falló antes por el `max_pages`.
+  - **Split y Classify también se guardan como configuración nativa** (`split_v1` y `classify_v2`), igual que Parse y Extract.
+  - **`extract.create` con `configuration_id` no permite cambiar las páginas.** Para usar una parte del Split se copia la configuración guardada y se le agrega `target_pages`.
+- **Corridas viejas:** se abren con los pasos nuevos como pendientes, sin migrar nada.
+- **Tests:** 20, todos pasan. Uno nuevo recorre Split → Classify → Schema (automático y manual) → Extract sobre una parte del Split.

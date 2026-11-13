@@ -20,11 +20,14 @@ export type PanelStep = {
 // El panel de un paso, siempre con el mismo orden:
 // qué hace · botón para correrlo · interpretación · métricas · resultado · qué se pidió · archivos.
 // `children` es la vista del resultado propia de cada paso (por ejemplo el Markdown del parse).
-export function StepPanel({ step, onStart, canStart = true, fileHref, children }: {
+// `options` es el editor de opciones del paso (categorías, reglas, schema…), si las tiene:
+// se muestra abierto antes de correr el paso y plegado cuando ya terminó, para cambiarlas y repetir.
+export function StepPanel({ step, onStart, canStart = true, fileHref, options, children }: {
   step: PanelStep;
   onStart?: () => void;
   canStart?: boolean;
   fileHref: (path: string) => string;
+  options?: ReactNode;
   children?: ReactNode;
 }) {
   const done = step.state === 'done';
@@ -38,6 +41,13 @@ export function StepPanel({ step, onStart, canStart = true, fileHref, children }
         </div>
         <StepAction step={step} onStart={onStart} canStart={canStart} />
       </header>
+
+      {options && !step.locked && step.state !== 'running' && (
+        <details open={step.state !== 'done'} className="rounded-xl border border-glass-border bg-background/30 p-4">
+          <summary className="cursor-pointer text-sm font-medium">{step.state === 'done' ? 'Cambiar las opciones y repetir' : 'Opciones'}</summary>
+          <div className="mt-3">{options}</div>
+        </details>
+      )}
 
       {step.state === 'failed' && (
         <p role="alert" className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">

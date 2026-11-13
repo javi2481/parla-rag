@@ -1,12 +1,17 @@
 """El pipeline de documentos: la lista ordenada de pasos del wizard. Empezá a leer por acá.
 
-    1 Subir   steps/s1_upload.py
-    2 Parse   steps/s2_parse.py
+    1 Subir      steps/s1_upload.py
+    2 Parse      steps/s2_parse.py
+    3 Split      steps/s3_split.py
+    4 Classify   steps/s4_classify.py
+    5 Schema     steps/s5_schema.py
+    6 Extract    steps/s6_extract.py
 
-(Split, Classify, Schema, Extract y Biblioteca se suman en las próximas fases.)
+(Biblioteca se suma en la fase 4.)
 
 Cada paso es un módulo con NAME, FOLDER, TITLE y EXPLICACION. El paso 1 corre al subir el archivo;
-los demás tienen start() para arrancar el job en LlamaCloud y check() para consultarlo.
+los demás tienen start() para arrancar el job en LlamaCloud y check() para consultarlo
+(Schema no tiene check(): responde en el momento). Los que se configuran en el wizard tienen DEFAULTS.
 """
 import logging
 
@@ -15,11 +20,11 @@ from llama_cloud import AsyncLlamaCloud
 from app.core.runs.store import RunStore, read_json
 
 from .settings import DocumentsSettings
-from .steps import s1_upload, s2_parse
+from .steps import s1_upload, s2_parse, s3_split, s4_classify, s5_schema, s6_extract
 
 log = logging.getLogger(__name__)
 
-STEPS = [s1_upload, s2_parse]
+STEPS = [s1_upload, s2_parse, s3_split, s4_classify, s5_schema, s6_extract]
 STEP_NAMES = [step.NAME for step in STEPS]
 
 
@@ -38,13 +43,18 @@ def read_if_exists(path):
     return None
 
 
+# Devuelve el estado de un paso. Las corridas viejas no tienen los pasos nuevos: se agregan como pendientes.
+def step_state(run: dict, name: str) -> dict:
+    return run["steps"].setdefault(name, {"state": "pending"})
+
+
 # Arma todo lo que el wizard necesita mostrar de una corrida: cada paso con su número, título,
 # explicación, estado, si está bloqueado, lo que se pidió, las métricas, la interpretación y los archivos.
 def describe_run(store: RunStore, run: dict) -> dict:
     steps = []
     previous_done = True
     for number, step in enumerate(STEPS, start=1):
-        state = run["steps"][step.NAME]
+        state = step_state(run, step.NAME)
         folder = store.run_dir(run["id"]) / step.FOLDER
         summary = read_if_exists(folder / "metrics.json") or {}
         steps.append({
@@ -56,6 +66,7 @@ def describe_run(store: RunStore, run: dict) -> dict:
             "locked": not previous_done,  # un paso se desbloquea cuando termina el anterior
             **state,
             "request": read_if_exists(folder / "request.json"),
+            "defaults": getattr(step, "DEFAULTS", None),
             "metricas": summary.get("metricas", []),
             "interpretacion": summary.get("interpretacion", []),
             "files": store.list_files(run["id"], step.FOLDER),
@@ -71,16 +82,18 @@ def describe_run(store: RunStore, run: dict) -> dict:
 
 
 # Arranca un paso. Solo se puede si el anterior terminó y si este no está corriendo.
-async def start_step(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, run: dict, name: str) -> None:
+# `options` son las opciones elegidas en el wizard (categorías, reglas, schema, páginas…).
+async def start_step(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, run: dict, name: str,
+                     options: dict | None = None) -> None:
     step = get_step(name)
     index = STEP_NAMES.index(name)
     if index == 0:
         raise ValueError("El paso Subir corre solo al subir el archivo.")
-    if run["steps"][STEP_NAMES[index - 1]]["state"] != "done":
+    if step_state(run, STEP_NAMES[index - 1])["state"] != "done":
         raise ValueError("Primero tiene que terminar el paso anterior.")
-    if run["steps"][name]["state"] == "running":
+    if step_state(run, name)["state"] == "running":
         raise ValueError("Este paso ya está corriendo.")
-    await step.start(client, store, run, settings)
+    await step.start(client, store, run, settings, options)
 
 
 # Consulta un paso que está corriendo (si no está corriendo, no hace nada).
