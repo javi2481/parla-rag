@@ -1,0 +1,27 @@
+[project]
+name = "parla-api"
+version = "0.1.0"
+description = "Parla: extracción de facturas (LlamaExtract) y voz (ElevenLabs TTS/STT)"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "httpx>=0.27",
+  "python-multipart>=0.0.9",
+  "pypdf>=5.0",
+  "regex>=2024.9",
+  "pydantic-settings>=2.4",
+  "llama-cloud>=2.8",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=1.5.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
