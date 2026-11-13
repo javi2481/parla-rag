@@ -1,35 +1,62 @@
+"""Punto de entrada de la API. Acá solo se arma la app y se conectan los pipelines.
+
+La lógica de cada pipeline vive en su carpeta, dentro de app/pipelines/.
+"""
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api import audio, config, invoice
-from app.core.config import get_settings
-from app.pipelines.invoice.client import make_client
-from app.pipelines.invoice.pipeline import InvoicePipeline
+from app.core.settings import get_core_settings
+from app.pipelines.audio import router as audio
+from app.pipelines.audio.settings import AudioSettings, get_audio_settings
+from app.pipelines.documents import router as documents
+from app.pipelines.documents.pipeline import create_pipeline
+from app.pipelines.documents.settings import DocumentsSettings, get_documents_settings
 
 logging.basicConfig(level=logging.INFO)
 
 
+# Lo que pasa al arrancar y al apagar el servidor: se crea el pipeline de documentos
+# (con su conexión a LlamaCloud) y al final se cierra esa conexión.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    s = get_settings()
-    client = make_client(s)
-    app.state.invoice_pipeline = InvoicePipeline(client, s)
+    app.state.documents_pipeline = create_pipeline(get_documents_settings())
     yield
-    await client.close()
+    await app.state.documents_pipeline.close()
 
 
 app = FastAPI(title="Parla API", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()], allow_methods=["*"], allow_headers=["*"], expose_headers=["X-Credits", "X-Characters", "X-Cache"])
-app.include_router(config.router)
-app.include_router(invoice.router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_core_settings().cors_origin_list(),
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Credits", "X-Characters", "X-Cache"],
+)
+
+app.include_router(documents.router)
 app.include_router(audio.router)
 
-# En producción, FastAPI sirve el build del frontend (npm run build → frontend/dist).
-_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-if _dist.is_dir():
-    app.mount("/", StaticFiles(directory=_dist, html=True), name="frontend")
+
+# GET /api/config: le cuenta al frontend qué pipelines están listos y con qué opciones.
+@app.get("/api/config", tags=["config"])
+def config(
+    documents_settings: Annotated[DocumentsSettings, Depends(get_documents_settings)],
+    audio_settings: Annotated[AudioSettings, Depends(get_audio_settings)],
+):
+    return {
+        "documents": documents.public_config(documents_settings),
+        "audio": audio.public_config(audio_settings),
+    }
+
+
+# En producción, FastAPI también sirve el frontend compilado (npm run build → frontend/dist).
+frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if frontend_dist.is_dir():
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")

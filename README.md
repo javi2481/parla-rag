@@ -22,49 +22,48 @@ Parla junta en una sola app tres tareas que suelen pedir tres herramientas disti
 
 ## Estructura
 
+Cada pipeline vive entero en su carpeta: configuración, cliente del proveedor, pasos y rutas HTTP.
+Para entender uno, leé su `README.md` y después su `pipeline.py`.
+
 ```
 backend/
 ├── app/
-│   ├── main.py                     arma la app y conecta las rutas
-│   ├── core/                       config (.env) y límites en memoria
-│   ├── api/                        rutas HTTP finas: config · invoice · audio
+│   ├── main.py                 arma la app y conecta los pipelines (nada más)
+│   ├── core/                   lo compartido: configuración general y límites por IP
 │   └── pipelines/
-│       ├── invoice/                ── PIPELINE DE FACTURAS (LlamaCloud SDK `llama-cloud`)
-│       │   ├── pipeline.py         orquestador: encadena los pasos en orden
-│       │   ├── schema.py           campos, JSON Schema con guías por campo, config de Extract
-│       │   ├── client.py           cliente AsyncLlamaCloud
-│       │   ├── jobs.py             tickets opacos → jobs del proveedor
-│       │   └── steps/
-│       │       ├── validate.py     1 · tipo real, tamaño, páginas (local, sin costo)
-│       │       ├── upload.py       2 · Files API (purpose="extract")
-│       │       ├── extract.py      3 · Extract v2: crear job + consultar estado
-│       │       ├── postprocess.py  4 · limpia importes, cajas de citas, confianza
-│       │       └── cleanup.py      5 · borra archivo y job en LlamaCloud
-│       └── audio/                  ── PIPELINES DE AUDIO (ElevenLabs)
-│           ├── client.py           URL base y errores de ElevenLabs (permisos, cuota)
-│           ├── cache.py            caché en disco de audios ya pagados
-│           ├── tts.py              texto → limpieza → voz clonada (MP3, con caché)
-│           ├── stt.py              audio → Scribe → clean_transcript
-│           └── clean_transcript.py muletillas, tartamudeos, [tos]
-├── tests/                          misma estructura: invoice/ · audio/ · api/
-└── doc/                            PDFs de prueba
+│       ├── documents/          ── DOCUMENTOS (LlamaCloud)          → ver su README.md
+│       │   ├── settings.py     API key, tier, versión, límite diario
+│       │   ├── client.py       cliente de LlamaCloud
+│       │   ├── schema.py       qué campos se extraen y con qué guía
+│       │   ├── pipeline.py     el orden de los pasos
+│       │   ├── jobs.py         tickets en memoria
+│       │   ├── router.py       /api/documents/...
+│       │   └── steps/          validate · upload · extract · postprocess · cleanup
+│       └── audio/              ── AUDIO (ElevenLabs)               → ver su README.md
+│           ├── settings.py     API key, voz, modelos, caché, límites
+│           ├── client.py       URL y errores de ElevenLabs
+│           ├── tts.py          texto → voz (con caché)
+│           ├── stt.py          voz → texto (Scribe + limpieza)
+│           ├── cache.py · clean_transcript.py
+│           └── router.py       /api/audio/...
+├── data/                       la "base de datos" en carpetas
+│   ├── samples/                documentos de prueba (sí van al repo)
+│   └── audio/cache/            audios ya pagados (no van al repo)
+└── tests/                      misma forma que app/: pipelines/documents · pipelines/audio
 
 frontend/src/
-├── App.tsx                         pestañas
-├── components/ui/                  shadcn (button, slider, tabs, textarea)
-└── features/
-    ├── invoice-extractor/          InvoiceExtractor, PdfPreview, lib/
-    └── audio/                      ListenButton, AudioPlayer, TextToSpeech, SpeechToText, lib/
+├── App.tsx                     pestañas
+├── components/                 Brand, Dropzone y ui/ (shadcn)
+├── lib/                        llamadas al backend
+└── pipelines/                  misma forma que el backend
+    ├── documents/              InvoiceExtractor, PdfPreview, api.ts, invoice.ts
+    └── audio/                  TextToSpeech, SpeechToText, AudioPlayer, ListenButton, api.ts
 ```
 
-### Pipeline de facturas
+### Pipeline de documentos
 
-`validate → upload → extract (polling) → postprocess → cleanup`
-
-- **Extract v2**, tier configurable (`EXTRACT_TIER`, por defecto `agentic`), con `cite_sources` (cajas por campo) y `confidence_scores` (la UI marca «revisar» los campos con menos de 70%).
-- Las guías de cada campo están en su `description` dentro de `schema.py`, como recomienda la documentación de LlamaExtract. Para ajustar qué se extrae, se toca ese archivo.
-- Si el archivo no es válido, nunca llega a LlamaCloud y no gasta créditos.
-- Para sumar un paso (por ejemplo, **Classify** para rechazar lo que no es factura antes de extraer), se agrega `steps/classify.py` y se llama desde `pipeline.py`.
+`validate → upload → extract (polling) → postprocess → cleanup`. El detalle de cada paso está en
+[backend/app/pipelines/documents/README.md](backend/app/pipelines/documents/README.md).
 
 ## Docker (recomendado)
 
@@ -112,11 +111,11 @@ cd backend && uv run pytest
 
 ## Notas
 
-- Herramienta interna: sin captcha ni Supabase. Los límites son en memoria y por IP (`INVOICE_DAILY_LIMIT`, `AUDIO_LIMIT_PER_10_MIN`) y se reinician con el servidor.
+- Herramienta interna: sin captcha ni Supabase. Los límites son en memoria y por IP (`DOCUMENTS_DAILY_LIMIT`, `AUDIO_LIMIT_PER_10_MIN`) y se reinician con el servidor.
 - **Ahorro de créditos en ElevenLabs:**
   - Modelo por defecto `eleven_flash_v2_5`: la mitad de créditos por carácter que `eleven_v4` (medido: 11 contra 23 créditos para la misma frase). Para máxima calidad: `ELEVENLABS_TTS_MODEL=eleven_v4`.
   - Antes de enviar se quitan markdown, links, emojis y viñetas (no se pagan esos caracteres).
-  - Caché en disco (`backend/.cache/tts`, volumen `tts-cache` en Docker): el mismo texto con el mismo modelo y la misma voz nunca se cobra dos veces, aunque se reinicie el servidor.
+  - Caché en disco (`backend/data/audio/cache`, volumen `parla-data` en Docker): el mismo texto con el mismo modelo y la misma voz nunca se cobra dos veces, aunque se reinicie el servidor.
   - El resumen hablado de una factura dice solo proveedor, número, fecha, total e IVA.
   - Las grabaciones se cortan solas a los 3 minutos (Scribe cobra por minuto de audio).
 - Las exportaciones CSV/MD se generan en el navegador: se neutralizan las fórmulas de planilla y se escapa la tabla Markdown.

@@ -4,6 +4,6 @@
 **/.pytest_cache
 frontend/dist
 backend/.env
-backend/doc
+backend/data
 backend/tests
 **/.git

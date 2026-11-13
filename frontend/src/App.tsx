@@ -3,9 +3,9 @@ import { AudioLines, FileText, LoaderCircle, Mic } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Brand } from '@/components/Brand';
 import { getConfig, type AppConfig } from '@/lib/api';
-import { InvoiceExtractor } from '@/features/invoice-extractor/components/InvoiceExtractor';
-import { TextToSpeech } from '@/features/audio/components/TextToSpeech';
-import { SpeechToText } from '@/features/audio/components/SpeechToText';
+import { InvoiceExtractor } from '@/pipelines/documents/InvoiceExtractor';
+import { TextToSpeech } from '@/pipelines/audio/TextToSpeech';
+import { SpeechToText } from '@/pipelines/audio/SpeechToText';
 
 const TABS = [
   {
@@ -26,6 +26,7 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
+// Lee la pestaña inicial desde la URL (#facturas, #tts, #stt).
 function initialTab(): TabId {
   const h = window.location.hash.slice(1);
   return TABS.some(t => t.id === h) ? (h as TabId) : 'facturas';
@@ -35,6 +36,7 @@ const MODEL_NAMES: Record<string, string> = {
   eleven_flash_v2_5: 'Flash v2.5', eleven_v4: 'v4', eleven_multilingual_v2: 'Multilingual v2', eleven_v4_turbo: 'v4 Turbo',
 };
 
+// Pantalla principal: encabezado con pestañas, la sección elegida y el pie.
 export function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [error, setError] = useState('');
@@ -43,6 +45,7 @@ export function App() {
   useEffect(() => { getConfig().then(setConfig, e => setError(e instanceof Error ? e.message : 'No se pudo conectar con el backend.')); }, []);
   useEffect(() => { history.replaceState(null, '', `#${tab}`); }, [tab]);
   useEffect(() => {
+    // Si cambia el # de la URL, cambia de pestaña.
     const onHash = () => setTab(initialTab());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -63,7 +66,7 @@ export function App() {
             ))}
           </TabsList>
           <div className="hidden items-center gap-2 md:flex">
-            <Status label="LlamaCloud" detail={config?.invoice.tier} ok={config?.invoice.ready} />
+            <Status label="LlamaCloud" detail={config?.documents.tier} ok={config?.documents.ready} />
             <Status label="ElevenLabs" detail={config && (MODEL_NAMES[config.audio.ttsModel] ?? config.audio.ttsModel)} ok={config?.audio.ready} />
           </div>
         </div>
@@ -80,7 +83,7 @@ export function App() {
         {!config && !error && <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" /> Conectando…</p>}
         {config && <>
           <TabsContent value="facturas">
-            <InvoiceExtractor ready={config.invoice.ready} fields={config.invoice.fields} maxPages={config.invoice.maxPages} dailyLimit={config.invoice.dailyLimit} audioReady={config.audio.ready} />
+            <InvoiceExtractor ready={config.documents.ready} fields={config.documents.fields} maxPages={config.documents.maxPages} dailyLimit={config.documents.dailyLimit} audioReady={config.audio.ready} />
           </TabsContent>
           <TabsContent value="tts"><TextToSpeech ready={config.audio.ready} maxChars={config.audio.ttsMaxChars} model={MODEL_NAMES[config.audio.ttsModel] ?? config.audio.ttsModel} /></TabsContent>
           <TabsContent value="stt"><SpeechToText ready={config.audio.ready} maxSeconds={config.audio.sttMaxSeconds} /></TabsContent>
@@ -97,6 +100,7 @@ export function App() {
   );
 }
 
+// Indicador de estado de un proveedor: verde si está listo, rojo si falta la API key.
 function Status({ label, detail, ok }: { label: string; detail?: string | null; ok?: boolean }) {
   return (
     <span className="flex items-center gap-2 rounded-full border border-glass-border bg-glass/50 px-3 py-1 text-xs" title={ok === false ? 'Falta configurar la API key' : undefined}>

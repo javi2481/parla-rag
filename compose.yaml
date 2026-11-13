@@ -7,8 +7,8 @@ services:
       - "8000:8000"
     env_file: backend/.env        # API keys: nunca entran en la imagen
     volumes:
-      - tts-cache:/app/backend/.cache   # audios ya pagados: sobreviven a recrear el contenedor
+      - parla-data:/app/backend/data   # la carpeta-DB (incluye los audios ya pagados): sobrevive a recrear el contenedor
     restart: unless-stopped
 
 volumes:
-  tts-cache:
+  parla-data:

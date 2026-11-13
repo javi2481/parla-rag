@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
-/** Zona para soltar o elegir un archivo. Accesible: es un <label> de un input file. */
+// Zona para soltar o elegir un archivo. Es un <label> de un input file, así funciona también con teclado.
 export function Dropzone({ id, accept, disabled, onFile, icon: Icon, title, hint, children }: {
   id: string; accept: string; disabled?: boolean; onFile: (file: File) => void;
   icon: LucideIcon; title: string; hint: string; children?: ReactNode;

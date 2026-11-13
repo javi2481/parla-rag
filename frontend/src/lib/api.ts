@@ -1,16 +1,18 @@
-/** Llamadas al backend FastAPI. Los errores llegan como { detail } y se muestran tal cual. */
+// Llama al backend y devuelve el JSON. Si hay error, lanza el mensaje que mandó el servidor.
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   if (!res.ok) throw new Error(await errorMessage(res));
   return res.json() as Promise<T>;
 }
 
+// Igual que api(), pero devuelve la respuesta entera (para leer audio y encabezados).
 export async function apiResponse(path: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(path, init);
   if (!res.ok) throw new Error(await errorMessage(res));
   return res;
 }
 
+// Saca el mensaje de error del cuerpo { detail } o arma uno genérico.
 async function errorMessage(res: Response) {
   try {
     const body = await res.json() as { detail?: unknown };
@@ -20,7 +22,8 @@ async function errorMessage(res: Response) {
 }
 
 export type AppConfig = {
-  invoice: { ready: boolean; fields: Record<string, string>; maxBytes: number; maxPages: number; dailyLimit: number; tier: string };
+  documents: { ready: boolean; fields: Record<string, string>; maxBytes: number; maxPages: number; dailyLimit: number; tier: string };
   audio: { ready: boolean; ttsMaxChars: number; ttsModel: string; sttModel: string; sttMaxSeconds: number };
 };
+// Pide la configuración pública: qué pipelines están listos y con qué opciones.
 export const getConfig = () => api<AppConfig>('/api/config');

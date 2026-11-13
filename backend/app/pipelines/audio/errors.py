@@ -1,2 +1,5 @@
+"""Errores del pipeline de audio."""
+
+
 class AudioError(Exception):
-    """Error con mensaje apto para mostrar al usuario."""
+    """Error con un mensaje pensado para mostrarle al usuario tal cual."""

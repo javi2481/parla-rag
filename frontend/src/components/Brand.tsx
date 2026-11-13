@@ -1,4 +1,4 @@
-/** Marca de Parla: una hoja con ondas de sonido (documentos que hablan). */
+// Logo de Parla: una hoja con ondas de sonido (documentos que hablan).
 export function BrandMark({ className = 'size-8' }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
@@ -10,6 +10,7 @@ export function BrandMark({ className = 'size-8' }: { className?: string }) {
   );
 }
 
+// Logo más el nombre, con link al inicio.
 export function Brand() {
   return (
     <a href="#facturas" className="flex items-center gap-2.5" aria-label="Parla, inicio">

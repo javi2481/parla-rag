@@ -19,7 +19,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/app ./app
 COPY --from=frontend /web/dist /app/frontend/dist
 
-RUN useradd --create-home --uid 1000 appuser && mkdir -p .cache && chown appuser .cache
+RUN useradd --create-home --uid 1000 appuser && mkdir -p data && chown appuser data
 USER appuser
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
