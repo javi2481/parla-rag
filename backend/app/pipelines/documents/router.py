@@ -63,7 +63,6 @@ def public_config(settings: DocumentsSettings) -> dict:
         "maxUploadMb": settings.max_upload_mb,
         "parseTier": settings.parse_tier,
         "parseVersion": settings.parse_version,
-        "parseMaxPages": settings.parse_max_pages,
     }
 
 

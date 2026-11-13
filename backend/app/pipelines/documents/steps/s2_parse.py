@@ -64,7 +64,6 @@ def build_request(settings: DocumentsSettings) -> dict:
     return {
         "tier": settings.parse_tier,
         "version": settings.parse_version,
-        "page_ranges": {"max_pages": settings.parse_max_pages},
         "input_options": {"image": {"camera_photo_correction": True}},  # endereza fotos sacadas con el celular
         "output_options": OUTPUT_OPTIONS,
         "processing_options": PROCESSING_OPTIONS,

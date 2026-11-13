@@ -15,8 +15,8 @@ class DocumentsSettings(BaseSettings):
     # para que el mismo documento dé el mismo resultado en cada clase.
     parse_tier: str = "agentic"
     parse_version: str = "2026-10-16"
-    # Cantidad máxima de páginas que se parsean de un documento.
-    parse_max_pages: int = 100
+    # No hay máximo de páginas a propósito: un parse limitado (max_pages) no se puede usar
+    # después en Split (ver docs/bitacora.md, 13/11). El límite real es el tamaño del archivo.
 
     # Tamaño máximo del archivo que se puede subir, en megas.
     max_upload_mb: int = 50

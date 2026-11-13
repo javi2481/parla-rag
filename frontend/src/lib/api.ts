@@ -22,7 +22,7 @@ async function errorMessage(res: Response) {
 }
 
 export type AppConfig = {
-  documents: { ready: boolean; maxUploadMb: number; parseTier: string; parseVersion: string; parseMaxPages: number };
+  documents: { ready: boolean; maxUploadMb: number; parseTier: string; parseVersion: string };
   audio: { ready: boolean; ttsMaxChars: number; ttsModel: string; sttModel: string; sttMaxSeconds: number };
 };
 // Pide la configuración pública: qué pipelines están listos y con qué opciones.
