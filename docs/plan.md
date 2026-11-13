@@ -236,6 +236,8 @@ El relevamiento completo de la API de LlamaCloud y 16 hallazgos sobre el código
 - Los pasos **3 Split** y **4 Classify**, encadenados al parse (`pjb-...`), con categorías y reglas editables.
 - El paso **5 Schema**, manual o automático: el editor, `generate_schema`, `validate_schema` y las plantillas en `configurations`. Se crea la plantilla "Factura AR".
 - El paso **6 Extract** con la configuración guardada, las citas avanzadas y toda la metadata, **sobre las páginas de un segmento del Split**. Las cajas se dibujan sobre el documento.
+- **Cajas sobre el archivo subido, sea PDF o imagen.** Se dibujan sobre las capturas de página de Parse, que están en la misma escala que las citas. Se muestran las de Parse (ítems, tablas, gráficos) y las de Extract (de dónde salió cada campo), para ver qué identificó LlamaCloud en el archivo.
+- **Un campo de identidad en el schema** (`emisor`), con una guía que dice que BYMA, Bolsas y Mercados Argentinos S.A. y "la Sociedad" son lo mismo. Así cada documento devuelve el mismo valor.
 
 **Se elimina:** `schema.py` (los campos fijos), `clean_amount`, `EMPTY_WORDS`, `normalize_result`, `invoiceCsv` e `invoiceMarkdown`, junto con sus tests. Si en la fase 2 las capturas de página alcanzan, también `PdfPreview` y `pdfjs`.
 **Hallazgos que resuelve:** #1, #2, #3, #4, #6, #13, #14 y #16.
@@ -269,4 +271,7 @@ El relevamiento completo de la API de LlamaCloud y 16 hallazgos sobre el código
 
 - **Pasar la carpeta-DB a `agent_data`.** Es la base JSON nativa de LlamaCloud, con búsqueda, filtros y agregaciones. Hoy elegimos la carpeta para que la demo funcione sin conexión y los archivos se puedan abrir a mano.
 - **Verify** (`alpha.verify`): detectar si un documento fue adulterado. Lo sumamos cuando salga de alpha.
+- **Evals contra la alucinación** (se decide después de tener todo funcionando de punta a punta). Medir si las respuestas del chat y de Extract son fieles a los documentos.
+  - **Primera opción: [Ragas](https://docs.ragas.io/).** Tiene integración directa con el **framework** LlamaIndex (`ragas.integrations.llama_index`, sobre un query engine), pero no encontré una integración con **LlamaCloud**. Para usarlo habría que armarle a Ragas el dataset con lo que guardamos de cada turno de chat: pregunta, respuesta y los fragmentos que usó (`tool_result`). Métricas: *faithfulness* (si la respuesta se apoya en los fragmentos), *context precision* y *context recall*. Ragas usa un LLM como juez, así que tiene costo propio.
+  - **Además:** un set de respuestas verificadas a mano para BYMA 3T26 (las 8 cifras de Extract, la página 5 de la presentación y preguntas de identidad como "¿qué dice la Sociedad…?").
 - **Webhooks:** que LlamaCloud avise cuando termina un job o un lote, en lugar de consultar. Solo sirve con el servidor publicado en internet.
