@@ -19,6 +19,9 @@ El run.json es un diccionario simple, así se puede abrir y leer a mano:
     }
 
 Estados de un paso: "pending" (sin arrancar), "running" (corriendo), "done" (terminó bien) y "failed" (falló).
+
+La misma carpeta-DB sirve para otras cosas con `kind`: por ejemplo las bibliotecas de documentos
+viven en data/documents/libraries/<id>/ con el mismo run.json.
 """
 import json
 import re
@@ -58,8 +61,9 @@ def read_json(path: Path) -> object:
 
 class RunStore:
     # Prepara la carpeta de corridas de un pipeline, por ejemplo data/documents/runs/.
-    def __init__(self, data_dir: str | Path, pipeline: str):
-        self.root = Path(data_dir) / pipeline / "runs"
+    # `kind` cambia la subcarpeta: "libraries" guarda las bibliotecas en data/documents/libraries/.
+    def __init__(self, data_dir: str | Path, pipeline: str, kind: str = "runs"):
+        self.root = Path(data_dir) / pipeline / kind
 
     # Crea una corrida nueva para un archivo, con todos sus pasos en "pending".
     def create(self, name: str, step_names: list[str]) -> dict:

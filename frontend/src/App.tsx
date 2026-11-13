@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { AudioLines, FileText, LoaderCircle, Mic } from 'lucide-react';
+import { AudioLines, FileText, Library, LoaderCircle, Mic } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Brand } from '@/components/Brand';
 import { getConfig, type AppConfig } from '@/lib/api';
 import { DocumentsWizard } from '@/pipelines/documents/DocumentsWizard';
+import { LibrariesView } from '@/pipelines/documents/libraries/LibrariesView';
 import { TextToSpeech } from '@/pipelines/audio/TextToSpeech';
 import { SpeechToText } from '@/pipelines/audio/SpeechToText';
 
@@ -14,19 +15,24 @@ const TABS = [
     lead: 'Subí un documento y recorré el pipeline paso por paso: en cada paso ves qué hizo LlamaCloud, cuánto costó y qué significa el resultado.',
   },
   {
-    id: 'tts', label: 'Texto a voz', icon: AudioLines, eyebrow: '02 · Voz',
+    id: 'bibliotecas', label: 'Bibliotecas', icon: Library, eyebrow: '02 · Bibliotecas',
+    title: <>Varios documentos, <em className="text-primary">una conversación</em></>,
+    lead: 'Juntá documentos relacionados en un índice compartido de LlamaCloud. Probá la búsqueda y chateá con todos a la vez: se ve qué buscó el agente y de dónde sacó cada respuesta.',
+  },
+  {
+    id: 'tts', label: 'Texto a voz', icon: AudioLines, eyebrow: '03 · Voz',
     title: <>Tu voz, en <em className="text-primary">cualquier texto</em></>,
     lead: 'Pegá un texto y escuchalo con tu voz clonada. Se limpia antes de enviarlo y lo repetido sale de la caché: pagás solo lo nuevo.',
   },
   {
-    id: 'stt', label: 'Voz a texto', icon: Mic, eyebrow: '03 · Transcripción',
+    id: 'stt', label: 'Voz a texto', icon: Mic, eyebrow: '04 · Transcripción',
     title: <>Hablá, <em className="text-primary">nosotros escribimos</em></>,
     lead: 'Grabá o subí un audio. Lo transcribimos y le sacamos muletillas, tartamudeos y repeticiones para que quede listo para usar.',
   },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
-// Lee la pestaña inicial desde la URL (#documentos, #tts, #stt).
+// Lee la pestaña inicial desde la URL (#documentos, #bibliotecas, #tts, #stt).
 function initialTab(): TabId {
   const h = window.location.hash.slice(1);
   return TABS.some(t => t.id === h) ? (h as TabId) : 'documentos';
@@ -85,6 +91,7 @@ export function App() {
           <TabsContent value="documentos">
             <DocumentsWizard ready={config.documents.ready} maxUploadMb={config.documents.maxUploadMb} />
           </TabsContent>
+          <TabsContent value="bibliotecas"><LibrariesView ready={config.documents.ready} /></TabsContent>
           <TabsContent value="tts"><TextToSpeech ready={config.audio.ready} maxChars={config.audio.ttsMaxChars} model={MODEL_NAMES[config.audio.ttsModel] ?? config.audio.ttsModel} /></TabsContent>
           <TabsContent value="stt"><SpeechToText ready={config.audio.ready} maxSeconds={config.audio.sttMaxSeconds} /></TabsContent>
         </>}

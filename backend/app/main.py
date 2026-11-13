@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.settings import get_core_settings
 from app.pipelines.audio import router as audio
 from app.pipelines.audio.settings import AudioSettings, get_audio_settings
+from app.pipelines.documents import library_router as libraries
 from app.pipelines.documents import router as documents
 from app.pipelines.documents.client import make_client
 from app.pipelines.documents.settings import DocumentsSettings, get_documents_settings
@@ -41,6 +42,7 @@ app.add_middleware(
 )
 
 app.include_router(documents.router)
+app.include_router(libraries.router)
 app.include_router(audio.router)
 
 
