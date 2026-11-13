@@ -260,3 +260,27 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
 - **Cambio en el código:** la interpretación de Schema ahora cuenta los campos **obligatorios en todo su camino**. Cuando todos lo son, avisa: *"si un dato no está en el documento, Extract igual tiene que devolver un valor y puede inventarlo"*. Se volvió a generar sin costo para las dos corridas y tiene 3 tests nuevos (23 en total).
 - **Repetir pasos funciona:** al correr el schema automático, el manual y su Extract pasaron solos a `historial/` y quedaron en `run.json`. Se pueden auditar los dos.
 - **Detalle de la prueba:** en la captura automática el clic sobre una fila caía en la barra superior fija y no seleccionaba el campo. Es un problema del script, no de la app: con el clic dentro de la página funciona.
+
+### 13/11 · Fase 4 · Relevamiento de bibliotecas, índice, búsqueda y chat (sin costo)
+
+- **SDK 2.19.0:**
+  - **Directorios** (`beta.directories`): create, list, get, update, delete.
+  - **Archivos de un directorio** (`beta.directories.files`): add (con `file_id`, `metadata` y `unique_id`), upload, list, update, delete.
+  - **Índices** (`indexes`): create (`source_directory_id`, `products` con `product_config_id` de parse o extract, `store_attachments` con screenshots e items, `sync_frequency`), get (`expand=sync_in_progress`), sync, cancel_sync, delete.
+  - **Búsqueda** (`retrieval.retrieve`): `top_k`, `rerank`, `custom_filters` y `static_filters`, pesos de los modos vectorial y de texto completo.
+  - **Chat:** create (hasta 10 índices), stream, retrieve, get_summary, delete.
+  - **Lotes** (`batches`): create (`config` y `source_directory_id`), get, list, cancel.
+- **Documentación oficial** ([precios](https://developers.llamaindex.ai/llamaparse/general/pricing/), [migración a Index v2](https://developers.llamaindex.ai/llamaparse/cloud-index-v2/migration-v1-to-v2/), [sincronización](https://developers.llamaindex.ai/llamaparse/cloud-index-v2/syncing/)):
+  - **Índice:** 2 créditos por página exportada, **1 por búsqueda** y **100 por turno de chat**, además del parse.
+  - **Por defecto, un índice parsea con el tier `cost_effective`.** Para usar nuestro parse completo hay que pasarle `product_config_id`.
+  - **El sync parsea los archivos nuevos o cambiados** y saltea los que no cambiaron (por una huella del contenido y `source_modified_at`). **No dice si reutiliza un parse ya hecho** del mismo archivo. Esto hay que medirlo.
+  - **Caché:** *"Parsed files are cached for 48 hours. Re-parsing the same file within that window is free."* No dice cuál es la clave de la caché. Nuestros parses repetidos (#11 y #12) **sí cobraron**, pero fueron archivos subidos de nuevo y con un pedido distinto al primero, que tenía `max_pages`.
+  - **Chunks:** son fijos (por oraciones, 1.024 tokens, 200 de solapamiento). En v2 **no se pueden listar** (`documents/{id}/chunks` no existe); se ven en los resultados de la búsqueda.
+  - **Un índice no se puede modificar después de crearlo** (`store_attachments`, productos). Se puede agregar o sacar archivos y volver a sincronizar.
+  - **`unique_id`:** volver a subir con el mismo ID reemplaza el archivo en lugar de duplicarlo.
+  - **Metadata por archivo,** filtrable en la búsqueda con `custom_filters` (`eq`, `in`, …).
+- **Precios publicados contra lo que medimos:**
+  - **Extract agentic:** 15 por página. ✅ Coincide.
+  - **Split:** 3 por página sobre un parse ya hecho. Daría unos 258 para los EEFF y 30 para el comunicado; no lo informa, así que hay que confirmarlo con el panel.
+  - **Classify:** dice 1 por página, pero **nos informó 0** sobre un parse ya hecho.
+  - **Gráficos con IA y confianza "high":** no figuran en la página de precios. Lo medimos nosotros: +5 por página.
