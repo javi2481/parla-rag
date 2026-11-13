@@ -146,3 +146,19 @@ def test_library_end_to_end(setup):
     client.delete(base)
     assert all(call in fake.calls for call in [("delete", "idx-1"), ("delete", "dir-1"), ("delete", "chat-1")])
     assert client.get("/api/documents/libraries").json() == []
+
+
+# Si LlamaCloud rechaza crear el índice, no queda nada a medias: se borra el directorio y la carpeta local.
+def test_create_library_cleans_up_on_error(setup):
+    client, fake = setup
+
+    async def refuse(**request):
+        from llama_cloud import APIStatusError
+        import httpx
+        response = httpx.Response(403, request=httpx.Request("POST", "https://x"), json={"detail": "Buy credits"})
+        raise APIStatusError("Buy credits", response=response, body={"detail": "Buy credits"})
+
+    fake.indexes.create = refuse
+    assert client.post("/api/documents/libraries", json={"name": "X"}).status_code == 502
+    assert ("delete", "dir-1") in fake.calls
+    assert client.get("/api/documents/libraries").json() == []

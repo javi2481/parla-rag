@@ -57,6 +57,13 @@ Repetir un parse **no** usa caché: #11 y #12 cobraron lo mismo que #1 y #2.
 
 Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 página → 15, 10 páginas → 150, sin importar cuántos campos tenga el schema (11 o 37).
 
+**Prueba chica de la fase 4:**
+
+| # | Fecha | Qué | Documento | Job | Opciones | Créditos | Saldo estimado |
+|---|---|---|---|---|---|---|---|
+| 23 | 13/11 20:40 | Parse desde el wizard | Factura de ejemplo, 1 pág. | corrida `2026-11-13_204022_factura-ejemplo` | agentic · todas + 3 salidas extra | 15 | — |
+| 24 | 13/11 20:40 | Crear el directorio de la biblioteca "Prueba chica" | — | — | — | **0: rechazado** (403, plan) | — |
+
 **Llamadas que no costaron nada** (comprobado): volver a pedir el resultado de un parse terminado (`parsing.get`, varias veces), `validate_schema`, `configurations.create` (dos configuraciones de parse: `cfg-lhr7sirebo2m6rhmyx9dc89bk9xy` y `cfg-bmherk6gqi5cmvozygan96hjlel5`) y la subida de archivos. Las 3 salidas extra de `additional_outputs` tampoco suman costo: la página 4 costó 15 con y sin ellas.
 
 ---
@@ -284,3 +291,18 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - **Split:** 3 por página sobre un parse ya hecho. Daría unos 258 para los EEFF y 30 para el comunicado; no lo informa, así que hay que confirmarlo con el panel.
   - **Classify:** dice 1 por página, pero **nos informó 0** sobre un parse ya hecho.
   - **Gráficos con IA y confianza "high":** no figuran en la página de precios. Lo medimos nosotros: +5 por página.
+
+### 13/11 · Fase 4 · Código de bibliotecas y prueba real bloqueada por el plan (créditos #23 y #24)
+
+- **Código hecho** (probado con el LlamaCloud falso, 26 tests):
+  - **Crear una biblioteca:** un directorio y un índice que parsea con **nuestra** configuración completa (`product_config_id`) y guarda capturas e items.
+  - **Agregar y sacar corridas del wizard:** se usa el mismo `file_id`, sin volver a subir el archivo; `unique_id` es la corrida. Cada documento lleva metadata de identidad: el tipo de Classify y los campos sueltos de Extract.
+  - **Sincronizar:** al terminar, lista con `parsing.list` los parses que creó LlamaCloud durante la sincronización, para **medir si volvió a parsear** y cuánto costó.
+  - **Búsqueda de prueba** (`retrieval.retrieve`): con score, rerank, documento, páginas y la captura local de la página.
+  - **Chat en vivo:** se reenvían los eventos de `chat.stream` tal cual, y al final se guardan con `chat.retrieve` y `get_summary`.
+  - Pestaña **Bibliotecas** en el frontend.
+- **Prueba real: bloqueada.** `POST /api/v1/beta/directories` respondió **403**: *"Buy credits in Settings › Plan & Credits to unlock this feature and raise your limits."* Coincide con la documentación: Index v2 (directorios, índice, búsqueda y chat) necesita un plan **Pay as you go, Pro o Enterprise**. Con el plan actual (los créditos gratis) no se puede usar. No se creó nada en LlamaCloud ni se cobró nada por la biblioteca. Sí se cobró el parse de la factura (15).
+- **Corregido:**
+  - `create_library` dejaba una carpeta local vacía cuando LlamaCloud fallaba. Ahora llama primero a LlamaCloud y, si algo falla a mitad de camino, borra lo creado (en LlamaCloud y en la carpeta). Tiene un test nuevo. Se borró la carpeta vacía que había quedado (`2026-11-13_204052_prueba-chica`, que solo tenía un `run.json`).
+  - **Parse decía "1 páginas"** y "Todas las páginas se leyeron…" con una sola página. Se corrigió y se volvió a generar el resumen de la factura sin costo.
+- **Queda sin responder** (hace falta el plan): si el sync de un índice reutiliza un parse ya hecho o vuelve a cobrar.

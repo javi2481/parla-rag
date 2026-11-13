@@ -331,11 +331,11 @@ def summarize(response: dict) -> dict:
     sentences = []
     if page_count and credits:
         sentences.append(
-            f"LlamaParse leyó {page_count} páginas en {number_es(seconds, 1)} segundos "
+            f"LlamaParse leyó {page_count} {'página' if page_count == 1 else 'páginas'} en {number_es(seconds, 1)} segundos "
             f"y cobró {credits:.0f} créditos ({credits / page_count:.0f} por página)."
         )
     elif page_count:
-        sentences.append(f"LlamaParse leyó {page_count} páginas en {number_es(seconds, 1)} segundos.")
+        sentences.append(f"LlamaParse leyó {page_count} {'página' if page_count == 1 else 'páginas'} en {number_es(seconds, 1)} segundos.")
     if document.get("confidence") is not None:
         sentences.append(f"La confianza general del documento es {percent(document['confidence'])}.")
     # LlamaParse no dice por qué una página tiene confianza baja: no se inventa un motivo.
@@ -351,7 +351,7 @@ def summarize(response: dict) -> dict:
             "LlamaParse no informa el motivo; compará cada captura con el Markdown."
         )
     elif worst:
-        sentences.append("Todas las páginas se leyeron con confianza alta.")
+        sentences.append("La página se leyó con confianza alta." if page_count == 1 else "Todas las páginas se leyeron con confianza alta.")
     if charts == 1:
         sentences.append(
             f"Encontró {tables} tablas, incluido 1 gráfico que convirtió en tabla de datos. "

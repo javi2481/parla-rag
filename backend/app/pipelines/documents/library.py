@@ -38,11 +38,21 @@ def stamp() -> str:
 
 # Crea la biblioteca: un directorio en LlamaCloud y un índice sobre él que parsea con nuestra configuración
 # completa (la misma que el paso Parse del wizard). Sin product_config_id, el índice usaría el tier cost_effective.
+# Si LlamaCloud falla a mitad de camino, no queda nada a medias: se borra lo creado (en LlamaCloud y en la carpeta).
 async def create_library(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, name: str, description: str = "") -> dict:
-    library = store.create(name, [])
-    folder = store.step_dir(library["id"], "create")
-
     directory = await client.beta.directories.create(name=name, description=description or None)
+    library = store.create(name, [])
+    try:
+        return await setup_index(client, store, settings, library, directory, description)
+    except Exception:
+        await delete_library(client, store, {**library, "directory_id": directory.id})
+        raise
+
+
+# La segunda parte de crear una biblioteca: guarda el directorio, la configuración de parse y crea el índice.
+async def setup_index(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict, directory, description: str) -> dict:
+    name = library["name"]
+    folder = store.step_dir(library["id"], "create")
     write_json(folder / "directory.json", directory.model_dump())
 
     configuration = await s2_parse.save_configuration(client, s2_parse.build_request(settings))
