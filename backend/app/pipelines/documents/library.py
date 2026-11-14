@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 # Lo que guarda el índice además de los chunks: la captura de cada página y los items con sus cajas.
 STORE_ATTACHMENTS = ["screenshots", "items"]
 
-# Lo que mira Extract para armar la metadata de identidad (los campos sueltos del primer nivel).
+# Los tipos de valor que pueden ir en la metadata de identidad (los grupos y las listas no).
 IDENTITY_TYPES = (str, int, float, bool)
 
 
@@ -82,7 +82,8 @@ async def setup_index(client: AsyncLlamaCloud, store: RunStore, settings: Docume
 
 
 # Arma la metadata de identidad de un documento a partir de su corrida del wizard:
-# el tipo que eligió Classify y los campos sueltos del primer nivel que sacó Extract (emisor, período, fecha…).
+# el tipo que eligió Classify y los datos de identidad que sacó Extract, o sea los campos sueltos del primer nivel
+# que el schema marca como obligatorios (emisor, período, fecha…). Los datos como el resultado neto no entran.
 # Son datos trazables: cada uno tiene su cita en la corrida. Sirven para filtrar la búsqueda.
 def identity_metadata(runs: RunStore, run: dict) -> dict:
     folder = runs.run_dir(run["id"])
@@ -91,9 +92,10 @@ def identity_metadata(runs: RunStore, run: dict) -> dict:
         kind = (read_json(folder / "4_classify" / "result.json") or {}).get("type")
         if kind:
             metadata["tipo"] = kind
-    if (folder / "6_extract" / "result.json").is_file():
+    if (folder / "6_extract" / "result.json").is_file() and (folder / "5_schema" / "schema.json").is_file():
+        identity = set(read_json(folder / "5_schema" / "schema.json").get("required") or [])
         for key, value in (read_json(folder / "6_extract" / "result.json") or {}).items():
-            if isinstance(value, IDENTITY_TYPES) and value != "":
+            if key in identity and isinstance(value, IDENTITY_TYPES) and value != "":
                 metadata[key] = value
     return metadata
 

@@ -18,6 +18,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from llama_cloud import APIError
+from voyageai.error import RateLimitError, VoyageError
 
 from app.core.runs.store import RunStore, read_json
 from app.core.settings import CoreSettings, get_core_settings
@@ -91,6 +92,13 @@ async def guarded(call):
         raise HTTPException(409, str(e)) from e
     except APIError as e:
         raise llama_cloud_error(e) from e
+    except RateLimitError as e:
+        log.error("Voyage AI: %s", e)
+        raise HTTPException(429, "Voyage AI limitó los pedidos por minuto. Sin un medio de pago cargado permite "
+                                 "3 pedidos y 10.000 tokens por minuto (los tokens gratis se mantienen igual).") from e
+    except VoyageError as e:
+        log.error("Voyage AI: %s", e)
+        raise HTTPException(502, f"Voyage AI respondió con un error: {e}") from e
 
 
 @router.get("")

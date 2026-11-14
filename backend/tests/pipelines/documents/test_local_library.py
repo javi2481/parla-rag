@@ -37,6 +37,7 @@ def setup(tmp_path, monkeypatch):
     fake = ParseWithPages(["COMPLETED"])
     monkeypatch.setattr(local_library, "make_embed_model", lambda settings: MockEmbedding(embed_dim=8))
     monkeypatch.setattr(local_library, "make_reranker", lambda settings, top_n: FakeReranker(top_n))
+    monkeypatch.setattr(local_library, "prepare_nltk", lambda data_dir: None)  # sin bajar nada de internet
     app.dependency_overrides[get_core_settings] = lambda: CoreSettings(data_dir=str(tmp_path), _env_file=None)
     app.dependency_overrides[get_documents_settings] = lambda: DocumentsSettings(
         llama_cloud_api_key="x", voyage_api_key="v", library_engine="local", _env_file=None)

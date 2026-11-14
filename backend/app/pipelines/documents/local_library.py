@@ -14,6 +14,10 @@ y Voyage AI hace los embeddings (voyage-4) y el reranking (rerank-2.5) con sus i
 Mismas funciones y mismas respuestas que library.py, así la pantalla de Bibliotecas no cambia.
 """
 import asyncio
+import os
+from pathlib import Path
+
+import nltk
 
 from llama_index.core import Document, StorageContext, VectorStoreIndex, load_index_from_storage
 from llama_index.core.schema import QueryBundle
@@ -31,6 +35,29 @@ NOT_EMBEDDED = ["corrida", "pagina"]
 
 # Cuántos candidatos trae la búsqueda vectorial por cada resultado final que deja el reranker.
 CANDIDATES_PER_RESULT = 3
+
+
+# Prepara los datos de NLTK (la librería con la que LlamaIndex corta el texto en oraciones) en data/nltk/.
+# NLTK se niega a leer carpetas que otros usuarios pueden modificar o archivos con hardlinks (como los que deja uv
+# dentro de .venv), por seguridad. Por eso se bajan a una carpeta nuestra, con permisos privados (umask 022).
+def prepare_nltk(data_dir: Path) -> None:
+    folder = (data_dir / "nltk").resolve()
+    os.environ["NLTK_DATA"] = str(folder)
+    if (folder / "corpora" / "stopwords").is_dir() and (folder / "tokenizers" / "punkt_tab").is_dir():
+        return
+    previous = os.umask(0o022)
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        folder.chmod(0o755)
+        for package in ("stopwords", "punkt_tab"):
+            nltk.download(package, download_dir=str(folder), quiet=True)
+    finally:
+        os.umask(previous)
+
+
+# La carpeta data/ a partir de la carpeta-DB de bibliotecas (data/documents/libraries).
+def data_dir_of(store: RunStore) -> Path:
+    return store.root.parent.parent
 
 
 # El modelo de embeddings de Voyage. Está en una función para que los tests lo reemplacen por uno falso.
@@ -120,6 +147,7 @@ def build_documents(store: RunStore, library: dict) -> list[Document]:
 # Es local y responde en el momento (no hay job que consultar). Lo único que se paga son los tokens de Voyage.
 async def start_sync(client, store: RunStore, settings: DocumentsSettings, library: dict) -> dict:
     check_ready(settings)
+    prepare_nltk(data_dir_of(store))
     mark_running(library, "sync")
     store.save(library)
     try:
@@ -129,7 +157,7 @@ async def start_sync(client, store: RunStore, settings: DocumentsSettings, libra
         index = await asyncio.to_thread(VectorStoreIndex.from_documents, documents, embed_model=make_embed_model(settings))
         index.storage_context.persist(persist_dir=str(folder))
     except Exception as e:
-        mark_failed(library, "sync", f"No se pudo armar el índice: {e}")
+        mark_failed(library, "sync", f"No se pudo armar el índice: {str(e)[:300]}")
         store.save(library)
         raise
     summary = summarize_sync(library, documents, len(index.docstore.docs), settings)
@@ -184,6 +212,7 @@ async def search(client, store: RunStore, settings: DocumentsSettings, library: 
     folder = store.run_dir(library["id"]) / "index"
     if not folder.is_dir():
         raise ValueError("Primero hay que sincronizar la biblioteca.")
+    prepare_nltk(data_dir_of(store))
 
     def run() -> list:
         storage = StorageContext.from_defaults(persist_dir=str(folder))
