@@ -330,3 +330,19 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
 - **Metadata de identidad corregida:** tomaba todos los campos sueltos de Extract (en los EEFF incluía `resultado_neto`). Ahora toma solo los **obligatorios del schema**, que son los de identidad. Se ve que los EEFF usan `emisor` y el comunicado `ticker`, porque se extrajeron con schemas distintos (manual y automático). Para filtrar por identidad en una biblioteca, **todos sus documentos tienen que extraerse con el mismo schema**.
 - **Bloqueo de Voyage:** la sincronización de "BYMA 3T26" (EEFF, comunicado y presentación) respondió *"You have not yet added your payment method… reduced rate limits of 3 RPM and 10K TPM… Even with payment methods entered, the free tokens… will still apply."* Los 3 documentos suman unos **102.000 tokens** (86.000 de los EEFF, 5.500 del comunicado y 10.500 de la presentación), así que hace falta cargar un medio de pago en Voyage para sacar el límite; los tokens gratis se mantienen. La biblioteca quedó creada, con los 3 documentos y la sincronización en "falló", lista para reintentar.
 - **Corregido:** los errores de Voyage llegaban como 500. Ahora son 429 (límite por minuto, con la explicación) o 502 (otros errores), y el error del paso se recorta a 300 caracteres.
+
+### 14/11 · Fase 4 · ¿Hay embeddings nativos de LlamaParse o LlamaIndex? (investigación, sin costo)
+
+- **LlamaCloud / LlamaParse:**
+  - **no tiene un modelo de embeddings propio ni un endpoint para generarlos**: el SDK 2.19.0 no trae ninguno;
+  - el índice nuevo (v2) hace los embeddings por dentro, pero necesita un plan pago (el 403 del 13/11);
+  - el índice viejo (`pipelines`, v1) acepta `embedding_config` **con una key propia de otro proveedor**: OpenAI, Azure OpenAI, Cohere, Gemini, Bedrock, Vertex y Hugging Face Inference API. Voyage no está.
+- **Framework LlamaIndex:**
+  - tampoco tiene un modelo propio: por defecto usa OpenAI ([guía de embeddings](https://developers.llamaindex.ai/python/framework/module_guides/models/embeddings/));
+  - trae **integraciones oficiales** con muchos proveedores, entre ellos VoyageAI;
+  - las opciones locales (Hugging Face, FastEmbed, Ollama) suman otra herramienta: PyTorch, ONNX o un servidor aparte.
+- **DeepSeek** ([documentación de la API](https://api-docs.deepseek.com/)):
+  - **no ofrece embeddings**; la documentación no los menciona;
+  - es compatible con la API de OpenAI y de Anthropic, y sus modelos actuales son `deepseek-flash` (DeepSeek-V4.1-Flash) y `deepseek-v4-pro`;
+  - LlamaIndex tiene integración oficial: `llama-index-llms-deepseek` 0.5.0, que se apoya en `llama-index-llms-openai-like`.
+- **Conclusión:** como LlamaParse y LlamaIndex no tienen un modelo propio, los embeddings vienen de un proveedor externo **a través de la integración oficial de LlamaIndex**. Se confirma **Voyage AI** para embeddings y reranker y **DeepSeek** para el chat, las dos con integraciones nativas de LlamaIndex y sin otro framework.
