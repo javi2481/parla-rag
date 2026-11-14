@@ -13,7 +13,7 @@ Cada biblioteca es una carpeta en data/documents/libraries/<id>/ con su library 
     chats/<sesión>/turno_<n>.json   cada turno de chat: los eventos tal cual y la transcripción final
 """
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from llama_cloud import AsyncLlamaCloud
 
@@ -45,7 +45,7 @@ async def create_library(client: AsyncLlamaCloud, store: RunStore, settings: Doc
     try:
         return await setup_index(client, store, settings, library, directory, description)
     except Exception:
-        await delete_library(client, store, {**library, "directory_id": directory.id})
+        await delete_library(client, store, settings, {**library, "directory_id": directory.id})
         raise
 
 
@@ -100,7 +100,7 @@ def identity_metadata(runs: RunStore, run: dict) -> dict:
 
 # Agrega una corrida del wizard a la biblioteca: suma su archivo (el mismo file_id, no se vuelve a subir)
 # al directorio, con su metadata de identidad. El índice lo procesa en la próxima sincronización.
-async def add_document(client: AsyncLlamaCloud, store: RunStore, runs: RunStore, library: dict, run_id: str) -> dict:
+async def add_document(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, runs: RunStore, library: dict, run_id: str) -> dict:
     run = runs.get(run_id)
     if any(doc["run_id"] == run_id for doc in library["documents"]):
         raise ValueError("Ese documento ya está en la biblioteca.")
@@ -127,7 +127,7 @@ async def add_document(client: AsyncLlamaCloud, store: RunStore, runs: RunStore,
 
 
 # Saca un documento de la biblioteca (del directorio). Sus chunks se borran del índice en la próxima sincronización.
-async def remove_document(client: AsyncLlamaCloud, store: RunStore, library: dict, run_id: str) -> dict:
+async def remove_document(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict, run_id: str) -> dict:
     document = next((doc for doc in library["documents"] if doc["run_id"] == run_id), None)
     if document is None:
         raise LookupError("Ese documento no está en la biblioteca.")
@@ -140,13 +140,13 @@ async def remove_document(client: AsyncLlamaCloud, store: RunStore, library: dic
 
 
 # Arranca la sincronización del índice: parsea lo nuevo o cambiado, borra lo que se sacó y exporta los chunks.
-async def start_sync(client: AsyncLlamaCloud, store: RunStore, library: dict) -> dict:
+async def start_sync(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict) -> dict:
     if library["steps"]["sync"].get("state") == "running":
         raise ValueError("La biblioteca ya se está sincronizando.")
     before = await client.indexes.get(library["index_id"], expand=["sync_in_progress"])
     folder = store.step_dir(library["id"], f"syncs/{stamp()}")
     write_json(folder / "index_before.json", before.model_dump())
-    started_at_utc = datetime.now(timezone.utc)
+    started_at_utc = datetime.now(UTC)
 
     response = await client.indexes.sync(library["index_id"])
     write_json(folder / "sync_response.json", response.model_dump() if hasattr(response, "model_dump") else response)
@@ -161,7 +161,7 @@ async def start_sync(client: AsyncLlamaCloud, store: RunStore, library: dict) ->
 
 # Consulta la sincronización. Termina cuando el índice ya no está sincronizando y su last_synced_at avanzó.
 # Al terminar, lista los parses que creó LlamaCloud durante la sincronización: así se sabe si volvió a parsear y cuánto costó.
-async def check_sync(client: AsyncLlamaCloud, store: RunStore, library: dict) -> dict:
+async def check_sync(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict) -> dict:
     sync = library["steps"]["sync"]
     if sync.get("state") != "running":
         return library
@@ -215,7 +215,7 @@ def summarize_sync(library: dict, index: dict, jobs: list[dict]) -> dict:
 
 
 # Una búsqueda de prueba en el índice: los chunks más parecidos a la pregunta, con su score y de qué documento y páginas salieron.
-async def search(client: AsyncLlamaCloud, store: RunStore, library: dict, query: str, top_k: int = 8, filters: dict | None = None) -> dict:
+async def search(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict, query: str, top_k: int = 8, filters: dict | None = None) -> dict:
     request = {"index_id": library["index_id"], "query": query, "top_k": top_k}
     if filters:
         request["custom_filters"] = filters
@@ -257,8 +257,8 @@ async def chat_session(client: AsyncLlamaCloud, store: RunStore, library: dict) 
 
 # Un turno de chat. Va devolviendo los eventos tal cual los manda LlamaCloud (Server-Sent Events), para verlos en vivo,
 # y al terminar guarda los eventos crudos y la transcripción completa de la sesión (chat.retrieve).
-async def chat_turn(client: AsyncLlamaCloud, store: RunStore, library: dict, prompt: str):
-    session_id = await chat_session(client, store, library)
+async def chat_turn(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict, prompt: str):
+    session_id = await chat_session(client, store, library)  # settings no se usa: está para que las dos versiones sean iguales
     lines = []
     async with client.chat.with_streaming_response.stream(session_id, index_ids=[library["index_id"]], prompt=prompt) as response:
         async for line in response.iter_lines():
@@ -276,7 +276,7 @@ async def chat_turn(client: AsyncLlamaCloud, store: RunStore, library: dict, pro
 
 
 # Borra en LlamaCloud el índice, el directorio y la sesión de chat de la biblioteca (los archivos de las corridas no se tocan).
-async def delete_library(client: AsyncLlamaCloud, store: RunStore, library: dict) -> None:
+async def delete_library(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict) -> None:
     for delete, target in [(client.chat.delete, library.get("chat_session_id")),
                            (client.indexes.delete, library.get("index_id")),
                            (client.beta.directories.delete, library.get("directory_id"))]:

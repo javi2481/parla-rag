@@ -91,7 +91,8 @@ class FakeLibraryCloud(FakeLlamaCloud):
 def setup(tmp_path):
     fake = FakeLibraryCloud()
     app.dependency_overrides[get_core_settings] = lambda: CoreSettings(data_dir=str(tmp_path), _env_file=None)
-    app.dependency_overrides[get_documents_settings] = lambda: DocumentsSettings(llama_cloud_api_key="x", _env_file=None)
+    app.dependency_overrides[get_documents_settings] = lambda: DocumentsSettings(
+        llama_cloud_api_key="x", library_engine="llamacloud", _env_file=None)
     with TestClient(app) as client:
         app.state.documents_client = fake
         yield client, fake

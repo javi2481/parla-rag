@@ -68,7 +68,7 @@ export function LibrariesView({ ready }: { ready: boolean }) {
             onClick={() => act(async () => { const created = await createLibrary(name, description); setName(''); setDescription(''); return created; })}>
             <Plus /> Crear
           </Button>
-          <p className="text-xs text-muted-foreground">Crea un directorio y un índice en LlamaCloud. El índice parsea con la misma configuración completa del wizard.</p>
+          <p className="text-xs text-muted-foreground">El índice se arma con el parse que ya hizo el wizard: no se vuelve a parsear nada.</p>
         </div>
         <h3 className="pt-2 text-sm font-medium text-muted-foreground">Bibliotecas</h3>
         <ul className="space-y-2">
@@ -95,7 +95,11 @@ export function LibrariesView({ ready }: { ready: boolean }) {
                 onClick={() => confirm('¿Borrar la biblioteca? Se borran su índice y su directorio en LlamaCloud (las corridas no se tocan).')
                   && act(async () => { await deleteLibrary(library.id); setLibrary(null); })}><Trash2 /> Borrar</Button>
             </div>
-            <p className="font-mono text-xs text-muted-foreground">directorio {library.directory_id} · índice {library.index_id}</p>
+            <p className="font-mono text-xs text-muted-foreground">
+              {library.engine === 'local'
+                ? `índice local (LlamaIndex) · embeddings ${library.embed_model} · reranker ${library.rerank_model} (Voyage AI)`
+                : `LlamaCloud · directorio ${library.directory_id} · índice ${library.index_id}`}
+            </p>
 
             <section className="space-y-3 rounded-2xl border border-glass-border bg-glass/40 p-5">
               <h3 className="font-medium">Documentos</h3>

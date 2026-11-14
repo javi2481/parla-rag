@@ -21,6 +21,13 @@ class DocumentsSettings(BaseSettings):
     # Tamaño máximo del archivo que se puede subir, en megas.
     max_upload_mb: int = 50
 
+    # Bibliotecas: "local" (LlamaIndex + Voyage AI, en nuestro servidor) o "llamacloud" (necesita un plan pago).
+    library_engine: str = "local"
+    # Voyage AI: embeddings y reranker de las bibliotecas locales.
+    voyage_api_key: str = ""
+    library_embed_model: str = "voyage-4"
+    library_rerank_model: str = "rerank-2.5"
+
     # Cantidad máxima de documentos que se pueden subir por IP por día (0 = sin límite).
     documents_daily_limit: int = 0
 
