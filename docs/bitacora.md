@@ -306,3 +306,17 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - `create_library` dejaba una carpeta local vacía cuando LlamaCloud fallaba. Ahora llama primero a LlamaCloud y, si algo falla a mitad de camino, borra lo creado (en LlamaCloud y en la carpeta). Tiene un test nuevo. Se borró la carpeta vacía que había quedado (`2026-11-13_204052_prueba-chica`, que solo tenía un `run.json`).
   - **Parse decía "1 páginas"** y "Todas las páginas se leyeron…" con una sola página. Se corrigió y se volvió a generar el resumen de la factura sin costo.
 - **Queda sin responder** (hace falta el plan): si el sync de un índice reutiliza un parse ya hecho o vuelve a cobrar.
+
+### 14/11 · Fase 4 · Plan B: bibliotecas locales con LlamaIndex y Voyage AI
+
+- **Decisión del usuario:** como el índice de LlamaCloud necesita un plan pago, la búsqueda se arma con el **framework LlamaIndex** (código abierto, nativo de la familia LlamaIndex) en nuestro servidor, con **Voyage AI** para los embeddings y el reranker. El código de bibliotecas con LlamaCloud se deja para cuando haya plan.
+- **Voyage AI** ([documentación](https://docs.voyageai.com/docs/introduction), [precios](https://docs.voyageai.com/docs/pricing)):
+  - ofrece **embeddings y rerankers, no un modelo para el chat**;
+  - los 200 millones de tokens iniciales son gratis en `voyage-4`, `voyage-4-large`, `voyage-4-lite`, `voyage-context-4` y `rerank-2.5`, y los 50 millones iniciales en `voyage-finance-2`.
+- **La API key** quedó en `backend/.env` (ignorado por git) y `.env.example` tiene el lugar vacío.
+- **Prueba de la key** (3 frases en español inventadas, sin datos del proyecto; 214 tokens, gratis):
+  - `voyage-4` (1024 dimensiones): la frase del resultado neto quedó primera, con 0,62 de similitud contra 0,37 y 0,16 de las otras.
+  - `voyage-finance-2` separó menos: 0,54, 0,38 y 0,17.
+  - `rerank-2.5` ubicó primera la frase correcta, con 0,85.
+  - **Se elige `voyage-4` y `rerank-2.5`.**
+- **Pendiente:** un modelo de lenguaje para que el chat escriba las respuestas (Voyage no tiene).
