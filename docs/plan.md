@@ -243,7 +243,7 @@ El relevamiento completo de la API de LlamaCloud y 16 hallazgos sobre el código
 **Hallazgos que resuelve:** #1, #2, #3, #4, #6, #13, #14 y #16.
 **Listo cuando:** con los EEFF, Split encuentra el estado de resultados y Extract saca sus datos solo de esas páginas. Y el comunicado se extrae una vez con schema manual y otra con automático, para comparar.
 
-### Fase 4 · Bibliotecas: índice compartido, lote, búsqueda y chat · código hecho; la prueba real necesita un plan pago de LlamaCloud (403 con el plan gratis)
+### Fase 4 · Bibliotecas: índice compartido, lote, búsqueda y chat · motor local hecho (LlamaIndex + Voyage AI + DeepSeek) y chat probado; falta sincronizar "BYMA 3T26" (límite de Voyage sin medio de pago). El motor de LlamaCloud necesita un plan pago (403)
 - Crear bibliotecas, y **agregar o sacar** documentos con la sincronización del índice. Es el paso **7** del wizard y también se puede hacer desde la vista de la biblioteca.
 - **Procesar en lote** (`batches`) todos los documentos de una biblioteca con una configuración guardada.
 - La **búsqueda de prueba** con los chunks, su score, su documento y sus páginas.

@@ -92,12 +92,12 @@ export function LibrariesView({ ready }: { ready: boolean }) {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="truncate font-display text-2xl">{library.name}</h2>
               <Button variant="ghost" size="sm" disabled={busy}
-                onClick={() => confirm('¿Borrar la biblioteca? Se borran su índice y su directorio en LlamaCloud (las corridas no se tocan).')
+                onClick={() => confirm(library.engine === 'local' ? '¿Borrar la biblioteca? Se borra su carpeta con el índice (las corridas no se tocan).' : '¿Borrar la biblioteca? Se borran su índice y su directorio en LlamaCloud (las corridas no se tocan).')
                   && act(async () => { await deleteLibrary(library.id); setLibrary(null); })}><Trash2 /> Borrar</Button>
             </div>
             <p className="font-mono text-xs text-muted-foreground">
               {library.engine === 'local'
-                ? `índice local (LlamaIndex) · embeddings ${library.embed_model} · reranker ${library.rerank_model} (Voyage AI)`
+                ? `índice local (LlamaIndex) · embeddings ${library.embed_model} · reranker ${library.rerank_model} (Voyage AI) · chat DeepSeek`
                 : `LlamaCloud · directorio ${library.directory_id} · índice ${library.index_id}`}
             </p>
 
@@ -162,7 +162,7 @@ export function LibrariesView({ ready }: { ready: boolean }) {
                 <TabsTrigger value="buscar">Búsqueda de prueba</TabsTrigger>
               </TabsList>
               <TabsContent value="chat" className="mt-4">
-                <LibraryChat libraryId={library.id} turns={library.turns} disabled={syncing || sync?.state !== 'done'}
+                <LibraryChat libraryId={library.id} turns={library.turns} disabled={syncing || sync?.state !== 'done'} local={library.engine === 'local'}
                   onDone={() => getLibrary(library.id).then(setLibrary)} />
               </TabsContent>
               <TabsContent value="buscar" className="mt-4">

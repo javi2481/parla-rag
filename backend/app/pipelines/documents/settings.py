@@ -27,6 +27,11 @@ class DocumentsSettings(BaseSettings):
     voyage_api_key: str = ""
     library_embed_model: str = "voyage-4"
     library_rerank_model: str = "rerank-2.5"
+    # DeepSeek: el modelo de lenguaje que escribe las respuestas del chat de las bibliotecas locales.
+    deepseek_api_key: str = ""
+    library_chat_model: str = "deepseek-flash"
+    # Cuántas páginas (las mejores según el reranker) se le pasan al modelo en cada pregunta.
+    library_chat_top_k: int = 6
 
     # Cantidad máxima de documentos que se pueden subir por IP por día (0 = sin límite).
     documents_daily_limit: int = 0

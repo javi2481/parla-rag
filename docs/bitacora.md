@@ -346,3 +346,31 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - es compatible con la API de OpenAI y de Anthropic, y sus modelos actuales son `deepseek-flash` (DeepSeek-V4.1-Flash) y `deepseek-v4-pro`;
   - LlamaIndex tiene integración oficial: `llama-index-llms-deepseek` 0.5.0, que se apoya en `llama-index-llms-openai-like`.
 - **Conclusión:** como LlamaParse y LlamaIndex no tienen un modelo propio, los embeddings vienen de un proveedor externo **a través de la integración oficial de LlamaIndex**. Se confirma **Voyage AI** para embeddings y reranker y **DeepSeek** para el chat, las dos con integraciones nativas de LlamaIndex y sin otro framework.
+
+### 14/11 · Fase 4 · Chat local con DeepSeek (unos USD 0,01 de DeepSeek; 0 créditos de LlamaCloud)
+
+- **La API key de DeepSeek** quedó en `backend/.env` (ignorado por git); `.env.example` tiene el lugar vacío. Se probó con `GET /models`, que es gratis: hay `deepseek-flash` (DeepSeek-V4.1-Flash, 1M de contexto) y `deepseek-v4-pro`. El saldo inicial era de USD 1,96.
+- **Integración nativa:** `llama-index-llms-deepseek` 0.5.0, que trae `llama-index-llms-openai-like` y `openai`. Se usa `deepseek-flash` (`LIBRARY_CHAT_MODEL`).
+- **El chat usa el chat engine de LlamaIndex** `CondensePlusContextChatEngine`, sin lógica propia:
+  1. si ya hubo preguntas, DeepSeek reescribe la nueva para que se entienda sola;
+  2. `voyage-4` trae 18 candidatos y `rerank-2.5` deja los 6 mejores (`LIBRARY_CHAT_TOP_K`);
+  3. DeepSeek responde con esos fragmentos, en vivo.
+- **Las instrucciones (system prompt)** le piden responder solo con los fragmentos, decir que el dato no está cuando no está, citar *(documento, pág. N)* y copiar los números tal cual.
+- **Qué se guarda de cada turno**, gracias a la **instrumentación nativa de LlamaIndex** (`RetrievalEndEvent`, `LLMChatEndEvent` y `LLMCompletionEndEvent`):
+  - lo que de verdad se buscó (la pregunta reescrita);
+  - cada llamada al modelo, con el prompt completo, la respuesta y los tokens;
+  - las páginas que leyó el modelo, con su score del reranker;
+  - los eventos que vio la pantalla.
+  
+  Todo queda en `libraries/<id>/chats/local/turno_N.json`. Los tokens se piden con `stream_options.include_usage`, y DeepSeek los manda en el último pedazo de la respuesta, incluidos los de razonamiento.
+- **Los eventos son los mismos que los del chat de LlamaCloud** (`tool_call`, `tool_result`, `text_delta`, `stop`), así que la pantalla casi no cambió. Ahora muestra las páginas que leyó el modelo y, en las bibliotecas locales, "0 créditos de LlamaCloud" en lugar de "100 créditos por turno".
+- **Detalle encontrado:** la reescritura de la pregunta usa `acomplete` (evento de completion) y la respuesta usa `astream_chat` (evento de chat). Al principio solo se registraba la segunda.
+- **Prueba real** (biblioteca "Factura (prueba de chat)", con la factura de una página):
+  - *"¿Cuál es el total de la factura y quién la emite?"* → *$192.978,07*, la Empresa Provincial de la Energía de Santa Fe con su CUIT, y las dos cuotas. Todo citado *(factura_ejemplo.pdf, pág. 1)*. Fueron 3.791 tokens de entrada y 331 de salida.
+  - *"¿Y cuál es su fecha?"* → buscó *"¿Cuál es la fecha de la factura emitida por la Empresa Provincial de la Energía de Santa Fe?"* y respondió *11/11/2026*, con los vencimientos.
+  - *"¿Cuál fue el resultado neto de BYMA en el 3T26?"* (trampa: no está en la factura) → *"Ese dato no está en los documentos de la biblioteca…"*. **No inventó.** Fueron 2 llamadas: 4.862 tokens de entrada y 269 de salida.
+  - En total costó unos **USD 0,01** (el saldo de regalo de DeepSeek bajó de 0,04 a 0,03).
+- **Voyage sigue limitando**, porque no hay un medio de pago cargado:
+  - cada pregunta usa 2 pedidos (embedding de la pregunta y rerank), así que con 3 pedidos por minuto entra 1 pregunta por minuto; la tercera falló hasta esperar;
+  - **ni el comunicado solo entra:** son 11.520 tokens en 15 chunks (contados con el tokenizador de Voyage, gratis), y el límite es de 10.000 por minuto. Por eso la prueba se hizo con la factura. La biblioteca del comunicado se creó y se borró.
+- **Corregido:** la sincronización decía "1 páginas" y "documento(s)"; ahora usa singular y plural.

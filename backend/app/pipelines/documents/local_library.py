@@ -2,36 +2,61 @@
 
 Se usa porque el índice de LlamaCloud necesita un plan pago (ver docs/bitacora.md, 13/11).
 Todo es nativo de la familia LlamaIndex: el framework LlamaIndex (código abierto) arma el índice,
-y Voyage AI hace los embeddings (voyage-4) y el reranking (rerank-2.5) con sus integraciones oficiales.
+Voyage AI hace los embeddings (voyage-4) y el reranking (rerank-2.5), y DeepSeek escribe las respuestas
+del chat (deepseek-flash). Las dos con sus integraciones oficiales de LlamaIndex.
 
     Biblioteca "BYMA 3T26"
      ├── EEFF · Comunicado · Presentación    (corridas del wizard: se usa su parse, NO se vuelve a parsear)
      │      ↓ una página = un documento, con su número y la metadata de identidad
      ├── index/            el índice vectorial de LlamaIndex, guardado en la carpeta (carpeta como DB)
      ├── búsqueda          voyage-4 trae candidatos → rerank-2.5 los ordena por relevancia
-     └── chat              pendiente: hace falta un modelo de lenguaje (Voyage no tiene)
+     └── chat              el chat engine de LlamaIndex: busca como arriba y DeepSeek responde citando documento y página
 
 Mismas funciones y mismas respuestas que library.py, así la pantalla de Bibliotecas no cambia.
 """
 import asyncio
+import json
+import logging
 import os
 from pathlib import Path
 
 import nltk
-
-from llama_index.core import Document, StorageContext, VectorStoreIndex, load_index_from_storage
+from llama_index.core import (
+    Document,
+    StorageContext,
+    VectorStoreIndex,
+    load_index_from_storage,
+)
+from llama_index.core.chat_engine import CondensePlusContextChatEngine
+from llama_index.core.instrumentation import get_dispatcher
+from llama_index.core.instrumentation.event_handlers import BaseEventHandler
+from llama_index.core.instrumentation.events.llm import LLMChatEndEvent, LLMCompletionEndEvent
+from llama_index.core.instrumentation.events.retrieval import RetrievalEndEvent
+from llama_index.core.llms import ChatMessage
 from llama_index.core.schema import QueryBundle
 from llama_index.core.vector_stores import ExactMatchFilter, MetadataFilters
 from llama_index.embeddings.voyageai import VoyageEmbedding
+from llama_index.llms.deepseek import DeepSeek
 from llama_index.postprocessor.voyageai_rerank import VoyageAIRerank
+from pydantic import Field
 
-from app.core.runs.store import RunStore, mark_done, mark_failed, mark_running, now, read_json, write_json
+from app.core.runs.store import (
+    RunStore,
+    mark_done,
+    mark_failed,
+    mark_running,
+    now,
+    read_json,
+    write_json,
+)
 
 from .library import identity_metadata, stamp, summarize_search
 from .settings import DocumentsSettings
 
 # Metadata que se guarda con cada página pero no entra en el embedding (son IDs, no dicen nada del contenido).
 NOT_EMBEDDED = ["corrida", "pagina"]
+
+log = logging.getLogger(__name__)
 
 # Cuántos candidatos trae la búsqueda vectorial por cada resultado final que deja el reranker.
 CANDIDATES_PER_RESULT = 3
@@ -63,6 +88,12 @@ def data_dir_of(store: RunStore) -> Path:
 # El modelo de embeddings de Voyage. Está en una función para que los tests lo reemplacen por uno falso.
 def make_embed_model(settings: DocumentsSettings):
     return VoyageEmbedding(model_name=settings.library_embed_model, voyage_api_key=settings.voyage_api_key)
+
+
+# El modelo de lenguaje del chat (DeepSeek). include_usage hace que DeepSeek mande los tokens usados al final de la respuesta.
+def make_llm(settings: DocumentsSettings):
+    return DeepSeek(model=settings.library_chat_model, api_key=settings.deepseek_api_key,
+                    additional_kwargs={"stream_options": {"include_usage": True}})
 
 
 # El reranker de Voyage. También se reemplaza en los tests.
@@ -173,6 +204,11 @@ async def check_sync(client, store: RunStore, settings: DocumentsSettings, libra
     return library
 
 
+# "1 página", "3 páginas".
+def plural(count: int, one: str, many: str) -> str:
+    return f"{count} {one if count == 1 else many}"
+
+
 # Las métricas y la interpretación de la sincronización local.
 def summarize_sync(library: dict, documents: list[Document], chunks: int, settings: DocumentsSettings) -> dict:
     metricas = [
@@ -184,7 +220,8 @@ def summarize_sync(library: dict, documents: list[Document], chunks: int, settin
         {"label": "Créditos de LlamaCloud", "value": 0},
     ]
     interpretacion = [
-        f"Se indexaron {len(documents)} páginas de {len(library['documents'])} documento(s) en {chunks} chunks, "
+        f"Se indexaron {plural(len(documents), 'página', 'páginas')} de {plural(len(library['documents']), 'documento', 'documentos')} "
+        f"en {plural(chunks, 'chunk', 'chunks')}, "
         "usando el parse que ya hizo el wizard: no se volvió a parsear nada.",
         "El índice está guardado en la carpeta de la biblioteca (index/). Los embeddings los hizo Voyage AI; "
         "los primeros 200 millones de tokens son gratis.",
@@ -205,18 +242,22 @@ def to_filters(filters: dict | None) -> MetadataFilters | None:
     return MetadataFilters(filters=exact)
 
 
+# Abre el índice guardado en la carpeta de la biblioteca.
+def load_index(store: RunStore, settings: DocumentsSettings, library: dict) -> VectorStoreIndex:
+    folder = store.run_dir(library["id"]) / "index"
+    if not folder.is_dir():
+        raise ValueError("Primero hay que sincronizar la biblioteca.")
+    return load_index_from_storage(StorageContext.from_defaults(persist_dir=str(folder)), embed_model=make_embed_model(settings))
+
+
 # Una búsqueda de prueba: voyage-4 trae candidatos y rerank-2.5 deja los más relevantes.
 # Devuelve lo mismo que la búsqueda de LlamaCloud (content, score, rerank_score, metadata, static_fields).
 async def search(client, store: RunStore, settings: DocumentsSettings, library: dict, query: str, top_k: int = 8, filters: dict | None = None) -> dict:
     check_ready(settings)
-    folder = store.run_dir(library["id"]) / "index"
-    if not folder.is_dir():
-        raise ValueError("Primero hay que sincronizar la biblioteca.")
     prepare_nltk(data_dir_of(store))
+    index = load_index(store, settings, library)
 
     def run() -> list:
-        storage = StorageContext.from_defaults(persist_dir=str(folder))
-        index = load_index_from_storage(storage, embed_model=make_embed_model(settings))
         retriever = index.as_retriever(similarity_top_k=top_k * CANDIDATES_PER_RESULT, filters=to_filters(filters))
         candidates = retriever.retrieve(query)
         vector_scores = {node.node.node_id: node.score for node in candidates}
@@ -241,10 +282,149 @@ async def search(client, store: RunStore, settings: DocumentsSettings, library: 
     return result
 
 
-# El chat necesita un modelo de lenguaje que escriba las respuestas, y Voyage AI no tiene. Queda pendiente.
+# Las instrucciones del chat: responder solo con lo que dicen los documentos y citar de dónde sale cada dato.
+SYSTEM_PROMPT = """Sos un asistente que responde preguntas sobre los documentos de una biblioteca. Respondé en español.
+Usá SOLO la información de los fragmentos que se te pasan. Si lo que te preguntan no está en los fragmentos,
+decí que no está en los documentos de la biblioteca: no inventes ni completes con lo que sabés por tu cuenta.
+Después de cada dato, citá de dónde salió con el nombre del documento y la página, así: (BYMA - EEFF.pdf, pág. 12).
+Copiá los números tal como aparecen, con su unidad y su moneda."""
+
+# Cómo se le pasan los fragmentos al modelo. Cada fragmento es una página y empieza con su metadata (nombre, tipo, página).
+CONTEXT_PROMPT = """Estos son los fragmentos de la biblioteca más relevantes para la pregunta.
+Cada uno empieza con su metadata: el nombre del documento, su tipo y la página.
+
+{context_str}
+
+Respondé la pregunta del usuario usando solo estos fragmentos y citando documento y página."""
+
+# Cuando ya hubo preguntas antes, el modelo reescribe la nueva para que se entienda sola (es la que se busca en el índice).
+CONDENSE_PROMPT = """Dada esta conversación y una pregunta nueva, reescribí la pregunta nueva para que se entienda sola,
+sin necesitar la conversación. Respondé solo con la pregunta reescrita.
+
+Conversación:
+{chat_history}
+
+Pregunta nueva: {question}
+Pregunta reescrita:"""
+
+
+# Escucha lo que hace LlamaIndex durante un turno (instrumentación nativa): qué buscó y cada llamada al modelo con sus tokens.
+class TurnRecorder(BaseEventHandler):
+    searches: list = Field(default_factory=list)
+    llm_calls: list = Field(default_factory=list)
+
+    def handle(self, event, **kwargs) -> None:
+        if isinstance(event, RetrievalEndEvent):
+            query = event.str_or_query_bundle
+            self.searches.append({"consulta": query.query_str if isinstance(query, QueryBundle) else str(query),
+                                  "candidatos": len(event.nodes)})
+        elif isinstance(event, LLMCompletionEndEvent):  # la que reescribe la pregunta usa "complete"
+            self.llm_calls.append({"tipo": "completion", "mensajes": [{"rol": "user", "contenido": event.prompt}],
+                                   "respuesta": event.response.text, "usage": usage_of(event.response)})
+        elif isinstance(event, LLMChatEndEvent) and event.response is not None:  # la que responde usa "chat"
+            self.llm_calls.append({"tipo": "chat", "mensajes": [{"rol": m.role.value, "contenido": m.content} for m in event.messages],
+                                   "respuesta": event.response.message.content, "usage": usage_of(event.response)})
+
+
+# Los tokens que informó el modelo en su respuesta (DeepSeek los manda en "usage").
+def usage_of(response) -> dict | None:
+    usage = getattr(response.raw, "usage", None) if response.raw is not None else None
+    return usage.model_dump() if hasattr(usage, "model_dump") else usage
+
+
+# Suma los tokens de todas las llamadas al modelo del turno (la que reescribe la pregunta y la que responde).
+# Las llamadas sin "usage" no suman (el modelo falso de los tests no lo informa).
+def total_usage(llm_calls: list, model: str) -> dict:
+    usages = [call["usage"] or {} for call in llm_calls]
+    reasoning = sum((u.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0 for u in usages)
+    return {
+        "modelo": model,
+        "llamadas_al_modelo": sum(1 for u in usages if u),
+        "tokens_de_entrada": sum(u.get("prompt_tokens") or 0 for u in usages),
+        "tokens_de_salida": sum(u.get("completion_tokens") or 0 for u in usages),
+        "de_esos_razonamiento": reasoning,
+        "tokens_en_cache": sum(u.get("prompt_cache_hit_tokens") or 0 for u in usages),
+    }
+
+
+# Las preguntas y respuestas anteriores del chat, para que el modelo entienda preguntas como "¿y el trimestre anterior?".
+def chat_history(folder: Path) -> list[ChatMessage]:
+    history = []
+    for path in sorted(folder.glob("turno_*.json"), key=lambda p: int(p.stem.split("_")[1])):
+        turn = read_json(path)
+        if turn.get("answer"):
+            history += [ChatMessage(role="user", content=turn["prompt"]), ChatMessage(role="assistant", content=turn["answer"])]
+    return history
+
+
+# Una línea de Server-Sent Events, el mismo formato que manda el chat de LlamaCloud.
+def sse(event: dict) -> str:
+    return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+
+# Un turno de chat con el chat engine de LlamaIndex (condense_plus_context):
+#   1. si ya hubo preguntas, DeepSeek reescribe la nueva para que se entienda sola;
+#   2. voyage-4 busca candidatos y rerank-2.5 deja las mejores páginas;
+#   3. DeepSeek responde con esas páginas, citando documento y página. La respuesta llega en vivo.
+# Manda los mismos eventos que el chat de LlamaCloud (tool_call, tool_result, text_delta, stop) y guarda todo el turno.
 async def chat_turn(client, store: RunStore, settings: DocumentsSettings, library: dict, prompt: str):
-    raise ValueError("El chat de la biblioteca local todavía no tiene un modelo de lenguaje configurado.")
-    yield  # para que sea un generador como el de LlamaCloud
+    check_ready(settings)
+    if not settings.deepseek_api_key:
+        raise ValueError("Falta configurar DEEPSEEK_API_KEY en backend/.env.")
+    prepare_nltk(data_dir_of(store))
+    index = load_index(store, settings, library)
+    folder = store.step_dir(library["id"], "chats/local", reset=False)
+    history = chat_history(folder)
+    top_k = settings.library_chat_top_k
+
+    engine = CondensePlusContextChatEngine.from_defaults(
+        retriever=index.as_retriever(similarity_top_k=top_k * CANDIDATES_PER_RESULT),
+        llm=make_llm(settings),
+        chat_history=history,
+        system_prompt=SYSTEM_PROMPT,
+        context_prompt=CONTEXT_PROMPT,
+        condense_prompt=CONDENSE_PROMPT,
+        node_postprocessors=[make_reranker(settings, top_k)],
+    )
+    recorder = TurnRecorder()
+    dispatcher = get_dispatcher()
+    dispatcher.add_event_handler(recorder)
+    events, answer, sources, error = [], "", [], None
+    try:
+        response = await engine.astream_chat(prompt)
+        search_call = {"type": "tool_call", "call_id": "busqueda", "name": "buscar_en_la_biblioteca",
+                       "arguments": {"busquedas": recorder.searches, "paginas_para_el_modelo": top_k}}
+        sources = [{"documento": node.node.metadata.get("nombre"), "pagina": node.node.metadata.get("pagina"),
+                    "rerank_score": node.score, "metadata": node.node.metadata, "texto": node.node.get_content()}
+                   for node in response.source_nodes]
+        for event in (search_call, {"type": "tool_result", "call_id": "busqueda", "result": sources}):
+            events.append(event)
+            yield sse(event)
+        async for token in response.async_response_gen():
+            answer += token
+            event = {"type": "text_delta", "content": token}
+            events.append(event)
+            yield sse(event)
+    except Exception as e:  # el error se muestra en el chat y queda guardado en el turno
+        log.exception("Chat local")
+        error = str(e)[:500]
+        events.append({"type": "error", "content": f"No se pudo responder: {error}"})
+        yield sse(events[-1])
+    finally:
+        dispatcher.event_handlers.remove(recorder)
+
+    usage = total_usage(recorder.llm_calls, settings.library_chat_model)
+    stop = {"type": "stop", "usage": usage}
+    events.append(stop)
+    yield sse(stop)
+    number = len(list(folder.glob("turno_*.json"))) + 1
+    write_json(folder / f"turno_{number}.json", {
+        "at": now(), "prompt": prompt, "answer": answer, "error": error, "engine": "local",
+        "request": {"chat_model": settings.library_chat_model, "embed_model": settings.library_embed_model,
+                    "rerank_model": settings.library_rerank_model, "top_k": top_k, "historial": len(history) // 2},
+        "searches": recorder.searches, "sources": sources, "llm_calls": recorder.llm_calls, "usage": usage,
+        "events_raw": [sse(event).strip() for event in events],
+    })
 
 
 # Borra la biblioteca: es solo la carpeta, no hay nada en LlamaCloud.
