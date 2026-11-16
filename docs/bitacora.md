@@ -387,3 +387,24 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
 - **Resultado:** 17 tests pasan (los 10 que faltan eran de audio) y el frontend compila.
 - **Documentación nueva:** [estado.md](estado.md) (hecho, pendiente en orden y roadmap), el README reescrito, el plan actualizado al código real y `CLAUDE.md` con las reglas del proyecto.
 - **Queda pendiente decidir** cómo se suma la transcripción del audio a una biblioteca ahora que son dos proyectos. Ver [estado.md](estado.md#integración-con-parla-audio).
+
+### 16/11 · Fase 4 · Sincronización de "BYMA 3T26" y prueba del chat con los 3 documentos (0 créditos de LlamaCloud; tokens gratis de Voyage; menos de USD 0,01 de DeepSeek)
+
+- **El usuario cargó un medio de pago en Voyage AI.** El límite de 3 pedidos y 10.000 tokens por minuto desapareció: la sincronización que antes fallaba terminó en **7 segundos**.
+- **Arreglo del entorno:** el `.venv` se había copiado del proyecto viejo y sus ejecutables apuntaban a `/home/javier/Parla/` (`uv run uvicorn` fallaba con *"Failed to spawn"*). Se rehízo con `uv sync --reinstall`. No cambia nada del repo.
+- **Sincronización 1** (3 documentos): **111 páginas en 229 chunks** (EEFF 187, presentación 27, comunicado 15).
+- **Tokens de Voyage, contados con su tokenizador (gratis):** el índice completo son **184.038 tokens** (EEFF 153.618, presentación 20.055, comunicado 10.365). El estimado anterior (102.000) era bajo. Las tres sincronizaciones de hoy suman unos **542.000 tokens** (184.038 + 173.673 + 184.038), dentro de los 200 millones gratis. Voyage no devuelve el conteo en la sincronización, así que es un conteo del texto de los chunks. LlamaIndex también manda parte de la metadata, por lo que lo real puede ser un poco más.
+- **Prueba del "listo cuando":** *"¿El resultado neto del comunicado coincide con el de los estados financieros?"*
+  - Buscó la pregunta tal cual (era el primer turno) y el reranker dejó 6 páginas. La primera fue la pág. 10 del comunicado, con 0,72.
+  - Respondió **"Sí, coinciden (con redondeo a miles)"**: 22,162 (miles de ARS, comunicado pág. 3) contra 22.161.940 ARS (EEFF pág. 4). También comparó el 3T25 (39,074 contra 39.074.003) y el impuesto a las ganancias.
+  - **Verificado contra el parse:** 22.161.940, 39.074.003 y 13.304.682 están en la pág. 4 de los EEFF, y 22,162 y 39,074 en la pág. 3 del comunicado. Las citas son correctas.
+  - En la misma fila del comunicado hay otro par (56,801 / 52,414, −8 %) que no coincide con ninguna cifra de los EEFF. El modelo **dijo que no podía conciliarlo**, en lugar de inventar una explicación. El fragmento no trae el encabezado de esas columnas, así que no se sabe qué representan.
+  - Tokens: 5.362 de entrada y 4.874 de salida (4.164 de razonamiento), 1 llamada.
+- **Sacar un documento:** se sacó el comunicado y se volvió a sincronizar. Quedaron 2 documentos, 101 páginas y 214 chunks (los 15 del comunicado ya no estaban).
+  - Pregunta: *"¿Qué páginas del comunicado de prensa tenés en los fragmentos de ahora?"*. DeepSeek la reescribió con el historial y la búsqueda trajo **solo páginas de los EEFF y la presentación**. **El chat ya no usa el documento sacado.**
+  - Respondió que no había fragmentos del comunicado y **descartó sus propias citas del turno anterior** porque no estaban en los fragmentos de ahora. Hizo lo mismo con las cifras de los EEFF, aunque esas sí existen (en páginas que esta búsqueda no trajo). Es la regla del system prompt: responder solo con los fragmentos del turno.
+  - **Un error chico:** describió la pág. 1 de la presentación como "única página", y la presentación tiene 15. Quiso decir que era la única página de la presentación que llegó en los fragmentos, pero lo dijo mal.
+  - Tokens: 3.213 de entrada y 1.224 de salida, 2 llamadas (la reescritura y la respuesta).
+  - **Ojo:** el historial del chat sigue después de sacar un documento. Las respuestas viejas, con citas a ese documento, quedan en la memoria del chat. La búsqueda nueva no lo trae, pero el modelo lo ve en el historial.
+- **Se volvió a agregar el comunicado** y se sincronizó de nuevo (sincronización 3): 3 documentos, 111 páginas, 229 chunks. La biblioteca queda completa para la clase, con 2 turnos de chat guardados.
+- **DeepSeek:** el saldo siguió en USD 1,96 (0,03 de regalo). Los 2 turnos costaron menos de un centavo.

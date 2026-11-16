@@ -1,6 +1,6 @@
 # Estado del proyecto · Parla RAG
 
-**Última actualización:** 15/11/2026 · **Commit de partida:** `c3660a9` (antes de separar Parla en dos proyectos)
+**Última actualización:** 16/11/2026 · **Commit de partida:** `c3660a9` (antes de separar Parla en dos proyectos)
 
 Este archivo es el resumen para retomar el trabajo: qué está hecho, qué falta y en qué orden, y qué queda para después.
 El detalle de cada prueba, con sus datos y lo que costó, está en la [bitácora](bitacora.md). El diseño completo está en el [plan](plan.md).
@@ -30,7 +30,7 @@ La conexión entre los dos (sumar la transcripción del audio a una biblioteca) 
 | 1 | Informe: relevamiento de la API de LlamaCloud y 16 hallazgos | ✅ Hecha |
 | 2 | Motor de corridas (carpeta-DB), wizard base, Subir y Parse | ✅ Hecha y probada con LlamaCloud real |
 | 3 | Split, Classify, Schema (manual o automático) y Extract, con cajas sobre las capturas | ✅ Hecha y probada en los EEFF y en el comunicado |
-| 4 | Bibliotecas: índice compartido, búsqueda y chat | 🟡 **Casi**: el motor local funciona y el chat está probado; falta sincronizar "BYMA 3T26" (límite de Voyage) |
+| 4 | Bibliotecas: índice compartido, búsqueda y chat | ✅ Hecha con el motor local: "BYMA 3T26" sincronizada y el chat probado con los 3 documentos |
 | 5 | Audio | ➡️ Se fue a **parla-audio** |
 | 6 | Cierre para la clase | ⏳ Pendiente |
 
@@ -97,16 +97,14 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 
 ## ⏳ Lo pendiente, en orden
 
-### 1. Terminar la fase 4 (bloqueado por Voyage)
+### 1. Terminar la fase 4 ✅ (16/11)
 
-- [ ] **Cargar un medio de pago en Voyage AI** ([dashboard](https://dashboard.voyageai.com/)). Sin tarjeta permite **3 pedidos y 10.000 tokens por minuto**. Con tarjeta se mantienen los 200 millones de tokens gratis. *Lo hace el usuario.*
-  - Hoy ni el comunicado solo entra: son 11.520 tokens en 15 chunks. "BYMA 3T26" completa son unos 102.000.
-  - El chat también sufre: cada pregunta usa 2 pedidos (embedding y rerank), así que entra una por minuto.
-  - **Plan B si no se carga la tarjeta:** escribir una espera entre lotes de embeddings. Es código propio, así que solo si hace falta.
-- [ ] **Sincronizar "BYMA 3T26"** (`2026-11-14_192312_byma-3t26`, ya tiene los 3 documentos; su sincronización quedó en "falló").
-- [ ] **Probar el "listo cuando" de la fase 4:** *"¿el resultado neto del comunicado coincide con el de los estados financieros?"*. Tiene que responder citando los dos documentos y mostrar qué buscó.
-- [ ] **Sacar un documento, volver a sincronizar** y comprobar que el chat ya no lo usa.
-- [ ] Registrar todo en la bitácora (tokens de Voyage, costo de DeepSeek).
+- [x] **Medio de pago cargado en Voyage AI**: se fue el límite de 3 pedidos y 10.000 tokens por minuto.
+- [x] **"BYMA 3T26" sincronizada:** 111 páginas, 229 chunks, unos 184.000 tokens de Voyage (gratis), 7 segundos.
+- [x] **"Listo cuando" de la fase 4:** respondió que el resultado neto coincide (22,162 miles en el comunicado, pág. 3, y 22.161.940 en los EEFF, pág. 4), citando los dos documentos. Las citas se verificaron contra el parse.
+- [x] **Sacar un documento y volver a sincronizar:** sin el comunicado, la búsqueda ya no trae páginas de él. Después se volvió a agregar.
+- [x] Registrado en la bitácora (16/11).
+- **Para tener en cuenta:** el historial del chat sigue después de sacar un documento, así que las respuestas viejas quedan en la memoria del chat. No hay un botón para empezar un chat nuevo: evaluarlo para la clase.
 
 ### 2. Unificar la identidad de los documentos
 
@@ -172,7 +170,7 @@ En `backend/data/` hay datos generados que **no se suben al repo** (pesan mucho 
 | Carpeta | Qué hay |
 |---|---|
 | `documents/runs/` | 6 corridas: comunicado (2), presentación (2), EEFF y factura |
-| `documents/libraries/` | "BYMA 3T26" (3 documentos, sin sincronizar) y "Factura (prueba de chat)" (sincronizada, con 4 turnos de chat) |
+| `documents/libraries/` | "BYMA 3T26" (3 documentos, sincronizada, con 2 turnos de chat) y "Factura (prueba de chat)" (sincronizada, con 4 turnos de chat) |
 | `verificacion/` | Los datos crudos de las verificaciones 1 y 2 |
 | `nltk/` | Los datos de NLTK que usa LlamaIndex para cortar el texto en oraciones (se bajan solos) |
 
