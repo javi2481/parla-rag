@@ -112,7 +112,7 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - [x] Se volvieron a agregar a la biblioteca y se sincronizó. Los 3 documentos tienen `emisor: BYMA` y `periodo: 3T26`, y el filtro por `emisor`, `tipo` y `periodo` funciona.
 - **Quedó pendiente:** `fecha_de_cierre` viene en dos formatos distintos (el problema de `format: date`) y la presentación no la tiene, así que no sirve para filtrar.
 - **Hallazgo para decidir:** el corte en chunks separa las tablas de sus encabezados (unidades, histórico o ajustado por inflación), y el chat **supuso** las unidades. Se puede probar el separador de Markdown nativo de LlamaIndex. Ver la bitácora del 16/11.
-- **Detalles chicos:** la búsqueda dice "documento(s)". (El 500 del filtro mal armado se arregló el 16/11: ahora responde 409 con el formato correcto.)
+- **Detalles chicos:** resueltos el 16/11. El filtro mal armado responde 409 con el formato correcto, y los plurales ("1 documento", "1 fragmento", "1 parse nuevo") salen bien.
 
 ### 2b. Evals de las bibliotecas ✅ primera versión (16/11)
 
@@ -121,11 +121,11 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - [ ] **El usuario tiene que revisar el set**, sobre todo `datos-de-mercado-3t25` (marcada `a_revisar`).
 - [x] **Separador decidido (16/11): `pagina` por defecto** (una página = un chunk). En los evals de BYMA dio MRR 0,84 y 13 de 13 respuestas correctas (oraciones: 0,71 y 12 de 13; markdown: 0,76 y 11 de 13). Usa el doble de tokens de DeepSeek por pregunta. Las bibliotecas creadas antes siguen con `oraciones`.
 - [x] **Biblioteca principal: "BYMA 3T26"** (`2026-11-16_123606_byma-3t26-una-pagina-un-chunk`, separador `pagina`). Las dos pruebas (`· prueba: oraciones` y `· prueba: markdown`) **se dejan a propósito**, para que quede la trazabilidad y se pueda mostrar en la clase por qué ganó. La pantalla muestra el corte de cada biblioteca.
-- [ ] Mostrar los evals en la pantalla de la biblioteca (hoy solo se ven por la API y en la carpeta).
+- [x] **Evals en la pantalla** (16/11): pestaña "Evals" en cada biblioteca local, con las corridas guardadas (métricas, interpretación y una fila por pregunta que se abre con la respuesta y la explicación del juez) y un botón para correrlos. Si se incluyen las respuestas, primero pide confirmación porque DeepSeek cobra.
 
 ### 3. Lo que falta del plan original de la fase 4
 
-- [ ] **Paso 7 del wizard, "Biblioteca":** hoy un documento se suma desde la pestaña Bibliotecas. El plan pedía también un botón al final del wizard.
+- [x] **Paso 7 del wizard, "Biblioteca"** (16/11): un paso más en el Stepper, que arma la pantalla, con el parse terminado como requisito. Muestra en qué bibliotecas ya está la corrida y permite sumarla a otra, sin gastar créditos. Usa el mismo endpoint que la pestaña Bibliotecas.
 - [ ] **Procesar en lote** (`batches` de LlamaCloud): necesita el plan pago, igual que el índice. Con el motor local no hace falta para el índice, pero sí serviría para parsear varios PDFs de una vez.
 - [ ] **Medir el índice de LlamaCloud** cuando haya plan: si el sync reutiliza un parse ya hecho o vuelve a cobrar (el código ya lo mide con `parsing.list`), y la caché de 48 horas.
 
@@ -141,7 +141,7 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - [ ] Revisar los comentarios del código.
 - [ ] Dejar listas en `data/` las corridas y la biblioteca "BYMA 3T26" sincronizada, por si falla el wifi en clase.
 - [ ] Escribir un **guion corto de la demo**: qué mostrar en cada paso y qué preguntarle al chat. Sugeridos: la página 8 del comunicado (gráficos), los 8 ceros inventados del schema automático, la pregunta trampa del chat.
-- [ ] **Correr todo con Docker de punta a punta.** Ojo: la primera sincronización baja los datos de NLTK (necesita internet) a `data/nltk/`.
+- [ ] **Correr todo con Docker de punta a punta.** Ojo: la primera sincronización baja los datos de NLTK (necesita internet) a `data/nltk/`. **Bloqueado del lado de Claude** (16/11): el usuario no está en el grupo `docker` y no está el plugin `docker compose`. Ya se corrigió, sin probarlo todavía, que la imagen no traía `data/samples/`: sin eso, los evals daban 404 en Docker.
 
 ### 6. Detalles técnicos conocidos
 

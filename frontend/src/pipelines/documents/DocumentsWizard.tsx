@@ -4,11 +4,13 @@ import { Dropzone } from '@/components/Dropzone';
 import { RunList } from '@/components/wizard/RunList';
 import { StepPanel } from '@/components/wizard/StepPanel';
 import { Stepper } from '@/components/wizard/Stepper';
+import { listLibraries, type Library } from './libraries/api';
 import { checkStep, createRun, deleteRun, fileUrl, getRun, listRuns, startStep, type Run, type Step } from './api';
 import { ClassifyOptions, ClassifyStep, initialClassifyOptions } from './steps/ClassifyStep';
 import { ExtractOptions, ExtractStep, initialExtractOptions } from './steps/ExtractStep';
 import { ParseStep } from './steps/ParseStep';
 import { initialSchemaOptions, SchemaOptions, SchemaStep, schemaRequest } from './steps/SchemaStep';
+import { LibraryStep } from './steps/LibraryStep';
 import { initialSplitOptions, SplitOptions, SplitStep } from './steps/SplitStep';
 import { UploadStep } from './steps/UploadStep';
 
@@ -48,12 +50,14 @@ export function DocumentsWizard({ ready, maxUploadMb }: { ready: boolean; maxUpl
   const [options, setOptions] = useState<Record<string, unknown>>({});
   // true mientras se espera la respuesta al arrancar un paso (Schema responde en el momento, pero tarda).
   const [busy, setBusy] = useState(false);
+  // Las bibliotecas, para el paso 7: a cuáles ya se sumó la corrida y a cuáles se puede sumar.
+  const [libraries, setLibraries] = useState<Library[]>([]);
 
   // Al cambiar de corrida, los editores vuelven a arrancar con lo guardado en esa corrida.
   useEffect(() => { setOptions({}); }, [run?.id]);
 
   // Al entrar se cargan las corridas guardadas.
-  useEffect(() => { refreshRuns(); }, []);
+  useEffect(() => { refreshRuns(); refreshLibraries(); }, []);
 
   // Mientras haya un paso corriendo, se consulta cada POLL_MS hasta que termine.
   useEffect(() => {
@@ -70,6 +74,11 @@ export function DocumentsWizard({ ready, maxUploadMb }: { ready: boolean; maxUpl
     }, POLL_MS);
     return () => clearTimeout(timer);
   }, [run]);
+
+  // Vuelve a pedir la lista de bibliotecas (si falla, el paso 7 queda sin opciones, el wizard sigue andando).
+  async function refreshLibraries() {
+    try { setLibraries(await listLibraries()); } catch { setLibraries([]); }
+  }
 
   // Vuelve a pedir la lista de corridas.
   async function refreshRuns() {
@@ -138,6 +147,12 @@ export function DocumentsWizard({ ready, maxUploadMb }: { ready: boolean; maxUpl
   const View = step ? STEP_VIEWS[step.name] : undefined;
   const anyRunning = run?.steps.some(s => s.state === 'running') ?? false;
   const optionsConfig = step ? STEP_OPTIONS[step.name] : undefined;
+  // El paso 7 no es un paso de LlamaCloud: lo arma la pantalla, con el parse terminado como requisito.
+  const parsed = run?.steps.find(s => s.name === 'parse')?.state === 'done';
+  const inLibrary = libraries.some(library => library.documents.some(doc => doc.run_id === run?.id));
+  const stepperItems = run ? [...run.steps, {
+    name: 'biblioteca', number: run.steps.length + 1, title: 'Biblioteca', state: inLibrary ? 'done' : 'pending', locked: !parsed,
+  }] : [];
 
   return (
     <div className="mt-10 grid gap-8 lg:grid-cols-[18rem_1fr]">
@@ -160,7 +175,8 @@ export function DocumentsWizard({ ready, maxUploadMb }: { ready: boolean; maxUpl
               <h2 className="truncate font-display text-2xl">{run.name}</h2>
               <span className="font-mono text-xs text-muted-foreground">Total gastado: {run.total_credits} créditos</span>
             </div>
-            <Stepper steps={run.steps} selected={selected} onSelect={setSelected} />
+            <Stepper steps={stepperItems} selected={selected} onSelect={setSelected} />
+            {selected === 'biblioteca' && <LibraryStep runId={run.id} parsed={parsed} libraries={libraries} onAdded={refreshLibraries} />}
             {step && (
               <StepPanel step={step} fileHref={path => fileUrl(run.id, path)}
                 onStart={step.name === 'upload' ? undefined : () => start(step)} canStart={!anyRunning && !busy} busy={busy}

@@ -165,4 +165,8 @@ def test_local_library_evals(setup, monkeypatch):
     # Cada corrida queda en su carpeta: libraries/<id>/evals/<fecha>/.
     runs = sorted((tmp_path / "documents" / "libraries" / library["id"] / "evals").iterdir())
     assert {p.name for p in runs[-1].iterdir()} == {"request.json", "resultados.json", "metrics.json"}
+    # La pantalla de la biblioteca trae las corridas guardadas, la más nueva primero y sin las llamadas crudas al modelo.
+    saved = client.get(base).json()["evals"]
+    assert len(saved) == 2 and saved[0]["request"]["respuestas"] is True and saved[0]["metricas"]
+    assert "llamadas_al_modelo" not in saved[0]["resultados"][0]["respuesta"]
     assert client.post(f"{base}/evals", json={"conjunto": "no-existe"}).status_code == 404

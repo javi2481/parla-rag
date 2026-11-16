@@ -225,6 +225,9 @@ flowchart TD
 - **Una cita válida y una confianza alta no garantizan el dato:** la cita apuntaba a un "0 %" real, pero del renglón "Mercado". Solo **la caja dibujada sobre la captura** mostró que era otro renglón.
 - Por eso el wizard trae la opción **"solo identidad obligatoria"** y avisa cuando todos los campos son obligatorios. Con ella, en la presentación, el campo obligatorio `fecha_de_cierre` volvió **vacío** en vez de inventado: la presentación no dice esa fecha.
 
+<p align="center"><img src="docs/figuras/wizard_extract_citas.png" alt="Paso Extract del wizard: métricas de confianza y cajas sobre la captura de la página" width="820"></p>
+<p align="center"><sub>El paso Extract con el comunicado: 11 de 11 campos con valor, la confianza de cada uno y la caja verde sobre la captura de la página citada.</sub></p>
+
 ## 4. Bibliotecas: quién hace qué
 
 Una biblioteca junta documentos del wizard para **buscar y chatear con todos a la vez**. No se vuelve a parsear nada: se usa el Markdown que ya hizo LlamaParse.
@@ -271,6 +274,10 @@ sequenceDiagram
 - **Cada turno queda auditado** en `chats/local/turno_N.json`, gracias a la instrumentación nativa de LlamaIndex: la consulta que se buscó de verdad, las páginas con su score, el prompt completo de cada llamada y los tokens (incluidos los de razonamiento).
 - **Las instrucciones** piden responder solo con los fragmentos, decir que el dato no está cuando no está, citar documento y página y copiar los números con su unidad.
 - **¿Por qué un motor local?** El índice de LlamaCloud necesita un plan pago (con el gratis responde 403). El motor de LlamaCloud también está escrito (`library.py`) y se elige con `LIBRARY_ENGINE`. LlamaParse no tiene embeddings propios, así que Voyage y DeepSeek entran por las **integraciones oficiales de LlamaIndex**.
+- **Del wizard a la biblioteca:** el paso 7 del wizard suma la corrida a una biblioteca sin volver a parsear y sin gastar créditos. Los embeddings se calculan recién al sincronizar.
+
+<p align="center"><img src="docs/figuras/wizard_paso7_biblioteca.png" alt="Paso 7 del wizard: sumar el documento a una biblioteca" width="820"></p>
+<p align="center"><sub>El paso 7 con los EEFF: ya están en la biblioteca principal y en las dos de prueba.</sub></p>
 
 ## 5. Chunking: oraciones vs. markdown vs. página
 
@@ -350,7 +357,10 @@ flowchart TD
 | ¿Cuántos empleados tiene BYMA? (trampa) | 5 | 5 | 5 |
 | **Fieles a los fragmentos** | 13 de 13 | 13 de 13 | 13 de 13 |
 
-Todas las preguntas, con su puntaje y la página encontrada, están en [`docs/resultados/`](docs/resultados/).
+Todas las preguntas, con su puntaje y la página encontrada, están en [`docs/resultados/`](docs/resultados/). En la app se ven en la pestaña **Evals** de cada biblioteca local, que también permite volver a correrlos:
+
+<p align="center"><img src="docs/figuras/biblioteca_evals.png" alt="Pestaña Evals de la biblioteca BYMA 3T26: métricas y resultado por pregunta" width="820"></p>
+<p align="center"><sub>La corrida de "BYMA 3T26" (corte por página): MRR 0,841, 13 de 13 respuestas correctas y fieles. Cada fila se abre con la respuesta, las páginas y la explicación del juez.</sub></p>
 
 **El eval también encontró errores en el set.** Es lo más didáctico de esta etapa:
 
@@ -472,6 +482,7 @@ Las claves se leen de `backend/.env` al arrancar y nunca entran en la imagen; lo
 ├── docs/
 │   ├── estado.md                      # hecho, pendiente y roadmap
 │   ├── bitacora.md                    # cada prueba, hallazgo y decisión, con el registro de créditos
+│   ├── figuras/                       # capturas de la app para este README
 │   ├── resultados/                    # los resultados de los evals, en CSV
 │   └── …                              # el plan, el informe de la API y las verificaciones
 ├── CLAUDE.md                          # las reglas del proyecto

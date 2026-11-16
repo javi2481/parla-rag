@@ -18,6 +18,18 @@ export type ChatEvent = { type: string; content?: string; name?: string; argumen
   image_attachment?: { attachment_name: string; source_id: string } | null; usage?: Record<string, unknown>; error?: string | null };
 export type Turn = { at: string; prompt: string; events: ChatEvent[]; summary?: { job_metadata?: Record<string, unknown> } | null };
 
+// Una corrida de evals guardada (libraries/<id>/evals/<fecha>/): cómo se corrió, el resultado de cada pregunta y el resumen.
+export type EvalResult = {
+  id: string; tipo: string; pregunta: string; respuesta_esperada: string;
+  busqueda?: { hit_rate: number; mrr: number; paginas_esperadas: string[]; paginas_encontradas: string[] };
+  respuesta?: { respuesta: string; fiel_a_los_fragmentos: boolean; fidelidad_explicacion: string | null;
+    correccion: number | null; correcta: boolean; correccion_explicacion: string | null };
+};
+export type EvalRun = {
+  carpeta: string; resultados: EvalResult[]; metricas: Metric[]; interpretacion: string[];
+  request: { conjunto: string; preguntas: number; candidatos: number; respuestas: boolean; splitter: string; juez: string | null };
+};
+
 export type Library = {
   id: string; name: string; created_at: string; description?: string;
   // engine "local": índice en nuestro servidor (LlamaIndex + Voyage AI). Sin engine: índice de LlamaCloud.
@@ -26,7 +38,7 @@ export type Library = {
   directory_id?: string; index_id?: string; parse_configuration_id?: string;
   documents: LibraryDocument[]; needs_sync: boolean; chat_session_id?: string;
   steps: { sync: { state: string; started_at?: string; finished_at?: string; credits?: number; index_status?: string; error?: string; metricas?: Metric[]; interpretacion?: string[] } };
-  searches: Search[]; turns: Turn[];
+  searches: Search[]; turns: Turn[]; evals?: EvalRun[];
 };
 
 const BASE = '/api/documents/libraries';
@@ -40,6 +52,8 @@ export const addDocument = (id: string, runId: string) => api<Library>(`${BASE}/
 export const removeDocument = (id: string, runId: string) => api<Library>(`${BASE}/${id}/documents/${runId}`, { method: 'DELETE' });
 export const startSync = (id: string) => api<Library>(`${BASE}/${id}/sync`, { method: 'POST' });
 export const checkSync = (id: string) => api<Library>(`${BASE}/${id}/sync`);
+export const runEvals = (id: string, conjunto: string, respuestas: boolean) =>
+  api<EvalRun>(`${BASE}/${id}/evals`, json({ conjunto, respuestas }));
 export const search = (id: string, query: string, topK: number) => api<Search>(`${BASE}/${id}/search`, json({ query, top_k: topK }));
 
 // Un turno de chat: va llamando a onEvent con cada evento a medida que llega (Server-Sent Events: líneas "data: {...}").

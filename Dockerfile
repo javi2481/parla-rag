@@ -17,9 +17,11 @@ WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY backend/app ./app
+# Los documentos de ejemplo y el set de preguntas de los evals (en un volumen nuevo, Docker los copia la primera vez).
+COPY backend/data/samples ./data/samples
 COPY --from=frontend /web/dist /app/frontend/dist
 
-RUN useradd --create-home --uid 1000 appuser && mkdir -p data && chown appuser data
+RUN useradd --create-home --uid 1000 appuser && mkdir -p data && chown -R appuser data
 USER appuser
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \

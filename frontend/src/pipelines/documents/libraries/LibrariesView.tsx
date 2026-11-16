@@ -6,6 +6,7 @@ import { INPUT } from '@/components/wizard/RowsEditor';
 import { listRuns, type Run } from '../api';
 import { addDocument, checkSync, createLibrary, deleteLibrary, getLibrary, listLibraries, removeDocument, startSync, type Library } from './api';
 import { LibraryChat } from './LibraryChat';
+import { LibraryEvals } from './LibraryEvals';
 import { LibrarySearch } from './LibrarySearch';
 
 // Cada cuánto se consulta la sincronización mientras corre.
@@ -77,7 +78,7 @@ export function LibrariesView({ ready }: { ready: boolean }) {
               <button type="button" onClick={() => act(() => getLibrary(item.id))}
                 className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${library?.id === item.id ? 'border-primary bg-primary/10' : 'border-glass-border bg-glass/40'}`}>
                 <span className="block truncate">{item.name}</span>
-                <span className="text-xs text-muted-foreground">{item.documents.length} documento(s)</span>
+                <span className="text-xs text-muted-foreground">{item.documents.length} {item.documents.length === 1 ? 'documento' : 'documentos'}</span>
               </button>
             </li>
           ))}
@@ -160,6 +161,7 @@ export function LibrariesView({ ready }: { ready: boolean }) {
               <TabsList>
                 <TabsTrigger value="chat">Chat</TabsTrigger>
                 <TabsTrigger value="buscar">Búsqueda de prueba</TabsTrigger>
+                {library.engine === 'local' && <TabsTrigger value="evals">Evals</TabsTrigger>}
               </TabsList>
               <TabsContent value="chat" className="mt-4">
                 <LibraryChat libraryId={library.id} turns={library.turns} disabled={syncing || sync?.state !== 'done'} local={library.engine === 'local'}
@@ -169,6 +171,12 @@ export function LibrariesView({ ready }: { ready: boolean }) {
                 <LibrarySearch libraryId={library.id} searches={library.searches} disabled={syncing || sync?.state !== 'done'}
                   onDone={() => getLibrary(library.id).then(setLibrary)} />
               </TabsContent>
+              {library.engine === 'local' && (
+                <TabsContent value="evals" className="mt-4">
+                  <LibraryEvals libraryId={library.id} runs={library.evals ?? []} disabled={syncing || sync?.state !== 'done'}
+                    onDone={() => getLibrary(library.id).then(setLibrary)} />
+                </TabsContent>
+              )}
             </Tabs>
           </>
         )}

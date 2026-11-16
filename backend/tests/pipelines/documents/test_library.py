@@ -130,7 +130,7 @@ def test_library_end_to_end(setup):
     # Buscar, con filtro por metadata.
     result = client.post(f"{base}/search", json={"query": "resultado neto", "filters": {"tipo": {"operator": "eq", "value": "x"}}}).json()
     assert result["response"]["results"][0]["score"] == 0.9
-    assert "Encontró 1 fragmentos de 1 documento(s): EEFF.pdf." in result["interpretacion"]
+    assert "Encontró 1 fragmento de 1 documento: EEFF.pdf." in result["interpretacion"]
 
     # Chatear: los eventos llegan tal cual y el turno queda guardado.
     with client.stream("POST", f"{base}/chat", json={"prompt": "¿Cuál fue el resultado neto?"}) as response:

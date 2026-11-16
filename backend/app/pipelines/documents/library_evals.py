@@ -148,6 +148,21 @@ def summarize(library: dict, results: list[dict], candidates: int, with_answers:
     return {"metricas": metricas, "interpretacion": interpretacion}
 
 
+# Las corridas de evals guardadas de una biblioteca, de la más nueva a la más vieja, para mostrarlas en la pantalla.
+# Se saca el detalle de las llamadas al modelo (pesa mucho y la pantalla no lo usa): queda en disco para auditar.
+def saved_runs(library_folder) -> list[dict]:
+    runs = []
+    for folder in sorted((library_folder / "evals").glob("*/"), reverse=True):
+        if not (folder / "metrics.json").is_file():
+            continue
+        results = read_json(folder / "resultados.json")
+        for result in results:
+            result.get("respuesta", {}).pop("llamadas_al_modelo", None)
+        runs.append({"carpeta": folder.name, "request": read_json(folder / "request.json"),
+                     "resultados": results, **read_json(folder / "metrics.json")})
+    return runs
+
+
 # Corre los evals de una biblioteca: la búsqueda de cada pregunta y, si se pide, también la respuesta juzgada.
 # Guarda todo en libraries/<id>/evals/<fecha>/.
 async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict, name: str = "byma",
@@ -176,7 +191,14 @@ async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict,
                "embed_model": settings.library_embed_model, "rerank_model": settings.library_rerank_model,
                "juez": settings.library_chat_model if with_answers else None}
     summary = summarize(library, results, candidates, with_answers)
-    folder = store.step_dir(library["id"], f"evals/{stamp()}")
+    # Una carpeta por corrida. Si ya hay una con la misma fecha y hora (dos corridas en el mismo segundo), se le suma un número.
+    base = name = stamp()
+    evals_dir = store.run_dir(library["id"]) / "evals"
+    for n in range(2, 100):
+        if not (evals_dir / name).exists():
+            break
+        name = f"{base}_{n}"
+    folder = store.step_dir(library["id"], f"evals/{name}")
     write_json(folder / "request.json", request)
     write_json(folder / "resultados.json", results)
     write_json(folder / "metrics.json", summary)

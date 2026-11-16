@@ -213,7 +213,7 @@ def summarize_sync(library: dict, index: dict, jobs: list[dict]) -> dict:
     interpretacion = []
     if jobs:
         interpretacion.append(
-            f"Durante la sincronización LlamaCloud creó {len(jobs)} parse(s) nuevo(s), por {credits} créditos: "
+            f"Durante la sincronización LlamaCloud creó {len(jobs)} {'parse nuevo' if len(jobs) == 1 else 'parses nuevos'}, por {credits} créditos: "
             "el índice vuelve a leer los documentos, no reutiliza el parse del wizard."
         )
     else:
@@ -248,7 +248,7 @@ def summarize_search(response: dict) -> dict:
     ]
     interpretacion = []
     if results:
-        interpretacion.append(f"Encontró {len(results)} fragmentos de {len(documents)} documento(s): " + ", ".join(sorted(documents)) + ".")
+        interpretacion.append(f"Encontró {len(results)} {'fragmento' if len(results) == 1 else 'fragmentos'} de {len(documents)} {'documento' if len(documents) == 1 else 'documentos'}: " + ", ".join(sorted(documents)) + ".")
     else:
         interpretacion.append("No encontró nada parecido a la pregunta.")
     return {"metricas": metricas, "interpretacion": interpretacion}

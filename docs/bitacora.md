@@ -632,3 +632,20 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - una variable sin usar en un test, renombrada a `_tmp_path`.
 - **A propósito:** quedan 3 `except Exception`, en los borrados de LlamaCloud. Si falla una pieza, se avisa en el log y se sigue con el resto. Llevan `# noqa: BLE001` con el motivo.
 - **CI:** `uvx ruff check .` corre antes de los tests. Resultado: 0 avisos y los 18 tests pasan.
+
+### 16/11 · Paso 7 del wizard, evals en la pantalla, capturas en el README y Docker (sin costo)
+
+- **Paso 7, "Biblioteca":** es un paso más en el Stepper del wizard, que arma el frontend (no es un paso de LlamaCloud). Requisito: el parse terminado.
+  - Muestra en qué bibliotecas ya está la corrida y permite sumarla a otra. Usa `POST /libraries/{id}/documents`, el mismo endpoint que la pestaña Bibliotecas.
+  - No gasta créditos: los embeddings se calculan al sincronizar.
+- **Evals en la pantalla:**
+  - el `GET` de una biblioteca devuelve `evals`, sus corridas guardadas de la más nueva a la más vieja (`library_evals.saved_runs`);
+  - se saca `llamadas_al_modelo`, que pesa unos 780 KB por corrida y la pantalla no lo usa; queda en disco para auditar. La respuesta de la biblioteca principal pesa 53 KB;
+  - la pestaña "Evals" muestra las métricas, la interpretación y una fila por pregunta (búsqueda, corrección y fidelidad), que se abre con la respuesta, las páginas y la explicación del juez. El botón corre los evals y, si se incluyen las respuestas, primero pide confirmación.
+- **Bug encontrado por el test nuevo:** dos corridas de evals en el mismo segundo compartían la carpeta, y la segunda pisaba a la primera. Ahora se le suma `_2`, `_3`…
+- **Plurales:** "1 documento", "1 fragmento" y "1 parse nuevo", en vez de "documento(s)".
+- **Capturas** en `docs/figuras/`, sacadas con Chrome headless por CDP contra la app real con los datos guardados (`WebSocket` nativo de Node, sin instalar nada): el paso Extract con las cajas, el paso 7 y la pestaña Evals.
+  - **No se usó una captura del chat:** el único chat guardado es de la biblioteca de prueba con corte por oraciones, y ahí el modelo supone las unidades. Es el problema que llevó a elegir el corte por página. Mostrarla como ejemplo de la app sería engañoso.
+- **Docker:** no se pudo probar. El usuario no está en el grupo `docker` (el socket da "permission denied"), no hay `sudo` sin contraseña y falta el plugin `docker compose`.
+  - Revisando el `Dockerfile` apareció un problema: la imagen no traía `data/samples/`, que `.dockerignore` excluía con todo `data/`, así que los evals daban 404. Se agregó `!backend/data/samples` y un `COPY`. **Todavía no está probado.**
+- **Verificación:** 18 tests, Ruff sin avisos, `npm run build` sin errores, y las pantallas revisadas en las capturas.

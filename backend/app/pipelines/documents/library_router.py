@@ -71,7 +71,7 @@ def parse_events(lines: list[str]) -> list[dict]:
     return events
 
 
-# Arma lo que muestra la pantalla de una biblioteca: sus datos, las búsquedas guardadas y los turnos de chat.
+# Arma lo que muestra la pantalla de una biblioteca: sus datos, las búsquedas guardadas, los turnos de chat y los evals.
 def describe(store: RunStore, library: dict) -> dict:
     folder = store.run_dir(library["id"])
     searches = [read_json(path) for path in sorted((folder / "searches").glob("*.json"), reverse=True)]
@@ -80,7 +80,7 @@ def describe(store: RunStore, library: dict) -> dict:
         turn = read_json(path)
         turns.append({"at": turn["at"], "prompt": turn["prompt"], "events": parse_events(turn["events_raw"]),
                       "summary": turn.get("summary")})
-    return {**library, "searches": searches, "turns": turns}
+    return {**library, "searches": searches, "turns": turns, "evals": library_evals.saved_runs(folder)}
 
 
 # Ejecuta una llamada a LlamaCloud y traduce sus errores a HTTP.
