@@ -5,13 +5,6 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// Igual que api(), pero devuelve la respuesta entera (para leer audio y encabezados).
-export async function apiResponse(path: string, init?: RequestInit): Promise<Response> {
-  const res = await fetch(path, init);
-  if (!res.ok) throw new Error(await errorMessage(res));
-  return res;
-}
-
 // Saca el mensaje de error del cuerpo { detail } o arma uno genérico.
 async function errorMessage(res: Response) {
   try {
@@ -23,7 +16,6 @@ async function errorMessage(res: Response) {
 
 export type AppConfig = {
   documents: { ready: boolean; maxUploadMb: number; parseTier: string; parseVersion: string };
-  audio: { ready: boolean; ttsMaxChars: number; ttsModel: string; sttModel: string; sttMaxSeconds: number };
 };
 // Pide la configuración pública: qué pipelines están listos y con qué opciones.
 export const getConfig = () => api<AppConfig>('/api/config');

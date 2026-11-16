@@ -12,8 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.settings import get_core_settings
-from app.pipelines.audio import router as audio
-from app.pipelines.audio.settings import AudioSettings, get_audio_settings
 from app.pipelines.documents import library_router as libraries
 from app.pipelines.documents import router as documents
 from app.pipelines.documents.client import make_client
@@ -31,31 +29,25 @@ async def lifespan(app: FastAPI):
     await app.state.documents_client.close()
 
 
-app = FastAPI(title="Parla API", lifespan=lifespan)
+app = FastAPI(title="Parla RAG API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_core_settings().cors_origin_list(),
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Credits", "X-Characters", "X-Cache"],
 )
 
 app.include_router(documents.router)
 app.include_router(libraries.router)
-app.include_router(audio.router)
 
 
 # GET /api/config: le cuenta al frontend qué pipelines están listos y con qué opciones.
 @app.get("/api/config", tags=["config"])
 def config(
     documents_settings: Annotated[DocumentsSettings, Depends(get_documents_settings)],
-    audio_settings: Annotated[AudioSettings, Depends(get_audio_settings)],
 ):
-    return {
-        "documents": documents.public_config(documents_settings),
-        "audio": audio.public_config(audio_settings),
-    }
+    return {"documents": documents.public_config(documents_settings)}
 
 
 # En producción, FastAPI también sirve el frontend compilado (npm run build → frontend/dist).

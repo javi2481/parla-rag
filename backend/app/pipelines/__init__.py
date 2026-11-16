@@ -1,8 +1,8 @@
-"""Los pipelines de Parla. Cada carpeta es autocontenida: tiene su configuración,
+"""Los pipelines de Parla RAG. Cada carpeta es autocontenida: tiene su configuración,
 su cliente del proveedor, sus pasos y sus rutas HTTP.
 
-    documents/   documentos con LlamaCloud (validar, subir, extraer, post-procesar, limpiar)
-    audio/       voz con ElevenLabs (texto a voz y voz a texto)
+    documents/   documentos con LlamaCloud (wizard Subir → Parse → Split → Classify → Schema → Extract)
+                 y bibliotecas (índice compartido, búsqueda y chat)
 
-Para entender un pipeline: leé su README.md, después pipeline.py (o tts.py / stt.py) y por último sus pasos.
+Para entender un pipeline: leé su README.md, después pipeline.py y por último sus pasos.
 """

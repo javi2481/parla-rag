@@ -1,7 +1,7 @@
 [project]
-name = "parla-api"
+name = "parla-rag-api"
 version = "0.1.0"
-description = "Parla: extracción de facturas (LlamaExtract) y voz (ElevenLabs TTS/STT)"
+description = "Parla RAG: wizard de documentos con LlamaCloud (Parse, Split, Classify, Schema, Extract) y bibliotecas con LlamaIndex, Voyage AI y DeepSeek"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115",

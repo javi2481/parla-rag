@@ -3,7 +3,8 @@
 Registro de todo lo que se hizo, se probó, se encontró y se gastó, para poder auditarlo.
 
 - **Las entradas van en orden cronológico.** Cada una dice qué se hizo, qué salió, qué se encontró y qué se decidió.
-- **Cada llamada paga** a LlamaCloud o ElevenLabs queda en el [registro de créditos](#registro-de-créditos).
+- **Cada llamada paga** a LlamaCloud queda en el [registro de créditos](#registro-de-créditos). Los tokens de Voyage AI y el costo de DeepSeek se anotan en la entrada de cada prueba.
+- **Hasta el 15/11/2026** Parla era un solo proyecto con documentos y audio. Las entradas de audio (ElevenLabs) siguen en la bitácora de **parla-audio**.
 - **Los datos crudos de cada prueba** (lo que se pidió y la respuesta completa) quedan en `backend/data/verificacion/` o en la corrida correspondiente de `backend/data/documents/runs/`. Están fuera de git porque pesan mucho y las respuestas traen links firmados temporales.
 
 ---
@@ -375,48 +376,14 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - **ni el comunicado solo entra:** son 11.520 tokens en 15 chunks (contados con el tokenizador de Voyage, gratis), y el límite es de 10.000 por minuto. Por eso la prueba se hizo con la factura. La biblioteca del comunicado se creó y se borró.
 - **Corregido:** la sincronización decía "1 páginas" y "documento(s)"; ahora usa singular y plural.
 
-### 15/11 · Fase 5 · Relevamiento de ElevenLabs (sin costo)
+### 15/11 · Separación del proyecto en parla-rag y parla-audio (sin costo)
 
-- **Fuentes:** la referencia de la API ([voz a texto](https://elevenlabs.io/docs/api-reference/speech-to-text/convert), [texto a voz](https://elevenlabs.io/docs/api-reference/text-to-speech/convert), [con tiempos](https://elevenlabs.io/docs/api-reference/text-to-speech/convert-with-timestamps)), las páginas de capacidades, la de [modelos](https://elevenlabs.io/docs/overview/models) y la de buenas prácticas.
-- **La API key actual tiene permisos recortados:** `GET /v1/user/subscription` respondió *"missing the permission user_read"* y `GET /v1/models` respondió *"missing the permission models_read"*. Sin esos permisos no se puede leer el saldo de créditos ni la lista de modelos desde la API. Respuestas en `data/verificacion/elevenlabs/`.
-
-**Voz a texto (Scribe, `POST /v1/speech-to-text`):**
-- **Modelos:** `scribe_v3` (el más nuevo), `scribe_v2` (el que usamos) y `scribe_v2_medical`.
-- **`no_verbatim: true` saca nativamente las muletillas, los arranques en falso y los sonidos que no son habla** (v2 y v3). **Reemplaza a nuestro `clean_transcript.py`**, que se puede borrar.
-- **Datos que devuelve:**
-  - `text`, `language_code` y `language_probability`;
-  - `words`: cada palabra con `start`, `end`, `type` (`word`, `spacing` o `audio_event`), `logprob` (la confianza) y `speaker_id`;
-  - `transcription_id` y `audio_duration_secs`.
-- **Opciones útiles para nosotros:**
-  - `diarize` y `num_speakers` (hasta 32): quién habla;
-  - `timestamps_granularity` (`word` o `character`): los tiempos de cada palabra;
-  - `numbers_format: "digits"` (v3): los números en cifras, clave para datos financieros;
-  - `keyterms`: hasta 1000 términos a favor, por ejemplo "BYMA" o "Caja de Valores" (+20 %);
-  - `additional_formats`: exportar en otros formatos (la lista no figura en esas páginas);
-  - `entity_detection` y `entity_redaction`: detectar o tapar datos personales;
-  - `transcript_edit`: una instrucción en lenguaje natural sobre la transcripción (experimental, +30 %);
-  - `webhook`: modo asincrónico;
-  - `seed` y `temperature`: para repetir resultados (sin garantía).
-- **Límites de ElevenLabs:** hasta 5 GB y 15 horas. Los nuestros son mucho más chicos: 10 MB, 3 minutos y el texto cortado a 5.000 caracteres (`MAX_TRANSCRIPT_LENGTH`). **Ese corte pierde datos y hay que sacarlo.**
-- **Cobro:** por hora de audio, y el silencio también se cobra. Los precios están en la página de precios.
-
-**Texto a voz (`POST /v1/text-to-speech/{voice_id}`):**
-- **`apply_text_normalization`** (`auto`, `on`, `off`): pasa a palabras los números, las fechas y las monedas.
-  - La página de modelos dice que **en `eleven_flash_v2_5` viene apagada por defecto**: con cifras financieras conviene `on`.
-  - **No dice nada de markdown ni de emojis**, así que **nuestro `to_speech` sigue haciendo falta**: limpia lo que ElevenLabs no limpia y ahorra caracteres pagos.
-- **`/with-timestamps`:** devuelve el audio más `alignment` y `normalized_alignment`, con el tiempo de cada carácter. Sirve para resaltar el texto mientras suena.
-- **Otras opciones:**
-  - `language_code`;
-  - `seed`;
-  - `previous_text` / `next_text` y `previous_request_ids` / `next_request_ids`, para mantener la continuidad entre partes;
-  - diccionarios de pronunciación (hasta 3);
-  - `audio_effects`;
-  - `voice_settings`, que ya usamos.
-- **Límites por pedido:** `eleven_flash_v2_5` acepta 40.000 caracteres. Nuestro tope es de 2.500 (`TTS_MAX_CHARS`).
-- **Modelos:** `eleven_v4` (el principal, 10.000 caracteres), `eleven_v4_turbo`, `eleven_v3`, `eleven_multilingual_v2` y `eleven_flash_v2_5` (la mitad de precio por carácter).
-- **El encabezado `character-cost`, que leemos para el costo, no figura en la documentación.** Hay que confirmarlo con la respuesta real.
-
-**Conclusión para el wizard de audio:**
-- **STT:** mandar el audio una sola vez, con todo (palabras con tiempos, hablantes, números en cifras, `no_verbatim`), guardar la respuesta completa y sumar la transcripción a una biblioteca.
-- **Código que sobra:** `clean_transcript.py`, reemplazado por `no_verbatim`, y el corte a 5.000 caracteres.
-- **Código que queda:** `to_speech`, porque ElevenLabs no documenta que limpie markdown ni emojis.
+- **Pedido del usuario:** separar Parla en dos proyectos para trabajarlos por separado, cada uno con su repositorio en GitHub y toda su documentación.
+- **Cómo se hizo:**
+  - Los dos repositorios nacieron como **clones** del repo original en el commit `c3660a9`. Conservan todo el historial: los commits viejos de audio siguen en el historial de este repo, pero su código ya no está.
+  - **Se sacó de acá:** `backend/app/pipelines/audio/`, sus tests, `frontend/src/pipelines/audio/`, las pestañas Texto a voz y Voz a texto, la configuración de ElevenLabs y el MP3 de la presentación. La entrada del relevamiento de ElevenLabs (15/11) pasó a la bitácora de parla-audio.
+  - **Se ajustó:** `main.py` (solo documentos y bibliotecas), `/api/config`, el test de rutas, `pyproject.toml` (`parla-rag-api`), `.env.example` (con todas las opciones de las bibliotecas), el título de la app, el nombre del contenedor y del volumen de Docker (`parla-rag`, `parla-rag-data`).
+  - **Datos locales:** se copiaron las corridas, las bibliotecas, los datos de NLTK y las verificaciones de LlamaCloud. No van a git.
+- **Resultado:** 17 tests pasan (los 10 que faltan eran de audio) y el frontend compila.
+- **Documentación nueva:** [estado.md](estado.md) (hecho, pendiente en orden y roadmap), el README reescrito, el plan actualizado al código real y `CLAUDE.md` con las reglas del proyecto.
+- **Queda pendiente decidir** cómo se suma la transcripción del audio a una biblioteca ahora que son dos proyectos. Ver [estado.md](estado.md#integración-con-parla-audio).

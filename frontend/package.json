@@ -1,5 +1,5 @@
 {
-  "name": "parla-web",
+  "name": "parla-rag-web",
   "private": true,
   "type": "module",
   "scripts": {

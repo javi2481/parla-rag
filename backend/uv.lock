@@ -2039,7 +2039,7 @@ wheels = [
 ]
 
 [[package]]
-name = "parla-api"
+name = "parla-rag-api"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

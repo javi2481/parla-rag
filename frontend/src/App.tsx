@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
-import { AudioLines, FileText, Library, LoaderCircle, Mic } from 'lucide-react';
+import { FileText, Library, LoaderCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Brand } from '@/components/Brand';
 import { getConfig, type AppConfig } from '@/lib/api';
 import { DocumentsWizard } from '@/pipelines/documents/DocumentsWizard';
 import { LibrariesView } from '@/pipelines/documents/libraries/LibrariesView';
-import { TextToSpeech } from '@/pipelines/audio/TextToSpeech';
-import { SpeechToText } from '@/pipelines/audio/SpeechToText';
 
 const TABS = [
   {
@@ -17,30 +15,16 @@ const TABS = [
   {
     id: 'bibliotecas', label: 'Bibliotecas', icon: Library, eyebrow: '02 · Bibliotecas',
     title: <>Varios documentos, <em className="text-primary">una conversación</em></>,
-    lead: 'Juntá documentos relacionados en un índice compartido de LlamaCloud. Probá la búsqueda y chateá con todos a la vez: se ve qué buscó el agente y de dónde sacó cada respuesta.',
-  },
-  {
-    id: 'tts', label: 'Texto a voz', icon: AudioLines, eyebrow: '03 · Voz',
-    title: <>Tu voz, en <em className="text-primary">cualquier texto</em></>,
-    lead: 'Pegá un texto y escuchalo con tu voz clonada. Se limpia antes de enviarlo y lo repetido sale de la caché: pagás solo lo nuevo.',
-  },
-  {
-    id: 'stt', label: 'Voz a texto', icon: Mic, eyebrow: '04 · Transcripción',
-    title: <>Hablá, <em className="text-primary">nosotros escribimos</em></>,
-    lead: 'Grabá o subí un audio. Lo transcribimos y le sacamos muletillas, tartamudeos y repeticiones para que quede listo para usar.',
+    lead: 'Juntá documentos relacionados en un índice compartido. Probá la búsqueda y chateá con todos a la vez: se ve qué se buscó y de qué documento y página sale cada respuesta.',
   },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
-// Lee la pestaña inicial desde la URL (#documentos, #bibliotecas, #tts, #stt).
+// Lee la pestaña inicial desde la URL (#documentos o #bibliotecas).
 function initialTab(): TabId {
   const h = window.location.hash.slice(1);
   return TABS.some(t => t.id === h) ? (h as TabId) : 'documentos';
 }
-
-const MODEL_NAMES: Record<string, string> = {
-  eleven_flash_v2_5: 'Flash v2.5', eleven_v4: 'v4', eleven_multilingual_v2: 'Multilingual v2', eleven_v4_turbo: 'v4 Turbo',
-};
 
 // Pantalla principal: encabezado con pestañas, la sección elegida y el pie.
 export function App() {
@@ -73,7 +57,6 @@ export function App() {
           </TabsList>
           <div className="hidden items-center gap-2 md:flex">
             <Status label="LlamaCloud" detail={config?.documents.parseTier} ok={config?.documents.ready} />
-            <Status label="ElevenLabs" detail={config && (MODEL_NAMES[config.audio.ttsModel] ?? config.audio.ttsModel)} ok={config?.audio.ready} />
           </div>
         </div>
       </header>
@@ -92,15 +75,13 @@ export function App() {
             <DocumentsWizard ready={config.documents.ready} maxUploadMb={config.documents.maxUploadMb} />
           </TabsContent>
           <TabsContent value="bibliotecas"><LibrariesView ready={config.documents.ready} /></TabsContent>
-          <TabsContent value="tts"><TextToSpeech ready={config.audio.ready} maxChars={config.audio.ttsMaxChars} model={MODEL_NAMES[config.audio.ttsModel] ?? config.audio.ttsModel} /></TabsContent>
-          <TabsContent value="stt"><SpeechToText ready={config.audio.ready} maxSeconds={config.audio.sttMaxSeconds} /></TabsContent>
         </>}
       </main>
 
       <footer className="border-t border-glass-border/70">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted-foreground sm:px-6">
-          <span className="flex items-center gap-2"><span className="font-display text-base text-foreground">Parla</span> documentos que hablan, voces que escriben</span>
-          <span>Extracción con LlamaCloud · Voz con ElevenLabs · Las claves nunca salen del servidor</span>
+          <span className="flex items-center gap-2"><span className="font-display text-base text-foreground">Parla RAG</span> documentos que se leen solos</span>
+          <span>Documentos con LlamaCloud · Bibliotecas con LlamaIndex, Voyage AI y DeepSeek · Las claves nunca salen del servidor</span>
         </div>
       </footer>
     </Tabs>

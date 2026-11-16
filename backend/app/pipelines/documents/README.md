@@ -9,7 +9,7 @@ pide, guarda, cuenta y explica.
 ## El flujo
 
 ```
-1 Subir → 2 Parse → 3 Split → 4 Classify → 5 Schema → 6 Extract     (fase 4: Biblioteca)
+1 Subir → 2 Parse → 3 Split → 4 Classify → 5 Schema → 6 Extract     (después: Biblioteca)
              │ pjb-...  ↑         ↑                        ↑
              └──────────┴─────────┴────────────────────────┘
        el documento se parsea UNA vez: los pasos siguientes reciben solo el ID del parse
@@ -79,3 +79,52 @@ El resto son partes de esa respuesta separadas para leerlas fácil:
 | `settings.py` | API key, región, tier y versión de Parse, máximos |
 | `client.py` | Crea el cliente de LlamaCloud |
 | `errors.py` | `DocumentError`: errores con mensaje para el usuario |
+| `library_router.py` | Rutas HTTP de las bibliotecas: `/api/documents/libraries/...`. Elige el motor de cada biblioteca |
+| `local_library.py` | Bibliotecas con el motor local: LlamaIndex + Voyage AI + DeepSeek (**el que se usa**) |
+| `library.py` | Bibliotecas con el índice de LlamaCloud (necesita un plan pago; con el gratis da 403) |
+
+## Bibliotecas
+
+Una biblioteca junta corridas del wizard para **buscar y chatear con todas a la vez**. Los dos motores tienen las mismas funciones
+(`create_library`, `add_document`, `remove_document`, `start_sync`, `check_sync`, `search`, `chat_turn`, `delete_library`)
+y devuelven lo mismo, así la pantalla no cambia. Cada biblioteca guarda en `run.json` con qué motor se creó (`engine`);
+las nuevas usan `LIBRARY_ENGINE` del `.env` (`local` por defecto).
+
+### Motor local (`local_library.py`)
+
+```
+agregar     copia el Markdown de cada página del parse (2_parse/response.json) a documents/<corrida>.json,
+            con la metadata de identidad: el tipo de Classify y los campos obligatorios del schema de Extract
+sincronizar una página = un Document de LlamaIndex → VectorStoreIndex con embeddings voyage-4 → index/
+buscar      voyage-4 trae top_k × 3 candidatos → rerank-2.5 deja los top_k → searches/<fecha>.json
+chatear     CondensePlusContextChatEngine: deepseek-flash reescribe la pregunta si hay historial,
+            se busca como arriba (6 páginas) y deepseek-flash responde en vivo citando documento y página
+            → chats/local/turno_N.json
+```
+
+- **No se vuelve a parsear nada:** se usa el parse que ya hizo el wizard.
+- **La metadata** `corrida` y `pagina` no entra en el embedding (son IDs); `corrida` tampoco se le pasa al modelo.
+- **Cada turno de chat guarda todo** gracias a la instrumentación nativa de LlamaIndex (`TurnRecorder`): la consulta que se buscó de verdad (`RetrievalEndEvent`), cada llamada al modelo con su prompt completo y sus tokens (`LLMChatEndEvent` para la respuesta, `LLMCompletionEndEvent` para la reescritura), las páginas que leyó el modelo y los eventos que vio la pantalla.
+- **NLTK** (con el que LlamaIndex corta oraciones) se baja a `data/nltk/` con permisos privados: se niega a leer carpetas que otros usuarios pueden modificar y los hardlinks que deja `uv` en `.venv`.
+- **Errores de Voyage:** el límite por minuto responde 429 con la explicación; otros errores, 502.
+- **Modelos y opciones** (`settings.py`): `LIBRARY_EMBED_MODEL=voyage-4`, `LIBRARY_RERANK_MODEL=rerank-2.5`, `LIBRARY_CHAT_MODEL=deepseek-flash`, `LIBRARY_CHAT_TOP_K=6`.
+
+### Motor de LlamaCloud (`library.py`)
+
+Un directorio (`beta.directories`) con su índice (`indexes`), que parsea con nuestra configuración completa (`product_config_id`).
+Agregar usa el mismo `file_id` de la corrida (`unique_id` = la corrida). Al sincronizar mide con `parsing.list` si LlamaCloud volvió a parsear.
+La búsqueda es `retrieval.retrieve` y el chat, `chat.stream` reenviado en vivo y guardado con `chat.retrieve` y `get_summary`.
+**Con el plan gratis, crear el directorio responde 403.** Si algo falla a mitad de camino, se borra lo creado.
+
+### Dónde se guarda una biblioteca
+
+```
+data/documents/libraries/<id>/
+├── run.json                 nombre, motor, modelos, documentos con su metadata, needs_sync, estado del sync
+├── documents/<corrida>.json el texto de cada página que se indexó (motor local)
+├── index/                   el índice de LlamaIndex (motor local)
+├── syncs/<fecha>/           las métricas de cada sincronización
+├── searches/<fecha>.json    cada búsqueda con sus resultados
+├── chats/<sesión>/turno_N.json cada turno de chat
+└── historial/               los índices anteriores
+```
