@@ -141,7 +141,7 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - [ ] Revisar los comentarios del código.
 - [ ] Dejar listas en `data/` las corridas y la biblioteca "BYMA 3T26" sincronizada, por si falla el wifi en clase.
 - [ ] Escribir un **guion corto de la demo**: qué mostrar en cada paso y qué preguntarle al chat. Sugeridos: la página 8 del comunicado (gráficos), los 8 ceros inventados del schema automático, la pregunta trampa del chat.
-- [ ] **Correr todo con Docker de punta a punta.** Ojo: la primera sincronización baja los datos de NLTK (necesita internet) a `data/nltk/`. **Bloqueado del lado de Claude** (16/11): el usuario no está en el grupo `docker` y no está el plugin `docker compose`. Ya se corrigió, sin probarlo todavía, que la imagen no traía `data/samples/`: sin eso, los evals daban 404 en Docker.
+- [x] **Docker de punta a punta** (16/11): la imagen se compila (1,19 GB, sin `.env` adentro, con `data/samples/`) y el contenedor queda `healthy`. Funcionan el frontend, `/api/config`, la búsqueda real (Voyage), NLTK bajado al volumen y los evals de búsqueda, con el mismo MRR 0,841 que fuera de Docker. Los datos sobreviven a `docker compose down` + `up`.
 
 ### 6. Detalles técnicos conocidos
 

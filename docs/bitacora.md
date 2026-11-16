@@ -649,3 +649,21 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
 - **Docker:** no se pudo probar. El usuario no está en el grupo `docker` (el socket da "permission denied"), no hay `sudo` sin contraseña y falta el plugin `docker compose`.
   - Revisando el `Dockerfile` apareció un problema: la imagen no traía `data/samples/`, que `.dockerignore` excluía con todo `data/`, así que los evals daban 404. Se agregó `!backend/data/samples` y un `COPY`. **Todavía no está probado.**
 - **Verificación:** 18 tests, Ruff sin avisos, `npm run build` sin errores, y las pantallas revisadas en las capturas.
+
+### 16/11 · Docker de punta a punta (sin créditos de LlamaCloud)
+
+- **Acceso:** el usuario se sumó al grupo `docker` e instaló `docker-compose-v2`. Como la sesión abierta todavía no tenía el grupo, se usó `sg docker -c "..."`.
+- **Imagen:** `docker compose build` sin errores, 1,19 GB.
+  - Adentro no hay ningún `.env`: las keys entran solo al correr, con `env_file`.
+  - Sí está `data/samples/byma/` con `evals/preguntas.json`, gracias al arreglo de la entrada anterior.
+  - Corre como `appuser` (uid 1000).
+- **Contenedor:** `docker compose up -d` → `healthy` a los 20 s. `/api/config` dice `ready: true`, y `/` sirve el frontend compilado.
+- **Datos:** para no volver a parsear (eso cuesta créditos), se copiaron al volumen las corridas y bibliotecas guardadas con `docker cp` (204 MB).
+- **Pruebas reales dentro del contenedor:**
+  - **Búsqueda** en "BYMA 3T26", con la pregunta del resultado neto ajustado: comunicado pág. 3 (rerank 0,935), presentación pág. 2 y comunicado pág. 2. Tardó 6 s, incluida la primera bajada de NLTK a `data/nltk/` en el volumen.
+  - **Evals de búsqueda** (`2026-11-16_190042`, dentro del volumen): 13 preguntas, hit rate 1,0 y **MRR 0,841, igual que fuera de Docker**. Tardaron 16 s.
+  - **Filtro mal armado:** responde 409.
+  - **Persistencia:** después de `docker compose down` + `up`, la biblioteca sigue con sus 3 corridas de evals.
+  - Los logs no muestran errores.
+- **Costo:** 0 créditos de LlamaCloud y 0 de DeepSeek. Voyage: 1 búsqueda y los evals de búsqueda (13 consultas con embedding y rerank), dentro de los tokens gratis. La API no devuelve el conteo en estas llamadas, así que no queda registrado.
+- **Queda corriendo** el contenedor en el puerto 8000, en lugar del `uvicorn` de desarrollo.
