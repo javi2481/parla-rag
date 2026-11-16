@@ -8,12 +8,24 @@ pide, guarda, cuenta y explica.
 
 ## El flujo
 
+```mermaid
+flowchart LR
+    S1["1 Subir<br/>files.create"] --> S2["2 Parse<br/>parsing.create"]
+    S2 --> J(("pjb-…"))
+    J --> S3["3 Split"]
+    J --> S4["4 Classify"]
+    S5["5 Schema<br/>configurations"] --> S6["6 Extract"]
+    J --> S6
+    S3 -.->|"target_pages"| S6
+    J ==>|"Markdown por página"| B["Biblioteca<br/>local_library.py"]
+
+    classDef nube fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef local fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class S1,S2,J,S3,S4,S5,S6 nube
+    class B local
 ```
-1 Subir → 2 Parse → 3 Split → 4 Classify → 5 Schema → 6 Extract     (después: Biblioteca)
-             │ pjb-...  ↑         ↑                        ↑
-             └──────────┴─────────┴────────────────────────┘
-       el documento se parsea UNA vez: los pasos siguientes reciben solo el ID del parse
-```
+
+El documento se parsea **una vez**: los pasos siguientes reciben solo el ID del parse (`pjb-…`).
 
 | Paso | Archivo | Qué hace | Producto de LlamaCloud | Créditos |
 |---|---|---|---|---|
@@ -81,6 +93,7 @@ El resto son partes de esa respuesta separadas para leerlas fácil:
 | `errors.py` | `DocumentError`: errores con mensaje para el usuario |
 | `library_router.py` | Rutas HTTP de las bibliotecas: `/api/documents/libraries/...`. Elige el motor de cada biblioteca |
 | `local_library.py` | Bibliotecas con el motor local: LlamaIndex + Voyage AI + DeepSeek (**el que se usa**) |
+| `library_evals.py` | Evals de las bibliotecas locales: búsqueda y respuestas, con lo nativo de LlamaIndex |
 | `library.py` | Bibliotecas con el índice de LlamaCloud (necesita un plan pago; con el gratis da 403) |
 
 ## Bibliotecas
@@ -95,7 +108,8 @@ las nuevas usan `LIBRARY_ENGINE` del `.env` (`local` por defecto).
 ```
 agregar     copia el Markdown de cada página del parse (2_parse/response.json) a documents/<corrida>.json,
             con la metadata de identidad: el tipo de Classify y los campos obligatorios del schema de Extract
-sincronizar una página = un Document de LlamaIndex → VectorStoreIndex con embeddings voyage-4 → index/
+sincronizar una página = un Document de LlamaIndex → build_nodes corta según el separador de la biblioteca
+            → VectorStoreIndex con embeddings voyage-4 → index/
 buscar      voyage-4 trae top_k × 3 candidatos → rerank-2.5 deja los top_k → searches/<fecha>.json
 chatear     CondensePlusContextChatEngine: deepseek-flash reescribe la pregunta si hay historial,
             se busca como arriba (6 páginas) y deepseek-flash responde en vivo citando documento y página
@@ -107,7 +121,22 @@ chatear     CondensePlusContextChatEngine: deepseek-flash reescribe la pregunta 
 - **Cada turno de chat guarda todo** gracias a la instrumentación nativa de LlamaIndex (`TurnRecorder`): la consulta que se buscó de verdad (`RetrievalEndEvent`), cada llamada al modelo con su prompt completo y sus tokens (`LLMChatEndEvent` para la respuesta, `LLMCompletionEndEvent` para la reescritura), las páginas que leyó el modelo y los eventos que vio la pantalla.
 - **NLTK** (con el que LlamaIndex corta oraciones) se baja a `data/nltk/` con permisos privados: se niega a leer carpetas que otros usuarios pueden modificar y los hardlinks que deja `uv` en `.venv`.
 - **Errores de Voyage:** el límite por minuto responde 429 con la explicación; otros errores, 502.
+- **El corte en chunks** (`LIBRARY_SPLITTER`, y cada biblioteca guarda el suyo en `splitter`):
+  - `pagina` (por defecto): una página = un chunk (`TextNode`, porque el reranker de Voyage no acepta `Document`);
+  - `oraciones`: `SentenceSplitter`, 1024 tokens con 200 de solapamiento;
+  - `markdown`: `MarkdownNodeParser`, un chunk por título.
+
+  `pagina` ganó en los evals (MRR 0,84 y 13 de 13 respuestas correctas): ver el [README principal](../../../../README.md#5-chunking-oraciones-vs-markdown-vs-página).
+- **El chat engine** se arma en `make_chat_engine`, que usan el chat y los evals, así los evals miden exactamente el mismo chat.
 - **Modelos y opciones** (`settings.py`): `LIBRARY_EMBED_MODEL=voyage-4`, `LIBRARY_RERANK_MODEL=rerank-2.5`, `LIBRARY_CHAT_MODEL=deepseek-flash`, `LIBRARY_CHAT_TOP_K=6`.
+
+### Evals (`library_evals.py`)
+
+`POST /libraries/{id}/evals` con `conjunto` (el set de `data/samples/<conjunto>/evals/preguntas.json`), `candidatos` y `respuestas`:
+
+- **Búsqueda:** `RetrieverEvaluator` con `hit_rate` y `mrr`, con el mismo buscador y el mismo reranker que el chat (`node_postprocessors`). Un chunk es correcto si es de una página fuente de la pregunta.
+- **Respuestas** (si `respuestas` es `true`): el chat responde sin historial y `deepseek-flash` sin streaming (`make_judge_llm`) hace de juez con `FaithfulnessEvaluator` y `CorrectnessEvaluator`.
+- Cada corrida queda en `evals/<fecha>/`: `request.json`, `resultados.json` y `metrics.json`.
 
 ### Motor de LlamaCloud (`library.py`)
 
@@ -120,11 +149,12 @@ La búsqueda es `retrieval.retrieve` y el chat, `chat.stream` reenviado en vivo 
 
 ```
 data/documents/libraries/<id>/
-├── run.json                 nombre, motor, modelos, documentos con su metadata, needs_sync, estado del sync
+├── run.json                 nombre, motor, corte, modelos, documentos con su metadata, needs_sync, estado del sync
 ├── documents/<corrida>.json el texto de cada página que se indexó (motor local)
 ├── index/                   el índice de LlamaIndex (motor local)
 ├── syncs/<fecha>/           las métricas de cada sincronización
 ├── searches/<fecha>.json    cada búsqueda con sus resultados
 ├── chats/<sesión>/turno_N.json cada turno de chat
+├── evals/<fecha>/           cada corrida de evals: request.json · resultados.json · metrics.json
 └── historial/               los índices anteriores
 ```

@@ -1,0 +1,34 @@
+corte,pregunta,tipo,hit_rate,mrr,primera_pagina_encontrada,corrida
+oraciones,resultado-neto-ajustado,dato,1.0,0.5,"Presentacion_de_Resultados-3T26.pdf, pág. 2",2026-11-16_115621
+oraciones,resultado-neto-historico,dato,1.0,0.333,"Presentacion_de_Resultados-3T26.pdf, pág. 13",2026-11-16_115621
+oraciones,coincide-comunicado-eeff,comparacion,1.0,0.25,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 10",2026-11-16_115621
+oraciones,unidades-eeff,unidades,1.0,1.0,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 11",2026-11-16_115621
+oraciones,ingresos-3t26,dato,1.0,0.5,"Presentacion_de_Resultados-3T26.pdf, pág. 2",2026-11-16_115621
+oraciones,margen-ebitda,dato,1.0,1.0,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 8",2026-11-16_115621
+oraciones,depositaria-3t26,dato,1.0,0.25,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 5",2026-11-16_115621
+oraciones,datos-de-mercado-3t25,contradiccion,1.0,1.0,"Presentacion_de_Resultados-3T26.pdf, pág. 5",2026-11-16_115621
+oraciones,baja-otros-mercado,explicacion,1.0,1.0,"Presentacion_de_Resultados-3T26.pdf, pág. 5",2026-11-16_115621
+oraciones,resultado-nueve-meses,dato,1.0,1.0,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 81",2026-11-16_115621
+oraciones,identidad,identidad,1.0,1.0,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 83",2026-11-16_115621
+markdown,resultado-neto-ajustado,dato,1.0,1.0,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 3",2026-11-16_115648
+markdown,resultado-neto-historico,dato,1.0,1.0,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 3",2026-11-16_115648
+markdown,coincide-comunicado-eeff,comparacion,1.0,0.333,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 46",2026-11-16_115648
+markdown,unidades-eeff,unidades,1.0,1.0,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 54",2026-11-16_115648
+markdown,ingresos-3t26,dato,1.0,0.5,"Presentacion_de_Resultados-3T26.pdf, pág. 2",2026-11-16_115648
+markdown,margen-ebitda,dato,1.0,1.0,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 8",2026-11-16_115648
+markdown,depositaria-3t26,dato,1.0,0.2,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 5",2026-11-16_115648
+markdown,datos-de-mercado-3t25,contradiccion,1.0,1.0,"Presentacion_de_Resultados-3T26.pdf, pág. 5",2026-11-16_115648
+markdown,baja-otros-mercado,explicacion,1.0,1.0,"Presentacion_de_Resultados-3T26.pdf, pág. 5",2026-11-16_115648
+markdown,resultado-nueve-meses,dato,1.0,1.0,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 81",2026-11-16_115648
+markdown,identidad,identidad,1.0,0.333,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 54",2026-11-16_115648
+pagina,resultado-neto-ajustado,dato,1.0,1.0,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 3",2026-11-16_123756
+pagina,resultado-neto-historico,dato,1.0,1.0,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 3",2026-11-16_123756
+pagina,coincide-comunicado-eeff,comparacion,1.0,0.5,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 46",2026-11-16_123756
+pagina,unidades-eeff,unidades,1.0,1.0,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 11",2026-11-16_123756
+pagina,ingresos-3t26,dato,1.0,0.5,"Presentacion_de_Resultados-3T26.pdf, pág. 2",2026-11-16_123756
+pagina,margen-ebitda,dato,1.0,1.0,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 8",2026-11-16_123756
+pagina,depositaria-3t26,dato,1.0,0.25,"BYMA Comunicado de Prensa - 3T26.pdf, pág. 5",2026-11-16_123756
+pagina,datos-de-mercado-3t25,dato,1.0,1.0,"Presentacion_de_Resultados-3T26.pdf, pág. 5",2026-11-16_123756
+pagina,baja-otros-mercado,explicacion,1.0,1.0,"Presentacion_de_Resultados-3T26.pdf, pág. 5",2026-11-16_123756
+pagina,resultado-nueve-meses,dato,1.0,1.0,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 4",2026-11-16_123756
+pagina,identidad,identidad,1.0,1.0,"BYMA - EEFF 30-09-2026 - VF.pdf, pág. 83",2026-11-16_123756

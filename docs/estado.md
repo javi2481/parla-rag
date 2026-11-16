@@ -1,6 +1,6 @@
 # Estado del proyecto · Parla RAG
 
-**Última actualización:** 16/11/2026 · **Commit de partida:** `c3660a9` (antes de separar Parla en dos proyectos)
+**Última actualización:** 16/11/2026 (README nuevo, con diagramas) · **Commit de partida:** `c3660a9` (antes de separar Parla en dos proyectos)
 
 Este archivo es el resumen para retomar el trabajo: qué está hecho, qué falta y en qué orden, y qué queda para después.
 El detalle de cada prueba, con sus datos y lo que costó, está en la [bitácora](bitacora.md). El diseño completo está en el [plan](plan.md).
@@ -30,7 +30,7 @@ La conexión entre los dos (sumar la transcripción del audio a una biblioteca) 
 | 1 | Informe: relevamiento de la API de LlamaCloud y 16 hallazgos | ✅ Hecha |
 | 2 | Motor de corridas (carpeta-DB), wizard base, Subir y Parse | ✅ Hecha y probada con LlamaCloud real |
 | 3 | Split, Classify, Schema (manual o automático) y Extract, con cajas sobre las capturas | ✅ Hecha y probada en los EEFF y en el comunicado |
-| 4 | Bibliotecas: índice compartido, búsqueda y chat | ✅ Hecha con el motor local: "BYMA 3T26" sincronizada y el chat probado con los 3 documentos |
+| 4 | Bibliotecas: índice compartido, búsqueda, chat y evals | ✅ Hecha con el motor local: "BYMA 3T26" (corte por página) con 13 de 13 respuestas correctas en los evals |
 | 5 | Audio | ➡️ Se fue a **parla-audio** |
 | 6 | Cierre para la clase | ⏳ Pendiente |
 
@@ -81,8 +81,8 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 
 ### Calidad y auditoría
 
-- **17 tests** con clientes falsos (sin red ni créditos): el wizard completo, los resúmenes, las bibliotecas con los dos motores y el chat local.
-- **Bitácora** con cada prueba, hallazgo y decisión, y **registro de créditos** con cada llamada paga (24 entradas).
+- **18 tests** con clientes falsos (sin red ni créditos): el wizard completo, los resúmenes, las bibliotecas con los dos motores, el chat local y los evals.
+- **Bitácora** con cada prueba, hallazgo y decisión, y **registro de créditos** con cada llamada paga (30 entradas).
 - **Datos crudos** de cada verificación en `backend/data/verificacion/` (fuera de git).
 
 ### Hallazgos importantes (para la clase y para la plantilla)
@@ -137,7 +137,8 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 
 ### 5. Fase 6 · Cierre para la clase
 
-- [ ] Revisar todos los README y comentarios.
+- [x] README nuevo (16/11), con el estilo de los repos de portfolio: un diagrama Mermaid por etapa, las comparaciones "A vs. B" con sus números, qué aprendimos, costos y glosario. Licencia MIT. Resultados de los evals versionados en `docs/resultados/`.
+- [ ] Revisar los comentarios del código.
 - [ ] Dejar listas en `data/` las corridas y la biblioteca "BYMA 3T26" sincronizada, por si falla el wifi en clase.
 - [ ] Escribir un **guion corto de la demo**: qué mostrar en cada paso y qué preguntarle al chat. Sugeridos: la página 8 del comunicado (gráficos), los 8 ceros inventados del schema automático, la pregunta trampa del chat.
 - [ ] **Correr todo con Docker de punta a punta.** Ojo: la primera sincronización baja los datos de NLTK (necesita internet) a `data/nltk/`.
@@ -163,7 +164,7 @@ El plan original era que la transcripción del MP3 de la presentación (unos 9 m
 
 ## 🗺️ Roadmap (después de la clase)
 
-- **Evals:** la primera versión ya está hecha, con lo nativo de LlamaIndex (ver el punto 2b). [Ragas](https://docs.ragas.io/) queda solo si lo nativo no alcanza. Ahora es **directo**: Ragas tiene integración con el framework LlamaIndex (`ragas.integrations.llama_index`) y el motor local ya es LlamaIndex. Cada turno guardado tiene lo que Ragas necesita: pregunta, respuesta y fragmentos. Métricas: *faithfulness*, *context precision* y *context recall*. Ragas usa un LLM como juez (podría ser DeepSeek), así que tiene costo propio.
+- **Evals:** la primera versión ya está hecha, con lo nativo de LlamaIndex (ver el punto 2b). [Ragas](https://docs.ragas.io/) queda solo si lo nativo no alcanza. Sumaría *context precision* y *context recall*; tiene integración con LlamaIndex (`ragas.integrations.llama_index`).
   - Además, un **set de respuestas verificadas a mano** para BYMA 3T26: las cifras de Extract, la página 5 de la presentación y preguntas de identidad ("¿qué dice la Sociedad…?").
 - **Índice de LlamaCloud** (el motor `library.py` ya está escrito) cuando haya un plan pago: comparar calidad, velocidad y costo contra el motor local.
 - **Pasar la carpeta-DB a `agent_data`**, la base JSON nativa de LlamaCloud.

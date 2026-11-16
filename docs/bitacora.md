@@ -601,3 +601,13 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - La lista de la pantalla va de la más nueva a la más vieja, así que la principal aparece primera.
 - **Pantalla:** la cabecera de cada biblioteca local ahora muestra el corte (`corte pagina`, `corte oraciones`…). El frontend compila.
 - **Atención:** los ids de la bitácora anteriores a esta entrada que dicen `2026-11-14_192312_byma-3t26` se refieren a la que ahora se llama «BYMA 3T26 · prueba: oraciones».
+
+### 16/11 · README nuevo con el estilo de los repos de portfolio (sin costo)
+
+- **Pedido del usuario:** documentar el proyecto como sus repos `rag-literatura-latinoamericana`, `detector-gorras-yolo11` y `customer-churn-ml-j-a`: el paso a paso con diagramas Mermaid y la información organizada, didáctico y para portfolio. Es un proyecto personal, académico y de portfolio, con licencia MIT.
+- **README:**
+  - la estructura de esos repos: ficha, "el proyecto en una imagen", "cómo funciona" con su tabla de etapas, una sección numerada por etapa con su diagrama y sus números, las comparaciones "A vs. B", qué aprendimos (con el aviso de no tomarlo como definitivo), costos, reproducir, estructura, la API ruta por ruta y un glosario;
+  - **10 diagramas Mermaid**, con un color por quién hace cada cosa (LlamaCloud, LlamaIndex, Voyage, DeepSeek, nuestro código). Se validaron con el validador de Mermaid Chart: los 10 son válidos.
+  - Antes de publicarlos se verificaron tres datos: el Split de los EEFF dio 15 partes en 7 categorías; el corte por página deja 0 pedazos de tabla sin su comienzo; y el remote es `github.com/javi2481/parla-rag`. Se sacó una afirmación sin verificar (los créditos mensuales del plan gratis).
+- **Resultados versionados:** `docs/resultados/evals_busqueda.csv` y `evals_respuestas.csv`, exportados de las corridas (las de 18 candidatos de cada corte), con su README que explica las columnas. Los promedios coinciden con la bitácora: MRR 0,712 / 0,761 / 0,841 y 12 / 11 / 13 respuestas correctas.
+- **También:** `LICENSE` (MIT), el README del pipeline con un diagrama Mermaid y las secciones del corte y de los evals, y `estado.md` al día.
