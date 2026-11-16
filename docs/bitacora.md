@@ -585,3 +585,19 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
 - **Ojo con la comparación:** oraciones y markdown se juzgaron con la versión **anterior** de `datos-de-mercado-3t25` (la que hablaba de una contradicción). En las otras 12 preguntas la comparación es pareja: oraciones 12 de 12 correctas (pero `coincide` con 4, no con 5), markdown 11 de 12 y página 12 de 12 (todas con 5).
 - **Conclusión:** con BYMA, **una página = un chunk** busca mejor y responde mejor. Coincide con lo que hace LlamaParse: une las tablas entre páginas en la primera página, y la cita por página queda exacta. El precio es más tokens de DeepSeek por pregunta. Los párrafos que cruzan de una página a otra siguen separados (no se encontraron casos en el comunicado ni en la presentación). La decisión del valor por defecto queda para el usuario.
 - **Decisión del usuario (16/11):** `pagina` queda como separador por defecto (`LIBRARY_SPLITTER`). Las bibliotecas que ya existen conservan el suyo: "BYMA 3T26" sigue con `oraciones` hasta que se decida pasarla.
+
+### 16/11 · La biblioteca ganadora queda como principal; las pruebas se conservan (sin costo)
+
+- **Decisión del usuario:** no borrar ninguna biblioteca. **Se dejan las pruebas para tener trazabilidad** de lo que se hizo y poder explicar por qué ganó la ganadora. La principal es la que corta por página.
+- **Cómo quedaron** (se cambió `name` y `description` en cada `run.json`; las carpetas y los ids no cambian, porque la app las encuentra por el id):
+
+  | Nombre | Carpeta | Corte | Evals |
+  |---|---|---|---|
+  | **BYMA 3T26** (principal) | `2026-11-16_123606_byma-3t26-una-pagina-un-chunk` | `pagina` | MRR 0,84 · 13 de 13 correctas |
+  | BYMA 3T26 · prueba: oraciones | `2026-11-14_192312_byma-3t26` | `oraciones` | MRR 0,71 · 12 de 13 |
+  | BYMA 3T26 · prueba: markdown | `2026-11-16_105914_byma-3t26-separador-markdown` | `markdown` | MRR 0,76 · 11 de 13 |
+
+  - A la primera se le escribió `splitter: "oraciones"`, porque se creó antes de que existiera la opción.
+  - La lista de la pantalla va de la más nueva a la más vieja, así que la principal aparece primera.
+- **Pantalla:** la cabecera de cada biblioteca local ahora muestra el corte (`corte pagina`, `corte oraciones`…). El frontend compila.
+- **Atención:** los ids de la bitácora anteriores a esta entrada que dicen `2026-11-14_192312_byma-3t26` se refieren a la que ahora se llama «BYMA 3T26 · prueba: oraciones».

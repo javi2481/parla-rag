@@ -21,7 +21,8 @@ export type Turn = { at: string; prompt: string; events: ChatEvent[]; summary?: 
 export type Library = {
   id: string; name: string; created_at: string; description?: string;
   // engine "local": índice en nuestro servidor (LlamaIndex + Voyage AI). Sin engine: índice de LlamaCloud.
-  engine?: string; embed_model?: string; rerank_model?: string;
+  // splitter: cómo se cortan las páginas en chunks ("pagina", "oraciones" o "markdown").
+  engine?: string; embed_model?: string; rerank_model?: string; splitter?: string;
   directory_id?: string; index_id?: string; parse_configuration_id?: string;
   documents: LibraryDocument[]; needs_sync: boolean; chat_session_id?: string;
   steps: { sync: { state: string; started_at?: string; finished_at?: string; credits?: number; index_status?: string; error?: string; metricas?: Metric[]; interpretacion?: string[] } };

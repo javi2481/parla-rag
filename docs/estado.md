@@ -120,7 +120,7 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - [x] Set de 13 preguntas verificadas: [`samples/byma/evals/preguntas.json`](../backend/data/samples/byma/evals/preguntas.json).
 - [ ] **El usuario tiene que revisar el set**, sobre todo `datos-de-mercado-3t25` (marcada `a_revisar`).
 - [x] **Separador decidido (16/11): `pagina` por defecto** (una página = un chunk). En los evals de BYMA dio MRR 0,84 y 13 de 13 respuestas correctas (oraciones: 0,71 y 12 de 13; markdown: 0,76 y 11 de 13). Usa el doble de tokens de DeepSeek por pregunta. Las bibliotecas creadas antes siguen con `oraciones`.
-- [ ] Pasar "BYMA 3T26" al separador `pagina` (hoy usa `oraciones`) y borrar las bibliotecas de prueba que sobren.
+- [x] **Biblioteca principal: "BYMA 3T26"** (`2026-11-16_123606_byma-3t26-una-pagina-un-chunk`, separador `pagina`). Las dos pruebas (`· prueba: oraciones` y `· prueba: markdown`) **se dejan a propósito**, para que quede la trazabilidad y se pueda mostrar en la clase por qué ganó. La pantalla muestra el corte de cada biblioteca.
 - [ ] Mostrar los evals en la pantalla de la biblioteca (hoy solo se ven por la API y en la carpeta).
 
 ### 3. Lo que falta del plan original de la fase 4
@@ -181,7 +181,7 @@ En `backend/data/` hay datos generados que **no se suben al repo** (pesan mucho 
 | Carpeta | Qué hay |
 |---|---|
 | `documents/runs/` | 6 corridas: comunicado (2), presentación (2), EEFF y factura |
-| `documents/libraries/` | "BYMA 3T26" (3 documentos, sincronizada, con 2 turnos de chat) y "Factura (prueba de chat)" (sincronizada, con 4 turnos de chat) |
+| `documents/libraries/` | **"BYMA 3T26"**, la principal (`2026-11-16_123606_…`, corte `pagina`, con sus evals); "BYMA 3T26 · prueba: oraciones" (`2026-11-14_192312_…`, la primera, con 2 chats y sus evals); "BYMA 3T26 · prueba: markdown" (`2026-11-16_105914_…`); y "Factura (prueba de chat)" (4 turnos de chat) |
 | `verificacion/` | Los datos crudos de las verificaciones 1 y 2 |
 | `nltk/` | Los datos de NLTK que usa LlamaIndex para cortar el texto en oraciones (se bajan solos) |
 

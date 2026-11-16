@@ -97,7 +97,7 @@ export function LibrariesView({ ready }: { ready: boolean }) {
             </div>
             <p className="font-mono text-xs text-muted-foreground">
               {library.engine === 'local'
-                ? `índice local (LlamaIndex) · embeddings ${library.embed_model} · reranker ${library.rerank_model} (Voyage AI) · chat DeepSeek`
+                ? `índice local (LlamaIndex) · corte ${library.splitter ?? 'oraciones'} · embeddings ${library.embed_model} · reranker ${library.rerank_model} (Voyage AI) · chat DeepSeek`
                 : `LlamaCloud · directorio ${library.directory_id} · índice ${library.index_id}`}
             </p>
 
