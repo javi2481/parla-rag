@@ -376,6 +376,23 @@ def sse(event: dict) -> str:
     return f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
 
+# Arma el chat engine de LlamaIndex (condense_plus_context) con sus instrucciones, el buscador y el reranker.
+# Lo usan el chat y los evals, así los evals miden exactamente el mismo chat.
+# "candidates" es cuántos candidatos trae la búsqueda por vectores antes del reranker (por defecto, top_k × 3).
+def make_chat_engine(index: VectorStoreIndex, settings: DocumentsSettings, history: list[ChatMessage],
+                     candidates: int | None = None) -> CondensePlusContextChatEngine:
+    top_k = settings.library_chat_top_k
+    return CondensePlusContextChatEngine.from_defaults(
+        retriever=index.as_retriever(similarity_top_k=candidates or top_k * CANDIDATES_PER_RESULT),
+        llm=make_llm(settings),
+        chat_history=history,
+        system_prompt=SYSTEM_PROMPT,
+        context_prompt=CONTEXT_PROMPT,
+        condense_prompt=CONDENSE_PROMPT,
+        node_postprocessors=[make_reranker(settings, top_k)],
+    )
+
+
 # Un turno de chat con el chat engine de LlamaIndex (condense_plus_context):
 #   1. si ya hubo preguntas, DeepSeek reescribe la nueva para que se entienda sola;
 #   2. voyage-4 busca candidatos y rerank-2.5 deja las mejores páginas;
@@ -390,16 +407,7 @@ async def chat_turn(client, store: RunStore, settings: DocumentsSettings, librar
     folder = store.step_dir(library["id"], "chats/local", reset=False)
     history = chat_history(folder)
     top_k = settings.library_chat_top_k
-
-    engine = CondensePlusContextChatEngine.from_defaults(
-        retriever=index.as_retriever(similarity_top_k=top_k * CANDIDATES_PER_RESULT),
-        llm=make_llm(settings),
-        chat_history=history,
-        system_prompt=SYSTEM_PROMPT,
-        context_prompt=CONTEXT_PROMPT,
-        condense_prompt=CONDENSE_PROMPT,
-        node_postprocessors=[make_reranker(settings, top_k)],
-    )
+    engine = make_chat_engine(index, settings, history)
     recorder = TurnRecorder()
     dispatcher = get_dispatcher()
     dispatcher.add_event_handler(recorder)

@@ -114,6 +114,14 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - **Hallazgo para decidir:** el corte en chunks separa las tablas de sus encabezados (unidades, histórico o ajustado por inflación), y el chat **supuso** las unidades. Se puede probar el separador de Markdown nativo de LlamaIndex. Ver la bitácora del 16/11.
 - **Detalles chicos:** un filtro mal armado da un error 500, y la búsqueda dice "documento(s)".
 
+### 2b. Evals de las bibliotecas ✅ primera versión (16/11)
+
+- [x] Evals nativos de LlamaIndex (`library_evals.py`, `POST /libraries/{id}/evals`): búsqueda con `RetrieverEvaluator` y respuestas con `FaithfulnessEvaluator` y `CorrectnessEvaluator`, con DeepSeek como juez. Cada corrida va a `libraries/<id>/evals/<fecha>/`.
+- [x] Set de 13 preguntas verificadas: [`samples/byma/evals/preguntas.json`](../backend/data/samples/byma/evals/preguntas.json).
+- [ ] **El usuario tiene que revisar el set**, sobre todo `datos-de-mercado-3t25` (marcada `a_revisar`).
+- [ ] **Decidir el separador.** Markdown busca mejor (MRR 0,76 contra 0,71), pero respondió peor la pregunta que cruza documentos (2 contra 4). Pasar a 60 candidatos no cambió la búsqueda.
+- [ ] Mostrar los evals en la pantalla de la biblioteca (hoy solo se ven por la API y en la carpeta).
+
 ### 3. Lo que falta del plan original de la fase 4
 
 - [ ] **Paso 7 del wizard, "Biblioteca":** hoy un documento se suma desde la pestaña Bibliotecas. El plan pedía también un botón al final del wizard.
@@ -154,7 +162,7 @@ El plan original era que la transcripción del MP3 de la presentación (unos 9 m
 
 ## 🗺️ Roadmap (después de la clase)
 
-- **Evals contra la alucinación** con [Ragas](https://docs.ragas.io/). Ahora es **directo**: Ragas tiene integración con el framework LlamaIndex (`ragas.integrations.llama_index`) y el motor local ya es LlamaIndex. Cada turno guardado tiene lo que Ragas necesita: pregunta, respuesta y fragmentos. Métricas: *faithfulness*, *context precision* y *context recall*. Ragas usa un LLM como juez (podría ser DeepSeek), así que tiene costo propio.
+- **Evals:** la primera versión ya está hecha, con lo nativo de LlamaIndex (ver el punto 2b). [Ragas](https://docs.ragas.io/) queda solo si lo nativo no alcanza. Ahora es **directo**: Ragas tiene integración con el framework LlamaIndex (`ragas.integrations.llama_index`) y el motor local ya es LlamaIndex. Cada turno guardado tiene lo que Ragas necesita: pregunta, respuesta y fragmentos. Métricas: *faithfulness*, *context precision* y *context recall*. Ragas usa un LLM como juez (podría ser DeepSeek), así que tiene costo propio.
   - Además, un **set de respuestas verificadas a mano** para BYMA 3T26: las cifras de Extract, la página 5 de la presentación y preguntas de identidad ("¿qué dice la Sociedad…?").
 - **Índice de LlamaCloud** (el motor `library.py` ya está escrito) cuando haya un plan pago: comparar calidad, velocidad y costo contra el motor local.
 - **Pasar la carpeta-DB a `agent_data`**, la base JSON nativa de LlamaCloud.

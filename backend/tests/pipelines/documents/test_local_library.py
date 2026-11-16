@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from llama_index.core.embeddings import MockEmbedding
 from llama_index.core.llms import MockLLM
+from llama_index.core.postprocessor.types import BaseNodePostprocessor
 
 from app.core.settings import CoreSettings, get_core_settings
 from app.main import app
@@ -13,20 +14,16 @@ from app.pipelines.documents.settings import DocumentsSettings, get_documents_se
 from tests.pipelines.documents.test_wizard_flow import FakeLlamaCloud
 
 
-class FakeReranker:
-    # Imita al reranker de Voyage: deja los primeros top_n y les pone un score que baja de a 0,1.
-    def __init__(self, top_n):
-        self.top_n = top_n
+class FakeReranker(BaseNodePostprocessor):
+    # Imita al reranker de Voyage (que también es un BaseNodePostprocessor de LlamaIndex):
+    # deja los primeros top_n y les pone un score que baja de a 0,1.
+    top_n: int = 2
 
-    def postprocess_nodes(self, nodes, query):
+    def _postprocess_nodes(self, nodes, query_bundle=None):
         kept = nodes[: self.top_n]
         for i, node in enumerate(kept):
             node.score = 0.9 - i / 10
         return kept
-
-    # La versión async, que es la que usa el chat engine.
-    async def apostprocess_nodes(self, nodes, query_bundle=None, query_str=None):
-        return self.postprocess_nodes(nodes, query_bundle)
 
 
 class ParseWithPages(FakeLlamaCloud):
@@ -43,7 +40,7 @@ class ParseWithPages(FakeLlamaCloud):
 def setup(tmp_path, monkeypatch):
     fake = ParseWithPages(["COMPLETED"])
     monkeypatch.setattr(local_library, "make_embed_model", lambda settings: MockEmbedding(embed_dim=8))
-    monkeypatch.setattr(local_library, "make_reranker", lambda settings, top_n: FakeReranker(top_n))
+    monkeypatch.setattr(local_library, "make_reranker", lambda settings, top_n: FakeReranker(top_n=top_n))
     monkeypatch.setattr(local_library, "make_llm", lambda settings: MockLLM(max_tokens=5))
     monkeypatch.setattr(local_library, "prepare_nltk", lambda data_dir: None)  # sin bajar nada de internet
     app.dependency_overrides[get_core_settings] = lambda: CoreSettings(data_dir=str(tmp_path), _env_file=None)
@@ -113,3 +110,55 @@ def test_local_library_end_to_end(setup):
     assert any(p.name.startswith("index_") for p in (folder / "historial").iterdir())
     client.delete(base)
     assert not folder.exists()
+
+
+class FakeJudge(MockLLM):
+    # Imita al juez: aprueba la fidelidad ("YES") y le pone 4,5 de 5 a la corrección (con su explicación).
+    async def apredict(self, prompt, **prompt_args):
+        text = prompt.format(**prompt_args)
+        return "4.5\nCoincide con la respuesta esperada." if "reference" in text.lower() else "YES"
+
+
+def test_local_library_evals(setup, monkeypatch):
+    from app.pipelines.documents import library_evals
+
+    client, settings, tmp_path = setup
+    monkeypatch.setattr(library_evals, "make_judge_llm", lambda settings: FakeJudge())
+    run = client.post("/api/documents/runs", files={"file": ("EEFF.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    client.post(f"/api/documents/runs/{run['id']}/steps/parse")
+    client.get(f"/api/documents/runs/{run['id']}/steps/parse")
+    library = client.post("/api/documents/libraries", json={"name": "Prueba"}).json()
+    base = f"/api/documents/libraries/{library['id']}"
+    client.post(f"{base}/documents", json={"run_id": run["id"]})
+    client.post(f"{base}/sync")
+
+    # El set de preguntas vive junto a sus documentos, en samples/<conjunto>/evals/.
+    questions = {"documentos": {"EEFF": "EEFF.pdf"}, "preguntas": [
+        {"id": "neto", "tipo": "dato", "pregunta": "¿Resultado neto?", "respuesta_esperada": "22.162",
+         "fuentes": [{"doc": "EEFF", "pagina": 1}, {"doc": "EEFF", "pagina": 2}]},
+        {"id": "trampa", "tipo": "trampa", "pregunta": "¿Empleados?", "respuesta_esperada": "No está", "fuentes": []},
+    ]}
+    folder = tmp_path / "samples" / "prueba" / "evals"
+    folder.mkdir(parents=True)
+    (folder / "preguntas.json").write_text(json.dumps(questions))
+
+    # Solo la búsqueda: no necesita DeepSeek. Las dos páginas son fuente, así que el primer resultado ya es correcto.
+    response = client.post(f"{base}/evals", json={"conjunto": "prueba", "candidatos": 4})
+    assert response.status_code == 200, response.text
+    result = response.json()
+    neto, trampa = result["resultados"]
+    assert neto["busqueda"]["hit_rate"] == 1 and neto["busqueda"]["mrr"] == 1
+    assert "busqueda" not in trampa  # las trampas no tienen página correcta
+    assert {"label": "Candidatos antes del reranker", "value": 4} in result["metricas"]
+
+    # Con respuestas: pide la key de DeepSeek y después el juez califica cada una.
+    assert client.post(f"{base}/evals", json={"conjunto": "prueba", "respuestas": True}).status_code == 409
+    settings.deepseek_api_key = "d"
+    result = client.post(f"{base}/evals", json={"conjunto": "prueba", "respuestas": True}).json()
+    answer = result["resultados"][0]["respuesta"]
+    assert answer["fiel_a_los_fragmentos"] is True and answer["correccion"] == 4.5 and answer["correcta"] is True
+
+    # Cada corrida queda en su carpeta: libraries/<id>/evals/<fecha>/.
+    runs = sorted((tmp_path / "documents" / "libraries" / library["id"] / "evals").iterdir())
+    assert {p.name for p in runs[-1].iterdir()} == {"request.json", "resultados.json", "metrics.json"}
+    assert client.post(f"{base}/evals", json={"conjunto": "no-existe"}).status_code == 404

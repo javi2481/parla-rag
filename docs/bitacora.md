@@ -514,3 +514,41 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - 2 trampas (el 4T26 y la cantidad de empleados, que no están en los documentos).
 - **Hallazgo en la pág. 5 de la presentación (verificado en la captura):** la diapositiva original **se contradice**. La tabla dice «Datos de Mercado 3T25 = 1,578» y el gráfico de barras dice **291**. El parse copió bien las dos cifras. Se usa como pregunta de contradicción.
 - **Estado:** borrador. Las cifras se verificaron contra el parse, y la de la pág. 5 contra la captura. **Falta la revisión del usuario** antes de correr los evals.
+
+### 16/11 · Evals de la biblioteca con LlamaIndex: búsqueda y respuestas (USD 0,03 de DeepSeek; tokens gratis de Voyage; 0 créditos de LlamaCloud)
+
+- **Código nuevo:** [`library_evals.py`](../backend/app/pipelines/documents/library_evals.py) y la ruta `POST /libraries/{id}/evals` (`conjunto`, `candidatos`, `respuestas`). Todo es nativo de LlamaIndex:
+  - la búsqueda se mide con `RetrieverEvaluator` (`hit_rate` y `mrr`), usando el mismo buscador y el mismo reranker que el chat (`node_postprocessors`);
+  - las respuestas: el chat responde cada pregunta sin historial, y DeepSeek (sin streaming) hace de juez con `FaithfulnessEvaluator` y `CorrectnessEvaluator` (de 1 a 5; aprueba con 4 o más);
+  - un chunk cuenta como correcto si es de una página fuente de la pregunta, porque cada separador corta distinto y los IDs cambian;
+  - cada corrida queda en `libraries/<id>/evals/<fecha>/` (`request.json`, `resultados.json`, `metrics.json`);
+  - el chat engine se arma ahora en `make_chat_engine`, que usan el chat y los evals.
+- **Tests:** 18 pasan. Se sumó el de evals, y el reranker falso ahora es un `BaseNodePostprocessor`, como el de Voyage, porque `RetrieverEvaluator` lo exige.
+- **Primera corrida de búsqueda:** dos preguntas fallaban en todas las configuraciones (`unidades-eeff` e `identidad`). **Eran errores del set, no del buscador:** «Cifras expresadas en miles de pesos y en moneda constante» está en 74 páginas de los EEFF, y se había puesto solo la pág. 4. Se ampliaron las fuentes a todas las páginas que tienen la respuesta (`fuentes_calculadas`). **Lección: el eval vale lo que vale el set.**
+- **Búsqueda con las fuentes corregidas** (11 preguntas con fuente):
+
+  | Separador | Candidatos | Hit rate | MRR | Carpeta |
+  |---|---|---|---|---|
+  | oraciones | 18 | 1,000 | 0,712 | `2026-11-16_115621` |
+  | oraciones | 60 | 1,000 | 0,712 | `2026-11-16_115634` |
+  | markdown | 18 | 1,000 | **0,761** | `2026-11-16_115648` |
+  | markdown | 60 | 1,000 | **0,761** | `2026-11-16_115705` |
+
+  - Con las 4 configuraciones llega al modelo al menos una página correcta en todas las preguntas. **Pasar de 18 a 60 candidatos no cambia nada.**
+  - Markdown pone primero la pág. 3 del comunicado en las dos preguntas de resultado neto (MRR 1 contra 0,5 y 0,33). Pierde en `identidad` (0,33 contra 1) y en `depositaria` (0,20 contra 0,25).
+  - **Limitación:** `hit_rate` da 1 si llega alguna fuente. En `coincide-comunicado-eeff` alcanza con que llegue un documento, aunque la pregunta necesite los dos.
+- **Respuestas** (13 preguntas, 18 candidatos, juez `deepseek-flash`):
+
+  | | oraciones (`2026-11-16_120006`) | markdown (`2026-11-16_120245`) |
+  |---|---|---|
+  | Fieles a los fragmentos | 13 de 13 | 13 de 13 |
+  | Correctas (4 o más) | 12 de 13 | 11 de 13 |
+  | Corrección promedio | 4,77 | 4,62 |
+  | Tokens (entrada / salida) | 126.594 / 19.027 | 190.442 / 16.486 |
+
+  - **Las dos trampas salieron bien en las dos bibliotecas** (5 de 5), y nada se marcó como inventado.
+  - `coincide-comunicado-eeff`: oraciones sacó 4 (encontró la coincidencia del ajustado: 22,162 con 22.161.940). Markdown sacó 2: no le llegó el comunicado y comparó los EEFF consigo mismos. Es el mismo problema de la prueba del separador.
+  - `datos-de-mercado-3t25`: las dos sacaron 3. El juez las castigó porque no señalaron «la contradicción»… que **no existía**. Ver el punto siguiente.
+  - El costo total fue de **USD 0,03** (el saldo pasó de 1,95 a 1,92; se terminó el saldo de regalo).
+- **Corrección del set gracias al eval:** la respuesta de Markdown citó la pág. 9 de la presentación (verificada en la captura): en el 3T25, **Market Data 1.286 + BYMADATA 291 = 1.577 ≈ 1.578**. El 291 del gráfico de la pág. 5 es el mismo valor que BYMADATA sola, y la pág. 9 dice que *"a partir de este trimestre, 'International Vendors' es incluido dentro de la línea 'Market Data'"*. No es una contradicción del documento. La pregunta pasó a ser de tipo `dato`, con las págs. 5 y 9 como fuentes, y quedó marcada `a_revisar` para el usuario. **Se corrige también la entrada anterior del set:** el «hallazgo» de la contradicción en la pág. 5 era una lectura equivocada.
+- **Detalle:** el juez a veces explica en inglés (`CorrectnessEvaluator` usa su plantilla en inglés por defecto).

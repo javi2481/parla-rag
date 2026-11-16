@@ -10,6 +10,7 @@
     GET    /libraries/{id}/sync                consulta la sincronización
     POST   /libraries/{id}/search              búsqueda de prueba
     POST   /libraries/{id}/chat                un turno de chat (los eventos llegan en vivo)
+    POST   /libraries/{id}/evals               corre los evals con un set de preguntas (solo bibliotecas locales)
 """
 import json
 import logging
@@ -24,7 +25,7 @@ from app.core.runs.store import RunStore, read_json
 from app.core.settings import CoreSettings, get_core_settings
 
 from . import library as lib
-from . import local_library
+from . import library_evals, local_library
 from .router import ClientDep, SettingsDep, get_store, llama_cloud_error
 
 log = logging.getLogger(__name__)
@@ -162,6 +163,19 @@ async def search(library_id: str, client: ClientDep, store: LibrariesDep, settin
         raise HTTPException(400, "Escribí qué querés buscar.")
     library = find(store, library_id)
     return await guarded(engine_of(library).search(client, store, settings, library, query, top_k, filters))
+
+
+# Evals: mide la búsqueda (y, si se pide, las respuestas juzgadas por DeepSeek) con un set de preguntas verificadas.
+# "candidatos" cambia cuántos candidatos trae la búsqueda por vectores antes del reranker (por defecto, el del chat).
+@router.post("/{library_id}/evals")
+async def run_evals(library_id: str, store: LibrariesDep, settings: SettingsDep,
+                    conjunto: Annotated[str, Body(embed=True)] = "byma",
+                    candidatos: Annotated[int | None, Body(embed=True)] = None,
+                    respuestas: Annotated[bool, Body(embed=True)] = False):
+    library = find(store, library_id)
+    if library.get("engine") != "local":
+        raise HTTPException(409, "Los evals solo están hechos para las bibliotecas locales.")
+    return await guarded(library_evals.run_evals(store, settings, library, conjunto, candidatos, respuestas))
 
 
 # El turno de chat se manda en vivo: cada línea es lo que va enviando LlamaCloud (Server-Sent Events).
