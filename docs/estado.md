@@ -119,7 +119,8 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - [x] Evals nativos de LlamaIndex (`library_evals.py`, `POST /libraries/{id}/evals`): búsqueda con `RetrieverEvaluator` y respuestas con `FaithfulnessEvaluator` y `CorrectnessEvaluator`, con DeepSeek como juez. Cada corrida va a `libraries/<id>/evals/<fecha>/`.
 - [x] Set de 13 preguntas verificadas: [`samples/byma/evals/preguntas.json`](../backend/data/samples/byma/evals/preguntas.json).
 - [ ] **El usuario tiene que revisar el set**, sobre todo `datos-de-mercado-3t25` (marcada `a_revisar`).
-- [ ] **Decidir el separador.** Markdown busca mejor (MRR 0,76 contra 0,71), pero respondió peor la pregunta que cruza documentos (2 contra 4). Pasar a 60 candidatos no cambió la búsqueda.
+- [x] **Separador decidido (16/11): `pagina` por defecto** (una página = un chunk). En los evals de BYMA dio MRR 0,84 y 13 de 13 respuestas correctas (oraciones: 0,71 y 12 de 13; markdown: 0,76 y 11 de 13). Usa el doble de tokens de DeepSeek por pregunta. Las bibliotecas creadas antes siguen con `oraciones`.
+- [ ] Pasar "BYMA 3T26" al separador `pagina` (hoy usa `oraciones`) y borrar las bibliotecas de prueba que sobren.
 - [ ] Mostrar los evals en la pantalla de la biblioteca (hoy solo se ven por la API y en la carpeta).
 
 ### 3. Lo que falta del plan original de la fase 4

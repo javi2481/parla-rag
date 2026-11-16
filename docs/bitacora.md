@@ -552,3 +552,36 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - El costo total fue de **USD 0,03** (el saldo pasó de 1,95 a 1,92; se terminó el saldo de regalo).
 - **Corrección del set gracias al eval:** la respuesta de Markdown citó la pág. 9 de la presentación (verificada en la captura): en el 3T25, **Market Data 1.286 + BYMADATA 291 = 1.577 ≈ 1.578**. El 291 del gráfico de la pág. 5 es el mismo valor que BYMADATA sola, y la pág. 9 dice que *"a partir de este trimestre, 'International Vendors' es incluido dentro de la línea 'Market Data'"*. No es una contradicción del documento. La pregunta pasó a ser de tipo `dato`, con las págs. 5 y 9 como fuentes, y quedó marcada `a_revisar` para el usuario. **Se corrige también la entrada anterior del set:** el «hallazgo» de la contradicción en la pág. 5 era una lectura equivocada.
 - **Detalle:** el juez a veces explica en inglés (`CorrectnessEvaluator` usa su plantilla en inglés por defecto).
+
+### 16/11 · ¿Se cortan las tablas y los párrafos entre páginas? (sin costo)
+
+- **Duda del usuario:** la partición es estática (una página es un documento y adentro se corta por tamaño). Las tablas, los gráficos o los párrafos que siguen en la página siguiente pueden quedar partidos.
+- **Cómo se arman hoy los chunks:** LlamaParse devuelve el Markdown **por página** → `build_documents` arma **un documento de LlamaIndex por página** → `SentenceSplitter` corta **dentro de cada página** (1024 tokens, con 200 de solapamiento). **Ningún chunk cruza de una página a otra.**
+- **Las tablas entre páginas ya las resuelve LlamaParse:** el parse pide `merge_continued_tables: true`. El SDK lo describe así: *"Automatically merge tables that span multiple pages into a single table. The merged table appears on the first page with merged_from_pages metadata"*.
+  - En los EEFF hay **6 tablas unidas** (13 marcas en `items.json`): págs. 6–7, 35–36, 37–38, 62–64, 65–66 y otra más. En el comunicado y la presentación no hay ninguna.
+  - **El Markdown por página ya trae la tabla unida:** la pág. 6 tiene las 24 filas de la tabla 6–7 (9.316 caracteres), y la pág. 7 queda con 1 sola fila, de otra tabla. Lo mismo pasa con la 62 (y las 63 y 64, que quedan sin esa tabla).
+  - **Efectos:** (1) las filas que estaban en la pág. 7 se citan como pág. 6; (2) la pág. 6 queda grande, y **`SentenceSplitter` vuelve a cortar la tabla que LlamaParse había unido**.
+- **Párrafos entre páginas:** no hay nada nativo que los una mientras cada página sea un documento aparte.
+  - Medición simple (páginas cuyo final no cierra una oración): en los EEFF casi todas terminan con la firma (*"Fernando Díaz"*), así que el pie tapa los cortes reales y la medición no sirve; en el comunicado, 0; en la presentación, 3 (págs. 2, 8 y 14, diapositivas con texto suelto).
+  - En la presentación, 5 pares de páginas seguidas empiezan y terminan con una tabla, pero LlamaParse no las unió: son tablas distintas, una por diapositiva.
+- **Opciones del SDK vistas:** `merge_continued_tables` (ya en uso), `preserve_layout_alignment_across_pages` (alinea columnas de texto entre páginas; *"Automatically enabled for document-level parsing modes"*), `merge_tables_across_pages_in_markdown` (de los parámetros viejos de LlamaParse) y `table_merge_sensitivity` (obsoleta, la controla el `tier`).
+
+### 16/11 · Opción A: una página = un chunk, medida con los evals (unos USD 0,02 de DeepSeek; tokens gratis de Voyage)
+
+- **Pedido del usuario:** probar la opción A (no cortar las páginas) y medirla con los evals.
+- **Código:** `LIBRARY_SPLITTER=pagina`. La sincronización arma los nodos con `build_nodes`:
+  - con `pagina`, un `TextNode` por página, con el mismo texto y la misma metadata;
+  - con `oraciones` y `markdown`, los nodos que devuelve el separador.
+  - El índice se arma con `VectorStoreIndex(nodes)`. Los 18 tests pasan, y la biblioteca original volvió a dar sus 230 chunks.
+  - **Dos tropiezos en el camino:**
+    1. con `transformations=[]`, LlamaIndex usa igual el separador por defecto: dio 230 chunks y no 111;
+    2. el reranker de Voyage rechaza los `Document` (*"Node must be a TextNode to get text"*), por eso se arman `TextNode`. Ese error cortó el eval antes de llamar a DeepSeek.
+- **Biblioteca de prueba:** "BYMA 3T26 (una página = un chunk)" (`2026-11-16_123606_byma-3t26-una-pagina-un-chunk`), con **111 chunks**.
+- **Búsqueda** (18 candidatos, `2026-11-16_123756`): hit rate 1,000 y **MRR 0,841** (oraciones 0,712, markdown 0,761). Por pregunta: 1, 1, 0,5, 1, 0,5, 1, 0,25, 1, 1, 1, 1. Es la mejor en las preguntas de resultado neto (como markdown) y también en identidad (como oraciones).
+- **Respuestas** (`2026-11-16_124019`, juez `deepseek-flash`): **13 de 13 fieles y 13 de 13 correctas, 5,0 de promedio.**
+  - `coincide-comunicado-eeff`: *"Sí, coincide — con la aclaración de que hay que comparar contra la columna 'Ajustado por Inflación'"*. Cita 22,162 millones (comunicado, pág. 3) y 22.161.940 miles (EEFF, pág. 4), **con las unidades correctas**, y explica por qué no coincide con la columna histórica. Es la respuesta que faltaba el primer día.
+  - `datos-de-mercado-3t25`: 1.578 millones, desglosados en Market Data 1.286 y BYMADATA 291 (pág. 9).
+  - Tokens: 252.183 de entrada y 13.377 de salida. **Hay el doble de entrada que con oraciones** (126.594), porque cada página entera es más larga: cada pregunta cuesta más.
+- **Ojo con la comparación:** oraciones y markdown se juzgaron con la versión **anterior** de `datos-de-mercado-3t25` (la que hablaba de una contradicción). En las otras 12 preguntas la comparación es pareja: oraciones 12 de 12 correctas (pero `coincide` con 4, no con 5), markdown 11 de 12 y página 12 de 12 (todas con 5).
+- **Conclusión:** con BYMA, **una página = un chunk** busca mejor y responde mejor. Coincide con lo que hace LlamaParse: une las tablas entre páginas en la primera página, y la cita por página queda exacta. El precio es más tokens de DeepSeek por pregunta. Los párrafos que cruzan de una página a otra siguen separados (no se encontraron casos en el comunicado ni en la presentación). La decisión del valor por defecto queda para el usuario.
+- **Decisión del usuario (16/11):** `pagina` queda como separador por defecto (`LIBRARY_SPLITTER`). Las bibliotecas que ya existen conservan el suyo: "BYMA 3T26" sigue con `oraciones` hasta que se decida pasarla.

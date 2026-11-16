@@ -28,8 +28,9 @@ class DocumentsSettings(BaseSettings):
     library_embed_model: str = "voyage-4"
     library_rerank_model: str = "rerank-2.5"
     # Cómo se cortan las páginas en chunks antes de los embeddings (los dos son nativos de LlamaIndex):
-    # "oraciones" (SentenceSplitter, el de por defecto) o "markdown" (MarkdownNodeParser: corta por títulos y no parte las tablas).
-    library_splitter: str = "oraciones"
+    # "pagina" (no corta: cada página es un chunk; es el que mejor dio en los evals de BYMA, ver docs/bitacora.md),
+    # "oraciones" (SentenceSplitter, el de por defecto de LlamaIndex) o "markdown" (MarkdownNodeParser: corta por títulos).
+    library_splitter: str = "pagina"
     # DeepSeek: el modelo de lenguaje que escribe las respuestas del chat de las bibliotecas locales.
     deepseek_api_key: str = ""
     library_chat_model: str = "deepseek-flash"

@@ -34,7 +34,7 @@ from llama_index.core.instrumentation.events.llm import LLMChatEndEvent, LLMComp
 from llama_index.core.instrumentation.events.retrieval import RetrievalEndEvent
 from llama_index.core.llms import ChatMessage
 from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
-from llama_index.core.schema import QueryBundle
+from llama_index.core.schema import QueryBundle, TextNode
 from llama_index.core.vector_stores import ExactMatchFilter, MetadataFilters
 from llama_index.embeddings.voyageai import VoyageEmbedding
 from llama_index.llms.deepseek import DeepSeek
@@ -176,14 +176,23 @@ def build_documents(store: RunStore, library: dict) -> list[Document]:
     return documents
 
 
-# El separador que corta las páginas en chunks. Las bibliotecas creadas antes de esta opción usaban "oraciones".
+# Corta las páginas en chunks (nodos de LlamaIndex) según el separador de la biblioteca.
+# Las bibliotecas creadas antes de esta opción usaban "oraciones".
 #   - "oraciones": SentenceSplitter, el de por defecto de LlamaIndex (chunks de hasta 1024 tokens). Puede partir una tabla
 #     y dejar las filas sin su encabezado (las unidades, si es histórico o ajustado…).
 #   - "markdown": MarkdownNodeParser, corta por títulos del Markdown: cada tabla queda entera con su encabezado.
-def make_splitter(library: dict):
-    if library.get("splitter", "oraciones") == "markdown":
-        return MarkdownNodeParser()
-    return SentenceSplitter()
+#   - "pagina": no corta nada, cada página es un chunk. Respeta las tablas que LlamaParse unió entre páginas
+#     (merge_continued_tables las pone enteras en la primera página) y la cita por página queda exacta.
+def build_nodes(library: dict, documents: list[Document]) -> list:
+    splitter = library.get("splitter", "oraciones")
+    if splitter == "pagina":
+        # Un TextNode por página, con el mismo texto y la misma metadata (el reranker de Voyage pide TextNode).
+        return [TextNode(text=doc.text, metadata=doc.metadata,
+                         excluded_embed_metadata_keys=doc.excluded_embed_metadata_keys,
+                         excluded_llm_metadata_keys=doc.excluded_llm_metadata_keys) for doc in documents]
+    if splitter == "markdown":
+        return MarkdownNodeParser().get_nodes_from_documents(documents)
+    return SentenceSplitter().get_nodes_from_documents(documents)
 
 
 # Sincroniza: vuelve a armar el índice entero con los documentos actuales y lo guarda en la carpeta.
@@ -197,8 +206,8 @@ async def start_sync(client, store: RunStore, settings: DocumentsSettings, libra
         documents = build_documents(store, library)
         store.archive(library["id"], "index")
         folder = store.step_dir(library["id"], "index")
-        index = await asyncio.to_thread(VectorStoreIndex.from_documents, documents, embed_model=make_embed_model(settings),
-                                        transformations=[make_splitter(library)])
+        nodes = build_nodes(library, documents)
+        index = await asyncio.to_thread(VectorStoreIndex, nodes, embed_model=make_embed_model(settings))
         index.storage_context.persist(persist_dir=str(folder))
     except Exception as e:
         mark_failed(library, "sync", f"No se pudo armar el índice: {str(e)[:300]}")
