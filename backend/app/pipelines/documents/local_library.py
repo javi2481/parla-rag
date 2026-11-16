@@ -253,12 +253,16 @@ def summarize_sync(library: dict, documents: list[Document], chunks: int, settin
 
 
 # Pasa los filtros con el formato de LlamaCloud ({"tipo": {"operator": "eq", "value": "x"}}) a filtros de LlamaIndex.
-# Solo se acepta "eq", que es lo que soporta el índice local.
+# Solo se acepta "eq", que es lo que soporta el índice local. Si el filtro viene mal armado,
+# avisa con un ValueError (la ruta lo devuelve como 409 con el formato esperado) en vez de romper con un 500.
 def to_filters(filters: dict | None) -> MetadataFilters | None:
     if not filters:
         return None
     exact = []
     for key, condition in filters.items():
+        if not isinstance(condition, dict) or "value" not in condition:
+            raise ValueError(f'El filtro "{key}" está mal armado. El formato es '
+                             f'{{"{key}": {{"operator": "eq", "value": ...}}}}.')
         if condition.get("operator", "eq") != "eq":
             raise ValueError("La biblioteca local solo filtra por igualdad (eq).")
         exact.append(ExactMatchFilter(key=key, value=condition["value"]))
@@ -277,11 +281,12 @@ def load_index(store: RunStore, settings: DocumentsSettings, library: dict) -> V
 # Devuelve lo mismo que la búsqueda de LlamaCloud (content, score, rerank_score, metadata, static_fields).
 async def search(client, store: RunStore, settings: DocumentsSettings, library: dict, query: str, top_k: int = 8, filters: dict | None = None) -> dict:
     check_ready(settings)
+    metadata_filters = to_filters(filters)  # primero se validan, antes de abrir el índice
     prepare_nltk(data_dir_of(store))
     index = load_index(store, settings, library)
 
     def run() -> list:
-        retriever = index.as_retriever(similarity_top_k=top_k * CANDIDATES_PER_RESULT, filters=to_filters(filters))
+        retriever = index.as_retriever(similarity_top_k=top_k * CANDIDATES_PER_RESULT, filters=metadata_filters)
         candidates = retriever.retrieve(query)
         vector_scores = {node.node.node_id: node.score for node in candidates}
         reranked = make_reranker(settings, top_k).postprocess_nodes(candidates, QueryBundle(query))

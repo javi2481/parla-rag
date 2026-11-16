@@ -85,6 +85,10 @@ def test_local_library_end_to_end(setup):
     filtered = client.post(f"{base}/search", json={"query": "x", "filters": {"pagina": {"operator": "eq", "value": 2}}}).json()
     assert [r["metadata"]["pagina"] for r in filtered["response"]["results"]] == [2]
     assert client.post(f"{base}/search", json={"query": "x", "filters": {"pagina": {"operator": "gt", "value": 1}}}).status_code == 409
+    # Un filtro mal armado (sin "operator"/"value") avisa con el formato correcto, no rompe con un 500.
+    for malformed in ({"pagina": 2}, {"pagina": {"operator": "eq"}}):
+        response = client.post(f"{base}/search", json={"query": "x", "filters": malformed})
+        assert response.status_code == 409 and "mal armado" in response.json()["detail"]
 
     # Sin la key de DeepSeek, el chat avisa qué falta.
     with client.stream("POST", f"{base}/chat", json={"prompt": "hola"}) as response:

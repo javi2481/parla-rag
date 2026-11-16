@@ -22,6 +22,7 @@ Una app web que recorre un documento **paso por paso** con LlamaCloud (leerlo, p
 ![DeepSeek](https://img.shields.io/badge/DeepSeek-deepseek--flash-DB2777)
 ![React](https://img.shields.io/badge/React-Vite%20·%20Tailwind-61DAFB?logo=react&logoColor=black)
 ![Tests](https://img.shields.io/badge/tests-18%20sin%20red%20ni%20créditos-success)
+![CI](https://github.com/javi2481/parla-rag/actions/workflows/ci.yml/badge.svg)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-yellow)](LICENSE)
 
 ## Contenido

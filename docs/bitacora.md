@@ -611,3 +611,14 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - Antes de publicarlos se verificaron tres datos: el Split de los EEFF dio 15 partes en 7 categorías; el corte por página deja 0 pedazos de tabla sin su comienzo; y el remote es `github.com/javi2481/parla-rag`. Se sacó una afirmación sin verificar (los créditos mensuales del plan gratis).
 - **Resultados versionados:** `docs/resultados/evals_busqueda.csv` y `evals_respuestas.csv`, exportados de las corridas (las de 18 candidatos de cada corte), con su README que explica las columnas. Los promedios coinciden con la bitácora: MRR 0,712 / 0,761 / 0,841 y 12 / 11 / 13 respuestas correctas.
 - **También:** `LICENSE` (MIT), el README del pipeline con un diagrama Mermaid y las secciones del corte y de los evals, y `estado.md` al día.
+
+### 16/11 · CI en GitHub Actions y arreglo del 500 en los filtros (sin costo)
+
+- **Bug:** un filtro de búsqueda mal armado (por ejemplo `{"pagina": 2}`, sin `operator` ni `value`) rompía con un **500**: el código esperaba un diccionario. Sin `value` daba un `KeyError`, que la ruta convertía en un 404 que no correspondía.
+- **Arreglo:** `to_filters` (en `local_library.py`) valida el formato y avisa con un `ValueError`. La ruta lo devuelve como **409** con el formato esperado: `{"pagina": {"operator": "eq", "value": ...}}`. Los filtros se validan antes de abrir el índice. El test de la biblioteca local prueba los dos casos mal armados.
+- **CI:** `.github/workflows/ci.yml` corre en cada push a `main` y en cada pull request, con dos trabajos:
+  - **backend:** `uv sync --locked` + `uv run pytest`, con Python 3.11 (el mínimo del `pyproject.toml`);
+  - **frontend:** `npm ci` + `npm run build`, que también chequea TypeScript.
+  - No necesita API keys: los tests usan clientes falsos.
+- **Verificación antes de subirlo:** se clonó el repo en una carpeta limpia, sin `.env` y sin `data/`, como lo ve GitHub. Los 18 tests pasan con Python 3.11 y con 3.12, y el frontend compila con `npm ci`.
+- **README:** badge de CI junto al de los tests.

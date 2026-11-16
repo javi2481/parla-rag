@@ -112,7 +112,7 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - [x] Se volvieron a agregar a la biblioteca y se sincronizó. Los 3 documentos tienen `emisor: BYMA` y `periodo: 3T26`, y el filtro por `emisor`, `tipo` y `periodo` funciona.
 - **Quedó pendiente:** `fecha_de_cierre` viene en dos formatos distintos (el problema de `format: date`) y la presentación no la tiene, así que no sirve para filtrar.
 - **Hallazgo para decidir:** el corte en chunks separa las tablas de sus encabezados (unidades, histórico o ajustado por inflación), y el chat **supuso** las unidades. Se puede probar el separador de Markdown nativo de LlamaIndex. Ver la bitácora del 16/11.
-- **Detalles chicos:** un filtro mal armado da un error 500, y la búsqueda dice "documento(s)".
+- **Detalles chicos:** la búsqueda dice "documento(s)". (El 500 del filtro mal armado se arregló el 16/11: ahora responde 409 con el formato correcto.)
 
 ### 2b. Evals de las bibliotecas ✅ primera versión (16/11)
 
