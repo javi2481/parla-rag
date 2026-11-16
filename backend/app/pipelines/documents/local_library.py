@@ -33,6 +33,7 @@ from llama_index.core.instrumentation.event_handlers import BaseEventHandler
 from llama_index.core.instrumentation.events.llm import LLMChatEndEvent, LLMCompletionEndEvent
 from llama_index.core.instrumentation.events.retrieval import RetrievalEndEvent
 from llama_index.core.llms import ChatMessage
+from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
 from llama_index.core.schema import QueryBundle
 from llama_index.core.vector_stores import ExactMatchFilter, MetadataFilters
 from llama_index.embeddings.voyageai import VoyageEmbedding
@@ -116,6 +117,7 @@ async def create_library(client, store: RunStore, settings: DocumentsSettings, n
         "description": description,
         "embed_model": settings.library_embed_model,
         "rerank_model": settings.library_rerank_model,
+        "splitter": settings.library_splitter,
         "documents": [],
         "needs_sync": False,
         "steps": {"sync": {"state": "pending"}},
@@ -174,6 +176,16 @@ def build_documents(store: RunStore, library: dict) -> list[Document]:
     return documents
 
 
+# El separador que corta las páginas en chunks. Las bibliotecas creadas antes de esta opción usaban "oraciones".
+#   - "oraciones": SentenceSplitter, el de por defecto de LlamaIndex (chunks de hasta 1024 tokens). Puede partir una tabla
+#     y dejar las filas sin su encabezado (las unidades, si es histórico o ajustado…).
+#   - "markdown": MarkdownNodeParser, corta por títulos del Markdown: cada tabla queda entera con su encabezado.
+def make_splitter(library: dict):
+    if library.get("splitter", "oraciones") == "markdown":
+        return MarkdownNodeParser()
+    return SentenceSplitter()
+
+
 # Sincroniza: vuelve a armar el índice entero con los documentos actuales y lo guarda en la carpeta.
 # Es local y responde en el momento (no hay job que consultar). Lo único que se paga son los tokens de Voyage.
 async def start_sync(client, store: RunStore, settings: DocumentsSettings, library: dict) -> dict:
@@ -185,7 +197,8 @@ async def start_sync(client, store: RunStore, settings: DocumentsSettings, libra
         documents = build_documents(store, library)
         store.archive(library["id"], "index")
         folder = store.step_dir(library["id"], "index")
-        index = await asyncio.to_thread(VectorStoreIndex.from_documents, documents, embed_model=make_embed_model(settings))
+        index = await asyncio.to_thread(VectorStoreIndex.from_documents, documents, embed_model=make_embed_model(settings),
+                                        transformations=[make_splitter(library)])
         index.storage_context.persist(persist_dir=str(folder))
     except Exception as e:
         mark_failed(library, "sync", f"No se pudo armar el índice: {str(e)[:300]}")
@@ -215,6 +228,7 @@ def summarize_sync(library: dict, documents: list[Document], chunks: int, settin
         {"label": "Documentos", "value": len(library["documents"])},
         {"label": "Páginas indexadas", "value": len(documents)},
         {"label": "Chunks", "value": chunks},
+        {"label": "Separador", "value": library.get("splitter", "oraciones")},
         {"label": "Embeddings", "value": settings.library_embed_model},
         {"label": "Reranker", "value": settings.library_rerank_model},
         {"label": "Créditos de LlamaCloud", "value": 0},

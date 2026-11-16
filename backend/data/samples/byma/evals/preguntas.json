@@ -1,0 +1,129 @@
+{
+  "nombre": "BYMA 3T26",
+  "descripcion": "Preguntas con respuesta verificada a mano sobre los 3 documentos de BYMA (EEFF, comunicado y presentación) para medir la búsqueda y las respuestas de una biblioteca.",
+  "documentos": {
+    "EEFF": "BYMA - EEFF 30-09-2026 - VF.pdf",
+    "COM": "BYMA Comunicado de Prensa - 3T26.pdf",
+    "PRES": "Presentacion_de_Resultados-3T26.pdf"
+  },
+  "estado": "borrador: falta la revisión del usuario",
+  "preguntas": [
+    {
+      "id": "resultado-neto-ajustado",
+      "tipo": "dato",
+      "pregunta": "¿Cuál fue el resultado neto de BYMA en el 3T26, ajustado por inflación?",
+      "respuesta_esperada": "22.162 millones de ARS (en el 3T25 fue 39.074 millones: −43 %). En los EEFF figura como 22.161.940 miles de pesos.",
+      "fuentes": [{"doc": "COM", "pagina": 3}, {"doc": "EEFF", "pagina": 4}],
+      "que_mide": "Un dato de una tabla con dos grupos de columnas (histórico y ajustado).",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "resultado-neto-historico",
+      "tipo": "dato",
+      "pregunta": "¿Cuál fue el resultado neto del 3T26 a valores históricos y cuánto varió?",
+      "respuesta_esperada": "52.414 millones de ARS, 8 % menos que en el 3T25 (56.801 millones).",
+      "fuentes": [{"doc": "COM", "pagina": 2}, {"doc": "COM", "pagina": 3}],
+      "que_mide": "Que no confunda la columna histórica con la ajustada.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "coincide-comunicado-eeff",
+      "tipo": "comparacion",
+      "pregunta": "¿El resultado neto del comunicado coincide con el de los estados financieros?",
+      "respuesta_esperada": "Sí, el ajustado por inflación: 22.162 millones de ARS en el comunicado y 22.161.940 miles de pesos (moneda constante) en los EEFF. El histórico (52.414 millones) no está en los EEFF.",
+      "fuentes": [{"doc": "COM", "pagina": 3}, {"doc": "EEFF", "pagina": 4}],
+      "que_mide": "Cruzar dos documentos con unidades distintas (la pregunta del «listo cuando» de la fase 4).",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "unidades-eeff",
+      "tipo": "unidades",
+      "pregunta": "¿En qué unidad están expresadas las cifras de los estados financieros?",
+      "respuesta_esperada": "En miles de pesos y en moneda constante (ajustadas por inflación a septiembre de 2026).",
+      "fuentes": [{"doc": "EEFF", "pagina": 4}, {"doc": "COM", "pagina": 1}],
+      "que_mide": "Que encuentre el encabezado, que es lo que se pierde cuando el corte separa la tabla de su título.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "ingresos-3t26",
+      "tipo": "dato",
+      "pregunta": "¿Cuánto fueron los ingresos del 3T26 y cómo variaron, en términos históricos y ajustados por inflación?",
+      "respuesta_esperada": "Históricos: 78.124 millones de ARS (+24 %). Ajustados por inflación: 81.148 millones (−4 %).",
+      "fuentes": [{"doc": "COM", "pagina": 3}],
+      "que_mide": "Leer las dos columnas de la misma fila.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "margen-ebitda",
+      "tipo": "dato",
+      "pregunta": "¿Cuál fue el margen EBITDA y el margen operativo?",
+      "respuesta_esperada": "Margen EBITDA de los últimos 12 meses: 74 %. Margen operativo: 66 %. Los dos, levemente por debajo del trimestre anterior (75 % y 68 %).",
+      "fuentes": [{"doc": "COM", "pagina": 2}, {"doc": "COM", "pagina": 8}],
+      "que_mide": "Un dato de texto (no de tabla).",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "depositaria-3t26",
+      "tipo": "dato",
+      "pregunta": "¿Cuánto crecieron los ingresos de la Depositaria en el 3T26?",
+      "respuesta_esperada": "A valores históricos, 31.054 millones de ARS, +96 % contra el 3T25. Ajustados por inflación, 31.364 millones, +46 %.",
+      "fuentes": [{"doc": "COM", "pagina": 3}, {"doc": "PRES", "pagina": 13}],
+      "que_mide": "Un dato que está en dos documentos.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "datos-de-mercado-3t25",
+      "tipo": "contradiccion",
+      "pregunta": "¿Cuánto fueron los ingresos por Datos de Mercado en el 3T25?",
+      "respuesta_esperada": "La presentación da dos cifras distintas en la misma página: 1.578 millones de ARS en la tabla y 291 millones en el gráfico de barras. Una buena respuesta tiene que señalar la diferencia.",
+      "fuentes": [{"doc": "PRES", "pagina": 5}],
+      "que_mide": "Si avisa cuando los documentos se contradicen. Verificado en la captura: la diapositiva original tiene las dos cifras.",
+      "verificado_en": "captura de la pág. 5"
+    },
+    {
+      "id": "baja-otros-mercado",
+      "tipo": "explicacion",
+      "pregunta": "¿Por qué bajaron los ingresos «Otros» del Mercado?",
+      "respuesta_esperada": "Porque OMS pasó a manos de Vantek, a cambio de una participación en sus resultados (de 7.014 a 4.704 millones, −33 %).",
+      "fuentes": [{"doc": "PRES", "pagina": 5}],
+      "que_mide": "Un motivo que solo está en el texto de una diapositiva.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "resultado-nueve-meses",
+      "tipo": "dato",
+      "pregunta": "¿Cuál fue el resultado neto consolidado de los nueve meses al 30 de septiembre de 2026?",
+      "respuesta_esperada": "108.884.479 miles de pesos (133.034.957 en igual período de 2025). Atribuible a los propietarios de la controlante: 108.873.136 miles.",
+      "fuentes": [{"doc": "EEFF", "pagina": 4}, {"doc": "EEFF", "pagina": 81}],
+      "que_mide": "No confundir el trimestre con el acumulado.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "identidad",
+      "tipo": "identidad",
+      "pregunta": "¿Qué empresa es «la Sociedad» y qué período informan los documentos?",
+      "respuesta_esperada": "Bolsas y Mercados Argentinos S.A. (BYMA). El tercer trimestre de 2026: julio a septiembre, con cierre el 30 de septiembre de 2026.",
+      "fuentes": [{"doc": "COM", "pagina": 1}, {"doc": "EEFF", "pagina": 1}],
+      "que_mide": "Los alias de la identidad.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "trampa-4t26",
+      "tipo": "trampa",
+      "pregunta": "¿Cuál fue el resultado neto de BYMA en el 4T26?",
+      "respuesta_esperada": "No está en los documentos: informan hasta el 3T26.",
+      "fuentes": [],
+      "que_mide": "Que no invente un período que no existe.",
+      "verificado_en": "parse (no aparece «4T26» ni «31/12/2026» en ningún documento)"
+    },
+    {
+      "id": "trampa-empleados",
+      "tipo": "trampa",
+      "pregunta": "¿Cuántos empleados tiene BYMA?",
+      "respuesta_esperada": "No está en los documentos.",
+      "fuentes": [],
+      "que_mide": "Que no invente un dato que no está.",
+      "verificado_en": "parse (la palabra «empleados» aparece una sola vez, en los EEFF, sin una cantidad)"
+    }
+  ]
+}

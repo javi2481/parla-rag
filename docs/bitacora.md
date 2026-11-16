@@ -458,3 +458,59 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
 - **Detalles encontrados (sin arreglar):**
   - un filtro con el formato equivocado (`{"emisor": "BYMA"}` en lugar de `{"emisor": {"operator": "eq", "value": "BYMA"}}`) da un error 500 sin explicación;
   - la interpretación de la búsqueda dice "1 documento(s)", que es el mismo problema de singular y plural que ya se arregló en la sincronización.
+
+### 16/11 · Prueba del separador de Markdown de LlamaIndex (tokens gratis de Voyage; menos de USD 0,01 de DeepSeek)
+
+- **Pedido del usuario:** probar si `MarkdownNodeParser` (nativo de LlamaIndex) arregla el problema de las tablas que quedan sin su encabezado.
+- **Código:** nueva opción `LIBRARY_SPLITTER` (`oraciones`, por defecto, o `markdown`). Cada biblioteca guarda con qué separador se creó (`splitter`), y la sincronización lo muestra en sus métricas. Las bibliotecas anteriores siguen con `oraciones`. Los 17 tests pasan.
+- **Comparación del corte, sin API** (las mismas 111 páginas de "BYMA 3T26"):
+
+  | | `oraciones` (SentenceSplitter) | `markdown` (MarkdownNodeParser) |
+  |---|---|---|
+  | Chunks | 230 | 371 |
+  | Caracteres (mediana / máximo / mínimo) | 2.158 / 3.696 / 89 | 222 / 9.274 / 9 |
+  | Chunks con filas de una tabla pero sin su comienzo | **58** | **0** |
+  | Comunicado pág. 3: ¿trae "Millones" y "Ajustado"? | no | **sí** |
+  | EEFF pág. 4: ¿trae "miles de pesos"? | no | **sí** |
+
+- **Biblioteca de prueba** "BYMA 3T26 (separador Markdown)" (`2026-11-16_105914_byma-3t26-separador-markdown`), con los mismos 3 documentos: 371 chunks en 7 segundos. La biblioteca original no se tocó.
+- **La misma pregunta** (*"¿El resultado neto del comunicado coincide con el de los estados financieros?"*):
+  - Los 6 fragmentos fueron **todos de los EEFF**, y 4 traían "miles de pesos". Respondió que **no tenía el comunicado para comparar**, lo cual es cierto con esos fragmentos, y comparó los EEFF consolidados con los separados, citando bien las unidades. Usó 9.111 tokens de entrada y 631 de salida.
+  - **Mejoró la parte de las unidades, pero empeoró la búsqueda:** el comunicado no llegó al modelo.
+- **Por qué:** el chat pide 18 candidatos por vectores (`top_k` 6 × 3) y después el reranker deja 6. Con el separador de Markdown, los chunks del comunicado quedaron más abajo en la búsqueda por vectores (60 resultados, sin reranker):
+  - con `oraciones`, el comunicado aparece en los puestos 1 (pág. 10), 9 (pág. 3) y 18 (pág. 1);
+  - con `markdown`, en los puestos 10 (pág. 2), 13 (pág. 1) y **34 (pág. 3, la de la tabla)**. La pág. 10 pasó del 1 al 46.
+  - **Interpretación:** los chunks grandes (la tabla entera, de hasta 9.274 caracteres) tienen un embedding que mezcla muchos temas, así que se parecen menos a una pregunta puntual. Los chunks chicos (títulos sueltos, de 9 caracteres) no aportan nada. La búsqueda de prueba no mostró esto porque pide más candidatos (top_k × 3 = 54).
+- **Conclusión:** ninguno de los dos separadores resuelve todo. `oraciones` encuentra mejor, pero corta tablas; `markdown` mantiene las tablas, pero las encuentra peor. Queda para decidir con el usuario. El valor por defecto sigue en `oraciones`.
+
+### 16/11 · Investigación: LiteParse y evals nativas (sin costo)
+
+- **Pregunta del usuario:** si sirve LiteParse y si LlamaIndex, LlamaParse o Voyage tienen evals; si no, usar Ragas.
+- **LiteParse** ([documentación](https://developers.llamaindex.ai/liteparse/)):
+  - es una librería de código abierto de LlamaIndex, escrita en Rust, que *"runs entirely on your machine with no cloud dependencies, no LLMs, and no API keys"*;
+  - lee PDF (y Office con LibreOffice, e imágenes) y devuelve texto, JSON con cajas por línea o Markdown con tablas, con OCR de Tesseract; se instala con `pip install liteparse`;
+  - **no corta en chunks ni arma índices**; la documentación leída no menciona gráficos, y al no usar un LLM es esperable que no los interprete (esto es una inferencia).
+  - **Para este proyecto:** no reemplaza al parse agentic. Split, Classify y Extract necesitan un parse de LlamaCloud (`pjb-...`), y el problema de las tablas es del corte en chunks (LlamaIndex), no del parse. Podría servir para una comparación en la clase (un parse gratis y local contra uno agentic).
+- **Evals:**
+  - **LlamaCloud / LlamaParse:** no se encontró un producto de evals para RAG. ParseBench es un benchmark de parsers, no una herramienta para evaluar nuestra biblioteca.
+  - **Voyage AI:** no se encontró una herramienta de evals: ofrece modelos y publica sus benchmarks.
+  - **Framework LlamaIndex:** sí, de forma nativa. `llama_index.core.evaluation` (versión instalada 0.14.26) trae:
+    - de búsqueda: `RetrieverEvaluator` con `hit_rate`, `mrr`, `precision`, `recall`, `ap` y `ndcg` (no necesita un LLM);
+    - de respuesta: `FaithfulnessEvaluator`, `CorrectnessEvaluator`, `RelevancyEvaluator`, `ContextRelevancyEvaluator`, `AnswerRelevancyEvaluator`, `GuidelineEvaluator` y `PairwiseComparisonEvaluator`; usan un LLM como juez, que puede ser DeepSeek;
+    - además, `BatchEvalRunner` (correr muchas preguntas) y `DatasetGenerator` (generar preguntas con un LLM).
+  - **Ragas** es otro framework. Según `CLAUDE.md`, no se suma mientras lo nativo alcance.
+
+### 16/11 · Set de preguntas para los evals de "BYMA 3T26" (sin costo)
+
+- **Pedido del usuario:** armar el set de preguntas y guardar los evals en carpetas `evals/`. Es una regla para todo el proyecto: **cada cosa en su carpeta, nada desparramado**. Se sumó a `CLAUDE.md`.
+- **Dónde va cada cosa:**
+  - el set de preguntas, en [`backend/data/samples/byma/evals/preguntas.json`](../backend/data/samples/byma/evals/preguntas.json), junto a los PDF de los que habla. Va en git porque es la referencia que revisa el usuario;
+  - los resultados de cada corrida irán en `libraries/<id>/evals/<fecha>/` (fuera de git), como `syncs/`, `chats/` y `searches/`.
+- **13 preguntas**, cada una con la respuesta esperada, las páginas fuente y qué mide:
+  - 7 de datos (resultado neto ajustado e histórico, ingresos, margen EBITDA, Depositaria, resultado de 9 meses, identidad);
+  - 1 de comparación entre documentos y 1 de unidades;
+  - 1 de explicación (la baja de «Otros»);
+  - 1 de contradicción;
+  - 2 trampas (el 4T26 y la cantidad de empleados, que no están en los documentos).
+- **Hallazgo en la pág. 5 de la presentación (verificado en la captura):** la diapositiva original **se contradice**. La tabla dice «Datos de Mercado 3T25 = 1,578» y el gráfico de barras dice **291**. El parse copió bien las dos cifras. Se usa como pregunta de contradicción.
+- **Estado:** borrador. Las cifras se verificaron contra el parse, y la de la pág. 5 contra la captura. **Falta la revisión del usuario** antes de correr los evals.

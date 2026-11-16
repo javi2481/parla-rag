@@ -13,6 +13,7 @@ Antes de cualquier cosa, leé [docs/estado.md](docs/estado.md): ahí está lo he
 - **Simple, no "senior":** fácil de leer para alguien que está aprendiendo. Nada de abstracciones de más.
 - **Un comentario `#` (o `//` en TypeScript) en español rioplatense arriba de cada función**, que diga qué hace y por qué.
 - **Cada pipeline vive en su carpeta** (`backend/app/pipelines/documents/`): configuración, cliente, pasos y rutas juntos. En `core/` solo lo compartido.
+- **Todo en su carpeta, nada desparramado:** cada tipo de cosa tiene su carpeta con un nombre claro (`evals/`, `syncs/`, `chats/`, `searches/`…), así el proyecto es fácil de recorrer.
 - **Sin base de datos:** todo en carpetas dentro de `backend/data/` (la "carpeta-DB", `app/core/runs/store.py`).
 
 ## Solo lo nativo

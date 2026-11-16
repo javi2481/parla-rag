@@ -27,6 +27,9 @@ class DocumentsSettings(BaseSettings):
     voyage_api_key: str = ""
     library_embed_model: str = "voyage-4"
     library_rerank_model: str = "rerank-2.5"
+    # Cómo se cortan las páginas en chunks antes de los embeddings (los dos son nativos de LlamaIndex):
+    # "oraciones" (SentenceSplitter, el de por defecto) o "markdown" (MarkdownNodeParser: corta por títulos y no parte las tablas).
+    library_splitter: str = "oraciones"
     # DeepSeek: el modelo de lenguaje que escribe las respuestas del chat de las bibliotecas locales.
     deepseek_api_key: str = ""
     library_chat_model: str = "deepseek-flash"
