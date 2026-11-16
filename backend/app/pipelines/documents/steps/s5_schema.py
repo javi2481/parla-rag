@@ -11,7 +11,14 @@ import json
 
 from llama_cloud import AsyncLlamaCloud
 
-from app.core.runs.store import RunStore, mark_done, mark_failed, mark_running, slugify, write_json
+from app.core.runs.store import (
+    RunStore,
+    mark_done,
+    mark_failed,
+    mark_running,
+    slugify,
+    write_json,
+)
 
 from ..settings import DocumentsSettings
 from .jobs import option

@@ -10,7 +10,11 @@ Todo es nativo de LlamaIndex (llama_index.core.evaluation):
 El set de preguntas vive junto a sus documentos: data/samples/<conjunto>/evals/preguntas.json (va a git).
 Cada corrida se guarda en la carpeta de la biblioteca: libraries/<id>/evals/<fecha>/ (request, resultados y métricas).
 """
-from llama_index.core.evaluation import CorrectnessEvaluator, FaithfulnessEvaluator, RetrieverEvaluator
+from llama_index.core.evaluation import (
+    CorrectnessEvaluator,
+    FaithfulnessEvaluator,
+    RetrieverEvaluator,
+)
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.llms.deepseek import DeepSeek
 
@@ -118,8 +122,8 @@ def summarize(library: dict, results: list[dict], candidates: int, with_answers:
         {"label": "Búsqueda: MRR", "value": average([r["mrr"] for r in searched])},
     ]
     interpretacion = [
-        f"La búsqueda trajo al menos una página correcta en {hits} de {len(searched)} preguntas con fuente "
-        f"(las trampas no tienen página correcta y no se miden en la búsqueda).",
+        (f"La búsqueda trajo al menos una página correcta en {hits} de {len(searched)} preguntas con fuente "
+        f"(las trampas no tienen página correcta y no se miden en la búsqueda)."),
         "MRR es el promedio de 1/puesto del primer chunk correcto entre los que llegan al modelo: 1 es primero, 0,5 es segundo, 0 es que no llegó.",
     ]
     misses = [r["id"] for r in results if r.get("busqueda") and r["busqueda"]["hit_rate"] == 0]

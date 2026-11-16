@@ -13,11 +13,19 @@ Cada biblioteca es una carpeta en data/documents/libraries/<id>/ con su library 
     chats/<sesión>/turno_<n>.json   cada turno de chat: los eventos tal cual y la transcripción final
 """
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
 from llama_cloud import AsyncLlamaCloud
 
-from app.core.runs.store import RunStore, mark_done, mark_failed, mark_running, now, read_json, write_json
+from app.core.runs.store import (
+    RunStore,
+    mark_done,
+    mark_failed,
+    mark_running,
+    now,
+    read_json,
+    write_json,
+)
 
 from .settings import DocumentsSettings
 from .steps import s2_parse
@@ -285,6 +293,6 @@ async def delete_library(client: AsyncLlamaCloud, store: RunStore, settings: Doc
         if target:
             try:
                 await delete(target)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 -- a propósito: si falla un borrado, se avisa y se sigue con el resto
                 log.warning("No se pudo borrar %s de la biblioteca %s: %s", target, library["id"], e)
     store.delete(library["id"])

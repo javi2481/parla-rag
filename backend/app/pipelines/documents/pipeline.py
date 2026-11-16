@@ -139,11 +139,11 @@ async def delete_remote(client: AsyncLlamaCloud, run: dict) -> None:
             continue
         try:
             await delete(job_id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 -- a propósito: si falla un borrado, se avisa y se sigue con el resto
             log.warning("No se pudo borrar en LlamaCloud el job %s de la corrida %s: %s", job_id, run["id"], e)
     file_id = run["steps"]["upload"].get("file_id")
     if file_id:
         try:
             await client.files.delete(file_id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 -- a propósito: si falla un borrado, se avisa y se sigue con el resto
             log.warning("No se pudo borrar en LlamaCloud el archivo de la corrida %s: %s", run["id"], e)

@@ -13,7 +13,13 @@ from pathlib import Path
 import httpx
 from llama_cloud import AsyncLlamaCloud
 
-from app.core.runs.store import RunStore, mark_done, mark_failed, mark_running, write_json
+from app.core.runs.store import (
+    RunStore,
+    mark_done,
+    mark_failed,
+    mark_running,
+    write_json,
+)
 
 from ..settings import DocumentsSettings
 

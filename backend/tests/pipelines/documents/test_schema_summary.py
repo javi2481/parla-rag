@@ -1,5 +1,11 @@
 """La interpretación del paso Schema, con schemas armados a mano (sin red ni créditos)."""
-from app.pipelines.documents.steps.s5_schema import TEMPLATES, fields_to_schema, forced_fields, only_identity_required, summarize
+from app.pipelines.documents.steps.s5_schema import (
+    TEMPLATES,
+    fields_to_schema,
+    forced_fields,
+    only_identity_required,
+    summarize,
+)
 
 NUMBER = {"type": "number"}
 

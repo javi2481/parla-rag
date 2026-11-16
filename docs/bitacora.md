@@ -622,3 +622,13 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - No necesita API keys: los tests usan clientes falsos.
 - **Verificación antes de subirlo:** se clonó el repo en una carpeta limpia, sin `.env` y sin `data/`, como lo ve GitHub. Los 18 tests pasan con Python 3.11 y con 3.12, y el frontend compila con `npm ci`.
 - **README:** badge de CI junto al de los tests.
+
+### 16/11 · Ruff sin avisos (sin costo)
+
+- **Antes:** 17 avisos. 8 eran de orden de imports, que Ruff arregla solo.
+- **Arreglos:**
+  - strings concatenados dentro de listas, ahora entre paréntesis: Ruff avisa porque así suele esconderse una coma olvidada;
+  - `next(...)` en vez de `[...][0]` en dos tests;
+  - una variable sin usar en un test, renombrada a `_tmp_path`.
+- **A propósito:** quedan 3 `except Exception`, en los borrados de LlamaCloud. Si falla una pieza, se avisa en el log y se sigue con el resto. Llevan `# noqa: BLE001` con el motivo.
+- **CI:** `uvx ruff check .` corre antes de los tests. Resultado: 0 avisos y los 18 tests pasan.

@@ -135,7 +135,7 @@ def setup(tmp_path):
 
 # Sube, arranca Parse, consulta hasta que termina, descarga el .md y borra la corrida.
 def test_upload_parse_and_delete(setup):
-    client, fake, tmp_path = setup
+    client, fake, _tmp_path = setup
 
     run = client.post("/api/documents/runs", files={"file": ("Comunicado.pdf", b"%PDF-1.7 ...", "application/pdf")}).json()
     upload, parse = run["steps"][:2]
@@ -208,7 +208,7 @@ def test_split_classify_schema_extract(setup):
 
     # Extract sobre las páginas de una parte del Split: la configuración va copiada con target_pages.
     client.post(f"{base}/steps/extract", json={"target_pages": "1-3", "segment": "resumen"})
-    _, _, request = [c for c in fake.calls if c[0] == "extract"][0]
+    _, _, request = next(c for c in fake.calls if c[0] == "extract")
     assert request["configuration"]["target_pages"] == "1-3" and request["configuration"]["cite_sources"] is True
     extract = client.get(f"{base}/steps/extract").json()["steps"][5]
     assert extract["state"] == "done" and extract["credits"] == 9.0

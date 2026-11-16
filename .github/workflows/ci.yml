@@ -1,4 +1,4 @@
-# CI: en cada push y pull request corre los tests del backend y compila el frontend.
+# CI: en cada push y pull request revisa el estilo con Ruff, corre los tests del backend y compila el frontend.
 # Los tests usan clientes falsos: no hacen falta API keys ni se gastan créditos.
 name: CI
 
@@ -21,6 +21,8 @@ jobs:
           python-version: "3.11"
           enable-cache: true
       - run: uv sync --locked
+      - name: Ruff (estilo y errores comunes)
+        run: uvx ruff check .
       - run: uv run pytest -q
 
   frontend:

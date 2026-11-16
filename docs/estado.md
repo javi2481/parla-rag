@@ -147,7 +147,7 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 
 - [ ] **`format: date` no se respeta:** Extract devuelve "30/09/2026" o "30 de septiembre del 2026" en lugar de AAAA-MM-DD. Es de LlamaCloud; documentarlo en la clase o ajustar la guía del campo.
 - [ ] **El chat local usa el despachador global de la instrumentación de LlamaIndex:** si dos personas chatean **a la vez**, los registros de los dos turnos se pueden mezclar. Para una demo alcanza; para uso real habría que filtrar por `span_id`.
-- [ ] **Ruff marca 19 avisos** (11 de orden de imports que se arreglan solos con `--fix`, 3 `except Exception` a propósito, concatenaciones de texto). No son errores; limpiarlos en la fase 6.
+- [x] **Ruff sin avisos** (16/11): imports ordenados, strings concatenados entre paréntesis, `next()` en los tests; los 3 `except Exception` de los borrados quedan a propósito con `noqa` explicado. Ruff corre en el CI.
 - [ ] **Las API keys se pegaron en el chat** con Claude (Voyage y DeepSeek): rotarlas al terminar.
 
 ---

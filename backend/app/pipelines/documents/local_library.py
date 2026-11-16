@@ -30,7 +30,10 @@ from llama_index.core import (
 from llama_index.core.chat_engine import CondensePlusContextChatEngine
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.core.instrumentation.event_handlers import BaseEventHandler
-from llama_index.core.instrumentation.events.llm import LLMChatEndEvent, LLMCompletionEndEvent
+from llama_index.core.instrumentation.events.llm import (
+    LLMChatEndEvent,
+    LLMCompletionEndEvent,
+)
 from llama_index.core.instrumentation.events.retrieval import RetrievalEndEvent
 from llama_index.core.llms import ChatMessage
 from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
@@ -243,11 +246,11 @@ def summarize_sync(library: dict, documents: list[Document], chunks: int, settin
         {"label": "Créditos de LlamaCloud", "value": 0},
     ]
     interpretacion = [
-        f"Se indexaron {plural(len(documents), 'página', 'páginas')} de {plural(len(library['documents']), 'documento', 'documentos')} "
+        (f"Se indexaron {plural(len(documents), 'página', 'páginas')} de {plural(len(library['documents']), 'documento', 'documentos')} "
         f"en {plural(chunks, 'chunk', 'chunks')}, "
-        "usando el parse que ya hizo el wizard: no se volvió a parsear nada.",
-        "El índice está guardado en la carpeta de la biblioteca (index/). Los embeddings los hizo Voyage AI; "
-        "los primeros 200 millones de tokens son gratis.",
+        "usando el parse que ya hizo el wizard: no se volvió a parsear nada."),
+        ("El índice está guardado en la carpeta de la biblioteca (index/). Los embeddings los hizo Voyage AI; "
+        "los primeros 200 millones de tokens son gratis."),
     ]
     return {"metricas": metricas, "interpretacion": interpretacion}
 

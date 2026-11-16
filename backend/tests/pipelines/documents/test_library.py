@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from app.core.settings import CoreSettings, get_core_settings
 from app.main import app
 from app.pipelines.documents.settings import DocumentsSettings, get_documents_settings
-
 from tests.pipelines.documents.test_wizard_flow import FakeLlamaCloud, Obj
 
 
@@ -116,7 +115,7 @@ def test_library_end_to_end(setup):
     # Agregar: el mismo file_id (no se vuelve a subir), con la corrida como unique_id.
     library = client.post(f"{base}/documents", json={"run_id": run["id"]}).json()
     assert library["needs_sync"] is True
-    _, _, file_id, unique_id, metadata = [c for c in fake.calls if c[0] == "add_file"][0]
+    _, _, file_id, unique_id, metadata = next(c for c in fake.calls if c[0] == "add_file")
     assert file_id == "dfl-1" and unique_id == run["id"] and metadata["nombre"] == "EEFF.pdf"
     assert client.post(f"{base}/documents", json={"run_id": run["id"]}).status_code == 409
 
@@ -154,8 +153,8 @@ def test_create_library_cleans_up_on_error(setup):
     client, fake = setup
 
     async def refuse(**request):
-        from llama_cloud import APIStatusError
         import httpx
+        from llama_cloud import APIStatusError
         response = httpx.Response(403, request=httpx.Request("POST", "https://x"), json={"detail": "Buy credits"})
         raise APIStatusError("Buy credits", response=response, body={"detail": "Buy credits"})
 
