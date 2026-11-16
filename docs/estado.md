@@ -106,11 +106,13 @@ Una biblioteca junta documentos relacionados (por ejemplo "BYMA 3T26": EEFF, com
 - [x] Registrado en la bitácora (16/11).
 - **Para tener en cuenta:** el historial del chat sigue después de sacar un documento, así que las respuestas viejas quedan en la memoria del chat. No hay un botón para empezar un chat nuevo: evaluarlo para la clase.
 
-### 2. Unificar la identidad de los documentos
+### 2. Unificar la identidad de los documentos ✅ (16/11)
 
-- [ ] Los EEFF se extrajeron con el schema manual (`emisor`) y el comunicado con el automático (`ticker`, `companyName`, en inglés). La presentación no tiene Extract. Para filtrar por identidad, **todos los documentos de una biblioteca tienen que extraerse con el mismo schema**.
-- [ ] Volver a correr Schema (plantilla "Resultados trimestrales", solo identidad obligatoria) y Extract en el comunicado (~150 créditos) y en la presentación (~225 créditos). *Pedir el OK antes de gastar.*
-- [ ] Volver a agregar esos documentos a la biblioteca para que tomen la metadata nueva.
+- [x] El comunicado y la presentación se extrajeron con la plantilla "Resultados trimestrales" y la opción "solo identidad obligatoria" (150 y 225 créditos, más el Split de la presentación, que no se informa).
+- [x] Se volvieron a agregar a la biblioteca y se sincronizó. Los 3 documentos tienen `emisor: BYMA` y `periodo: 3T26`, y el filtro por `emisor`, `tipo` y `periodo` funciona.
+- **Quedó pendiente:** `fecha_de_cierre` viene en dos formatos distintos (el problema de `format: date`) y la presentación no la tiene, así que no sirve para filtrar.
+- **Hallazgo para decidir:** el corte en chunks separa las tablas de sus encabezados (unidades, histórico o ajustado por inflación), y el chat **supuso** las unidades. Se puede probar el separador de Markdown nativo de LlamaIndex. Ver la bitácora del 16/11.
+- **Detalles chicos:** un filtro mal armado da un error 500, y la búsqueda dice "documento(s)".
 
 ### 3. Lo que falta del plan original de la fase 4
 

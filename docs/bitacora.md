@@ -65,6 +65,20 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
 | 23 | 13/11 20:40 | Parse desde el wizard | Factura de ejemplo, 1 pág. | corrida `2026-11-13_204022_factura-ejemplo` | agentic · todas + 3 salidas extra | 15 | — |
 | 24 | 13/11 20:40 | Crear el directorio de la biblioteca "Prueba chica" | — | — | — | **0: rechazado** (403, plan) | — |
 
+**Identidad unificada de la biblioteca "BYMA 3T26"** (16/11, sobre el parse #11):
+
+| # | Fecha | Qué | Documento | Job | Opciones | Créditos | Saldo estimado |
+|---|---|---|---|---|---|---|---|
+| 25 | 16/11 10:48 | Schema manual: validar y guardar | Comunicado | `cfg-puvgzxwghxwmte0utr8ky24xqxv1` | plantilla "Resultados trimestrales" · solo identidad obligatoria | no informa | — |
+| 26 | 16/11 10:48 | Extract con el schema #25 | Comunicado, 10 págs. | `ext-mt0w2v6a25y4oomjkhuiluur640r` | agentic · citas y confianza | **150** | — |
+| 27 | 16/11 10:50 | Split | Presentación, 15 págs. | `spl-dgvh11yfp359logi7m1ktr4y3vnn` | 7 categorías por defecto (de EEFF) · `include` | **no informa** (la lista de precios dice ~45) | ? |
+| 28 | 16/11 10:50 | Classify | Presentación | `clj-x53bo2guiqxgufv0p9zq2r9yjgep` | 4 reglas · FAST | **0** | — |
+| 29 | 16/11 10:51 | Schema manual: validar y guardar | Presentación | `cfg-mkx42b2rwphfhmczecmwp81gwxs1` | plantilla "Resultados trimestrales" · solo identidad obligatoria | no informa | — |
+| 30 | 16/11 10:51 | Extract con el schema #29 | Presentación, 15 págs. | `ext-4upm23zsxm0zrhf8prf2v0oozv1j` | agentic · citas y confianza | **225** | — |
+
+**Saldo estimado después de #30:** 26.013 − 150 − 225 = **25.638**, menos lo que cobraron Split #13, #17 y #27, que no se informa. Hay que confirmarlo con el panel.
+
+
 **Llamadas que no costaron nada** (comprobado): volver a pedir el resultado de un parse terminado (`parsing.get`, varias veces), `validate_schema`, `configurations.create` (dos configuraciones de parse: `cfg-lhr7sirebo2m6rhmyx9dc89bk9xy` y `cfg-bmherk6gqi5cmvozygan96hjlel5`) y la subida de archivos. Las 3 salidas extra de `additional_outputs` tampoco suman costo: la página 4 costó 15 con y sin ellas.
 
 ---
@@ -399,6 +413,7 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - Respondió **"Sí, coinciden (con redondeo a miles)"**: 22,162 (miles de ARS, comunicado pág. 3) contra 22.161.940 ARS (EEFF pág. 4). También comparó el 3T25 (39,074 contra 39.074.003) y el impuesto a las ganancias.
   - **Verificado contra el parse:** 22.161.940, 39.074.003 y 13.304.682 están en la pág. 4 de los EEFF, y 22,162 y 39,074 en la pág. 3 del comunicado. Las citas son correctas.
   - En la misma fila del comunicado hay otro par (56,801 / 52,414, −8 %) que no coincide con ninguna cifra de los EEFF. El modelo **dijo que no podía conciliarlo**, en lugar de inventar una explicación. El fragmento no trae el encabezado de esas columnas, así que no se sabe qué representan.
+  - **Corrección (ver la entrada siguiente):** la conclusión era correcta, pero **las unidades que dio el modelo eran inventadas**. El comunicado está en millones de ARS (no en miles), y los EEFF están en miles de pesos en moneda constante (no en pesos). Los fragmentos no traían ese dato.
   - Tokens: 5.362 de entrada y 4.874 de salida (4.164 de razonamiento), 1 llamada.
 - **Sacar un documento:** se sacó el comunicado y se volvió a sincronizar. Quedaron 2 documentos, 101 páginas y 214 chunks (los 15 del comunicado ya no estaban).
   - Pregunta: *"¿Qué páginas del comunicado de prensa tenés en los fragmentos de ahora?"*. DeepSeek la reescribió con el historial y la búsqueda trajo **solo páginas de los EEFF y la presentación**. **El chat ya no usa el documento sacado.**
@@ -408,3 +423,38 @@ Extract cuesta **15 créditos por página** (agentic, con citas y confianza): 1 
   - **Ojo:** el historial del chat sigue después de sacar un documento. Las respuestas viejas, con citas a ese documento, quedan en la memoria del chat. La búsqueda nueva no lo trae, pero el modelo lo ve en el historial.
 - **Se volvió a agregar el comunicado** y se sincronizó de nuevo (sincronización 3): 3 documentos, 111 páginas, 229 chunks. La biblioteca queda completa para la clase, con 2 turnos de chat guardados.
 - **DeepSeek:** el saldo siguió en USD 1,96 (0,03 de regalo). Los 2 turnos costaron menos de un centavo.
+
+### 16/11 · Identidad unificada: el comunicado con la plantilla "Resultados trimestrales" (150 créditos)
+
+- **Pedido del usuario:** extraer todos los documentos de la biblioteca con el mismo schema, para poder filtrar por identidad (aprobó unos 375 créditos).
+- **Schema** (#25): modo manual, plantilla "Resultados trimestrales", solo identidad obligatoria. Quedaron obligatorios `emisor`, `razon_social`, `periodo` y `fecha_de_cierre`, igual que en los EEFF.
+- **Extract** (#26): **150 créditos** (15 por página). Encontró los 11 campos, con 92 % de confianza promedio y 82 % la más baja. Ningún campo para revisar ni sin cita. Páginas citadas: 1, 3, 7 y 9.
+  - Identidad: `emisor` BYMA, `razon_social` Bolsas y Mercados Argentinos S.A., `periodo` 3T26 y `fecha_de_cierre` "30 de septiembre del 2026". Otra vez **no respetó `format: date`** (ver estado.md, detalles técnicos).
+  - `resultado_neto` dio **52.414**, porque la plantilla pide el "valor histórico (sin ajustar por inflación)".
+- **Hallazgo: el corte en chunks separa las tablas de sus encabezados.**
+  - La pág. 3 del comunicado completa dice *"Millones de ARS"* y tiene dos grupos de columnas: **Histórico** (3T25 56,801 → 3T26 52,414) y **Ajustado por inflación** (3T25 39,074 → 3T26 22,162).
+  - La pág. 4 de los EEFF dice *"Cifras expresadas en miles de pesos y en moneda constante"*. Entonces 22.161.940 miles son 22.162 millones ajustados: coincide con la columna ajustada del comunicado.
+  - Ninguno de los 6 fragmentos del turno 1 del chat traía esas unidades: el encabezado quedó en otro chunk. El modelo **supuso** "miles" y "pesos" y se equivocó. La conclusión era correcta, pero la explicación no.
+  - **Para la clase:** una cita correcta no garantiza que la respuesta sea correcta, igual que pasó con Extract.
+  - **Posible mejora nativa, a decidir con el usuario:** LlamaIndex tiene separadores de nodos para Markdown (`MarkdownNodeParser`, `MarkdownElementNodeParser`) que mantienen juntas las tablas con su título, o se pueden usar chunks más grandes. Hoy se usa el separador por defecto.
+
+### 16/11 · Identidad unificada: la presentación y los filtros de la biblioteca (225 créditos y Split sin informar)
+
+- **El usuario aprobó** el Split extra (~45 créditos según la lista de precios). La presentación nunca había pasado por Split ni Classify, y el wizard los pide antes de Schema.
+- **Split** (#27), con las categorías por defecto (las de EEFF): pág. 1 `portada_e_indice`, pág. 2 `estado_de_resultados` y págs. 3 a 12 `uncategorized`. Las categorías no sirven para una presentación, pero Extract no usa Split. El costo no se informa.
+- **Classify** (#28): `presentacion`, con 100 % de confianza y 0 créditos.
+- **Schema** (#29) y **Extract** (#30): la misma plantilla y la opción "solo identidad obligatoria". **225 créditos** (15 por página).
+  - Encontró 10 de 11 campos, con 81 % de confianza promedio y 72 % la más baja. Hay 3 para revisar: `moneda` (77 %), `gastos` (72 %) y `margen_ebitda` (75 %). Páginas citadas: 1, 2 y 13.
+  - **`fecha_de_cierre`, que es obligatorio, volvió vacío (`""`)** en lugar de inventado: la presentación no dice la fecha de cierre. Como la metadata de identidad descarta los valores vacíos, la presentación no tiene ese campo en la biblioteca.
+  - `razon_social` dio "Bolsas y Mercados Argentinos" (sin "S.A.") y `gastos` dio −27.548 (con signo, porque así figura en la presentación). En el comunicado los gastos dieron 27.548.
+  - `resultado_neto` 52.414 y `unidad` "Millones de ARS": coinciden con la columna histórica del comunicado.
+- **Biblioteca:** se sacaron y se volvieron a agregar el comunicado y la presentación para que tomaran la metadata nueva, y se sincronizó (3 documentos, 111 páginas, **230 chunks**: uno más que antes, porque la metadata es más larga y cambia el corte). Unos 184.000 tokens de Voyage, gratis.
+  - Los 3 documentos quedaron con `emisor: BYMA` y `periodo: 3T26`. Los EEFF y el comunicado también tienen `fecha_de_cierre`, pero en dos formatos distintos ("30/09/2026" y "30 de septiembre del 2026"), así que **no se puede filtrar por fecha** entre los dos.
+- **Prueba de los filtros** (búsqueda "resultado neto del trimestre", 5 resultados, tokens gratis de Voyage):
+  - `emisor = BYMA` trajo fragmentos de los 3 documentos;
+  - `tipo = presentacion` trajo solo la presentación (págs. 13, 2, 4 y 6);
+  - `periodo = 3T26` y `tipo = comunicado_de_prensa` trajeron solo el comunicado (págs. 10, 3, 2 y 1).
+  - **El filtro por identidad funciona.**
+- **Detalles encontrados (sin arreglar):**
+  - un filtro con el formato equivocado (`{"emisor": "BYMA"}` en lugar de `{"emisor": {"operator": "eq", "value": "BYMA"}}`) da un error 500 sin explicación;
+  - la interpretación de la búsqueda dice "1 documento(s)", que es el mismo problema de singular y plural que ya se arregló en la sincronización.
