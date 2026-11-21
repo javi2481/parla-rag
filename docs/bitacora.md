@@ -141,3 +141,17 @@ Lo que se construyó y se aprendió con el corpus anterior, y que sigue valiendo
 - **Línea de base de la búsqueda** (6 páginas al modelo, 18 candidatos, sin MMR): hit rate 1,0 · **MRR 0,96** · **cobertura de clases 0,966**.
 - **Dónde falla:** `transformers-de-texto-a-imagen` (llegan las clases 07 y 12, pero no la 05: cobertura 0,5); `clip-en-la-materia` (llegan la 12 y la 08, faltan la 11 y la 13: cobertura 0,5; MRR 0,33); `clip-sin-etiquetas` (MRR 0,5: la primera página correcta llega segunda). Justo las preguntas que cruzan clases, que es lo que tiene que mejorar la búsqueda con MMR.
 - **Costo:** 0 créditos de LlamaCloud; 29 búsquedas de Voyage dentro de los tokens gratis.
+
+### 21/11 · Línea de base de las respuestas con el set de 31 preguntas (~USD 0,010 de OpenAI; tokens gratis de Voyage)
+
+- **Corrida:** `libraries/2026-11-21_133046_aprendizaje-automatico-ii/evals/2026-11-21_185241/`. Configuración de hoy: 6 páginas al modelo, 18 candidatos antes del reranker, sin MMR.
+- **Búsqueda:** hit rate 1,0 · MRR 0,96 · cobertura de clases 0,966 (igual que la corrida sin respuestas).
+- **Respuestas:** **30 de 31 fieles** · **22 de 31 correctas** (4 o más de 5) · corrección promedio 3,61.
+- **Tiempo por respuesta:** 2,52 s de promedio y 3,77 s de máximo (solo el chat, sin el juez). Muy por debajo del límite de 10 s.
+- **Tokens de OpenAI** (chat y juez): 132.009 de entrada y 9.366 de salida. Con USD 0,05 y 0,40 por millón son unos **USD 0,010**.
+- **Las que el juez marcó como incorrectas:** `rag`, `unet-origen`, `clip-matriz`, `equidad-ejemplo`, `enganiar-una-red`, `evitar-memorizar`, `vae`, `resnet-y-unet`, `trampa-q-learning`.
+  - `evitar-memorizar` (2 de 5): **falla real.** Llegó la pág. 6 de la clase 02 (sobreajuste) pero no la de regularización y drop-out, y el chat dijo que los fragmentos no daban mecanismos.
+  - `trampa-q-learning` (1 de 5): **otra vez un error del juez.** El chat dijo que Q-learning no está en los fragmentos, que es lo esperado, y el juez lo bajó por no explicar el tema.
+  - La única no fiel es `clip-sin-etiquetas`; el juez respondió solo "NO", sin explicar el motivo.
+- **Otro detalle:** en la trampa, el chat tuteó ("si quieres…, confirma…") y ofreció buscar "otros fragmentos", algo que no puede hacer. Queda para el `SYSTEM_PROMPT` de la tarea 4.
+- **Costo:** 0 créditos de LlamaCloud; 31 búsquedas de Voyage dentro de los tokens gratis.
