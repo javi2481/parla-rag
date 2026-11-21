@@ -15,6 +15,8 @@ from llama_index.core.evaluation import (
     FaithfulnessEvaluator,
     RetrieverEvaluator,
 )
+import time
+
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.llms.openai import OpenAI
 
@@ -59,6 +61,16 @@ def pages_of(index, node_ids: list[str]) -> list[str]:
     return pages
 
 
+# Los documentos (clases) de una lista de chunks, en orden y sin repetir.
+def documents_of(index, node_ids: list[str]) -> list[str]:
+    documents = []
+    for node_id in node_ids:
+        name = index.docstore.docs[node_id].metadata.get("nombre")
+        if name not in documents:
+            documents.append(name)
+    return documents
+
+
 # Mide la búsqueda de una pregunta: ¿llegó al modelo algún chunk de las páginas fuente? ¿en qué puesto?
 async def eval_retrieval(index, settings: DocumentsSettings, question: dict, names: dict, candidates: int) -> dict:
     top_k = settings.library_chat_top_k
@@ -68,11 +80,18 @@ async def eval_retrieval(index, settings: DocumentsSettings, question: dict, nam
         node_postprocessors=[engine.make_reranker(settings, top_k)],
     )
     result = await evaluator.aevaluate(query=question["pregunta"], expected_ids=expected_ids(index, question, names))
+    # La cobertura de clases: de las clases que tienen la respuesta, cuántas llegaron al modelo.
+    expected_docs = list(dict.fromkeys(names[s["doc"]] for s in question["fuentes"]))
+    found_docs = documents_of(index, result.retrieved_ids)
+    covered = [doc for doc in expected_docs if doc in found_docs]
     return {
         "hit_rate": result.metric_vals_dict["hit_rate"],
         "mrr": result.metric_vals_dict["mrr"],
         "paginas_esperadas": [f"{names[s['doc']]}, pág. {s['pagina']}" for s in question["fuentes"]],
         "paginas_encontradas": pages_of(index, result.retrieved_ids),
+        "clases_esperadas": expected_docs,
+        "clases_encontradas": found_docs,
+        "cobertura_de_clases": round(len(covered) / len(expected_docs), 3),
     }
 
 
@@ -83,8 +102,10 @@ async def eval_answer(index, settings: DocumentsSettings, question: dict, candid
     dispatcher.add_event_handler(recorder)
     try:
         chat = engine.make_chat_engine(index, settings, history=[], candidates=candidates)
+        started = time.perf_counter()  # el tiempo es el de la respuesta del chat, sin contar al juez
         response = await chat.astream_chat(question["pregunta"])
         answer = "".join([token async for token in response.async_response_gen()])
+        seconds = round(time.perf_counter() - started, 2)
         contexts = [node.node.get_content() for node in response.source_nodes]
         judge = make_judge_llm(settings)
         faithfulness = await FaithfulnessEvaluator(llm=judge).aevaluate(
@@ -100,6 +121,7 @@ async def eval_answer(index, settings: DocumentsSettings, question: dict, candid
         "correccion": correctness.score,
         "correcta": correctness.passing,
         "correccion_explicacion": correctness.feedback,
+        "segundos": seconds,
         "llamadas_al_modelo": recorder.llm_calls,
         "usage": engine.total_usage(recorder.llm_calls, settings.library_chat_model),
     }
@@ -121,11 +143,13 @@ def summarize(library: dict, results: list[dict], candidates: int, with_answers:
         {"label": "Candidatos antes del reranker", "value": candidates},
         {"label": "Búsqueda: hit rate", "value": average([r["hit_rate"] for r in searched])},
         {"label": "Búsqueda: MRR", "value": average([r["mrr"] for r in searched])},
+        {"label": "Cobertura de clases (promedio)", "value": average([r["cobertura_de_clases"] for r in searched])},
     ]
     interpretacion = [
         (f"La búsqueda trajo al menos una página correcta en {hits} de {len(searched)} preguntas con fuente "
         f"(las trampas no tienen página correcta y no se miden en la búsqueda)."),
         "MRR es el promedio de 1/puesto del primer chunk correcto entre los que llegan al modelo: 1 es primero, 0,5 es segundo, 0 es que no llegó.",
+        "La cobertura de clases mide, en las preguntas que cruzan clases, cuántas de las clases correctas llegaron al modelo.",
     ]
     misses = [r["id"] for r in results if r.get("busqueda") and r["busqueda"]["hit_rate"] == 0]
     if misses:
@@ -140,6 +164,8 @@ def summarize(library: dict, results: list[dict], candidates: int, with_answers:
             {"label": "Corrección promedio (1 a 5)", "value": average([a["correccion"] for a in answers])},
             {"label": "Tokens de OpenAI (entrada / salida)",
              "value": f"{sum(a['usage']['tokens_de_entrada'] for a in answers)} / {sum(a['usage']['tokens_de_salida'] for a in answers)}"},
+            {"label": "Tiempo por respuesta (promedio / máximo)",
+             "value": f"{average([a['segundos'] for a in answers])} s / {max(a['segundos'] for a in answers)} s"},
         ]
         wrong = [r["id"] for r in results if not r["respuesta"]["correcta"]]
         if wrong:

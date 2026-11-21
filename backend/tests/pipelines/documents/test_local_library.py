@@ -170,3 +170,38 @@ def test_local_library_evals(setup, monkeypatch):
     assert len(saved) == 2 and saved[0]["request"]["respuestas"] is True and saved[0]["metricas"]
     assert "llamadas_al_modelo" not in saved[0]["resultados"][0]["respuesta"]
     assert client.post(f"{base}/evals", json={"conjunto": "no-existe"}).status_code == 404
+
+
+# Una pregunta que cruza dos clases, pero solo una está en la biblioteca: la cobertura de clases es 0,5.
+# Y con respuestas, cada una dice cuánto tardó.
+def test_evals_miden_cobertura_y_tiempo(setup, monkeypatch):
+    from app.pipelines.documents import library_evals
+
+    client, settings, tmp_path = setup
+    monkeypatch.setattr(library_evals, "make_judge_llm", lambda settings: FakeJudge())
+    run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    client.post(f"/api/documents/runs/{run['id']}/steps/parse")
+    client.get(f"/api/documents/runs/{run['id']}/steps/parse")
+    library = client.post("/api/documents/libraries", json={"name": "Prueba"}).json()
+    base = f"/api/documents/libraries/{library['id']}"
+    client.post(f"{base}/documents", json={"run_id": run["id"]})
+    client.post(f"{base}/sync")
+    questions = {"documentos": {"CLASE": "clase.pdf", "OTRA": "otra.pdf"}, "preguntas": [
+        {"id": "cruza", "tipo": "cruza_clases", "pregunta": "¿Qué tienen en común?", "respuesta_esperada": "Algo",
+         "fuentes": [{"doc": "CLASE", "pagina": 1}, {"doc": "OTRA", "pagina": 3}]},
+    ]}
+    folder = tmp_path / "samples" / "cobertura" / "evals"
+    folder.mkdir(parents=True)
+    (folder / "preguntas.json").write_text(json.dumps(questions))
+
+    resultado = client.post(f"{base}/evals", json={"conjunto": "cobertura"}).json()
+    busqueda = resultado["resultados"][0]["busqueda"]
+    assert busqueda["clases_esperadas"] == ["clase.pdf", "otra.pdf"]
+    assert busqueda["clases_encontradas"] == ["clase.pdf"]
+    assert busqueda["cobertura_de_clases"] == 0.5
+    assert any(m["label"] == "Cobertura de clases (promedio)" and m["value"] == 0.5 for m in resultado["metricas"])
+
+    settings.openai_api_key = "d"
+    con_respuestas = client.post(f"{base}/evals", json={"conjunto": "cobertura", "respuestas": True}).json()
+    assert con_respuestas["resultados"][0]["respuesta"]["segundos"] >= 0
+    assert any(m["label"] == "Tiempo por respuesta (promedio / máximo)" for m in con_respuestas["metricas"])
