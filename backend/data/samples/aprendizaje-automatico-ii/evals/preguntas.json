@@ -272,6 +272,300 @@
       "verificado_en": "parse"
     },
     {
+      "id": "gap-en-vez-de-flatten",
+      "tipo": "parafraseada",
+      "pregunta": "Al adaptar una red preentrenada, ¿qué conviene poner antes del clasificador en lugar de aplanar las características, y por qué?",
+      "respuesta_esperada": "GlobalAveragePooling2D en lugar de Flatten: menos parámetros y menos sobreajuste.",
+      "fuentes": [
+        {
+          "doc": "C08",
+          "pagina": 15
+        },
+        {
+          "doc": "C08",
+          "pagina": 14
+        }
+      ],
+      "que_mide": "La idea con otras palabras ('aplanar' en vez de Flatten).",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "transferencia-negativa",
+      "tipo": "parafraseada",
+      "pregunta": "¿Qué riesgo hay si reutilizo un modelo entrenado con datos muy diferentes a los míos?",
+      "respuesta_esperada": "La transferencia negativa: si los dominios son muy distintos, el conocimiento previo puede perjudicar en lugar de ayudar. A esa diferencia entre los datos de origen y los de destino se la llama domain shift; cuanto más se parecen los dominios, más capas se pueden reutilizar.",
+      "fuentes": [
+        {
+          "doc": "C08",
+          "pagina": 7
+        }
+      ],
+      "que_mide": "Una pregunta sin el término técnico ('transferencia negativa').",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "enganiar-una-red",
+      "tipo": "parafraseada",
+      "pregunta": "¿Cómo se puede engañar a una red de visión sin que una persona note el cambio en la imagen?",
+      "respuesta_esperada": "Con ejemplos adversariales: cambios imperceptibles en los píxeles que alteran la predicción (Szegedy et al., 2013). Un panda con 57,7 % de confianza, más un ruido mínimo, se clasifica como gibbon con 99,3 % (Goodfellow et al., 2015). FGSM genera ese ruido en un solo paso con el gradiente de la pérdida respecto de la entrada.",
+      "fuentes": [
+        {
+          "doc": "C13",
+          "pagina": 26
+        },
+        {
+          "doc": "C13",
+          "pagina": 28
+        },
+        {
+          "doc": "C13",
+          "pagina": 35
+        }
+      ],
+      "que_mide": "Una pregunta sin nombrar 'adversarial' ni 'FGSM'.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "evitar-memorizar",
+      "tipo": "parafraseada",
+      "pregunta": "¿Qué se propone para que una red no memorice los datos de entrenamiento?",
+      "respuesta_esperada": "El sobre-entrenamiento (overfitting) se combate con regularización, por ejemplo con drop-out.",
+      "fuentes": [
+        {
+          "doc": "C02",
+          "pagina": 6
+        }
+      ],
+      "que_mide": "'Memorizar' en lugar de 'sobre-entrenamiento'.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "clip-sin-etiquetas",
+      "tipo": "parafraseada",
+      "pregunta": "¿De dónde saca CLIP la supervisión si nadie etiqueta las imágenes a mano?",
+      "respuesta_esperada": "De los cientos de millones de pares (imagen, texto) de la web, como fotos con epígrafe o alt-text, que no requieren etiquetado manual. Se entrena para que la imagen y el texto que van juntos queden cerca y los demás lejos (aprendizaje contrastivo). CLIP se entrenó con unos 400 millones de pares.",
+      "fuentes": [
+        {
+          "doc": "C12",
+          "pagina": 5
+        },
+        {
+          "doc": "C12",
+          "pagina": 6
+        },
+        {
+          "doc": "C08",
+          "pagina": 21
+        }
+      ],
+      "que_mide": "Una idea repartida en dos clases y dicha con otras palabras.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "limitaciones-clip",
+      "tipo": "varias_diapositivas",
+      "pregunta": "¿Qué limitaciones tiene CLIP?",
+      "respuesta_esperada": "Sesgo al objeto más grande al enumerar objetos; dificultad con las relaciones espaciales; lee el texto dentro de la imagen, así que se lo puede engañar con carteles; sesgos heredados (demográficos, de representación); dominios lejanos a sus datos, como las imágenes médicas; y solo funciona en inglés.",
+      "fuentes": [
+        {
+          "doc": "C12",
+          "pagina": 15
+        },
+        {
+          "doc": "C12",
+          "pagina": 16
+        },
+        {
+          "doc": "C12",
+          "pagina": 17
+        },
+        {
+          "doc": "C12",
+          "pagina": 18
+        }
+      ],
+      "que_mide": "Una lista repartida en cuatro diapositivas seguidas.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "vae",
+      "tipo": "varias_diapositivas",
+      "pregunta": "¿Qué es un VAE y de dónde salió?",
+      "respuesta_esperada": "Un Variational Autoencoder, de la Universidad de Amsterdam (2014): un modelo probabilístico que genera imágenes controlando características específicas mediante el uso de espacios latentes.",
+      "fuentes": [
+        {
+          "doc": "C11",
+          "pagina": 11
+        },
+        {
+          "doc": "C11",
+          "pagina": 12
+        },
+        {
+          "doc": "C11",
+          "pagina": 13
+        },
+        {
+          "doc": "C11",
+          "pagina": 14
+        },
+        {
+          "doc": "C11",
+          "pagina": 15
+        }
+      ],
+      "que_mide": "Cubre la clase 11, que no tenía preguntas.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "gan",
+      "tipo": "varias_diapositivas",
+      "pregunta": "¿Cómo funciona una GAN?",
+      "respuesta_esperada": "Usa dos redes, un Generador y un Discriminador, en un proceso de aprendizaje competitivo (adversario) para crear imágenes realistas. Viene de la Universidad de Montreal (2014).",
+      "fuentes": [
+        {
+          "doc": "C11",
+          "pagina": 16
+        },
+        {
+          "doc": "C11",
+          "pagina": 17
+        }
+      ],
+      "que_mide": "Una explicación en dos diapositivas con diagramas.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "funciones-de-activacion",
+      "tipo": "dato",
+      "pregunta": "¿Qué funciones de activación se presentan en la introducción a redes neuronales?",
+      "respuesta_esperada": "Sigmoid, Leaky ReLU, tanh, Maxout, ReLU y ELU, con sus fórmulas. El perceptrón simple usa además la función signo como activación.",
+      "fuentes": [
+        {
+          "doc": "C01",
+          "pagina": 7
+        },
+        {
+          "doc": "C01",
+          "pagina": 6
+        }
+      ],
+      "que_mide": "Cubre la clase 01, que no tenía preguntas; fórmulas en LaTeX.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "resnet-y-unet",
+      "tipo": "cruza_clases",
+      "pregunta": "¿Qué tienen en común ResNet y U-Net?",
+      "respuesta_esperada": "Las dos usan conexiones que saltan capas. En ResNet son conexiones residuales, que suman la entrada a la salida del bloque (F(x) + x) y permiten entrenar redes muy profundas sin vanishing gradient. En U-Net son skip connections que concatenan el codificador con el decodificador para segmentar.",
+      "fuentes": [
+        {
+          "doc": "C07",
+          "pagina": 27
+        },
+        {
+          "doc": "C07",
+          "pagina": 28
+        },
+        {
+          "doc": "C10",
+          "pagina": 12
+        },
+        {
+          "doc": "C10",
+          "pagina": 13
+        }
+      ],
+      "que_mide": "Relacionar dos clases que usan palabras distintas para una idea parecida.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "transformers-de-texto-a-imagen",
+      "tipo": "cruza_clases",
+      "pregunta": "¿Cómo se pasó de los Transformers de texto a los de imágenes?",
+      "respuesta_esperada": "Los Transformers (Google Brain, 2017, 'Attention Is All You Need') se basan solo en atención, sin recurrencia ni convoluciones. ViT (Google Brain, 2021) aplica esa arquitectura a la clasificación de imágenes con embeddings de parches de la imagen, usa auto-atención en lugar de convoluciones y necesita grandes datasets.",
+      "fuentes": [
+        {
+          "doc": "C05",
+          "pagina": 11
+        },
+        {
+          "doc": "C07",
+          "pagina": 33
+        },
+        {
+          "doc": "C07",
+          "pagina": 34
+        }
+      ],
+      "que_mide": "Unir PLN y visión.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "clip-en-la-materia",
+      "tipo": "cruza_clases",
+      "pregunta": "¿En qué temas de la materia aparece CLIP y para qué se usa?",
+      "respuesta_esperada": "Como modelo fundamental para clasificar sin entrenar (zero-shot), entrenado con unos 400 millones de pares imagen-texto (transferencia de aprendizaje); como modelo multimodal contrastivo con un espacio de embeddings compartido (modelos multimodales); como text encoder de Stable Diffusion (generación de imágenes); y como ejemplo de sesgo (sesgo y ética).",
+      "fuentes": [
+        {
+          "doc": "C08",
+          "pagina": 21
+        },
+        {
+          "doc": "C12",
+          "pagina": 7
+        },
+        {
+          "doc": "C12",
+          "pagina": 10
+        },
+        {
+          "doc": "C12",
+          "pagina": 22
+        },
+        {
+          "doc": "C11",
+          "pagina": 23
+        },
+        {
+          "doc": "C13",
+          "pagina": 13
+        },
+        {
+          "doc": "C13",
+          "pagina": 14
+        }
+      ],
+      "que_mide": "Cuatro clases en una respuesta.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "metricas-de-evaluacion",
+      "tipo": "cruza_clases",
+      "pregunta": "¿Qué métricas de evaluación se ven para la detección de objetos y para la búsqueda entre imágenes y textos?",
+      "respuesta_esperada": "En detección: IoU (área de superposición sobre área de unión) y AP (área bajo la curva precisión-recall). En la búsqueda imagen-texto de CLIP: Recall@K, el porcentaje de consultas en que la imagen correcta aparece entre los K primeros resultados (K típicos: 1, 5 y 10).",
+      "fuentes": [
+        {
+          "doc": "C09",
+          "pagina": 35
+        },
+        {
+          "doc": "C09",
+          "pagina": 36
+        },
+        {
+          "doc": "C09",
+          "pagina": 37
+        },
+        {
+          "doc": "C12",
+          "pagina": 20
+        }
+      ],
+      "que_mide": "Dos clases y dos tipos de tarea.",
+      "verificado_en": "parse"
+    },
+    {
       "id": "trampa-q-learning",
       "tipo": "trampa",
       "pregunta": "¿Cómo funciona Q-learning y la ecuación de Bellman?",

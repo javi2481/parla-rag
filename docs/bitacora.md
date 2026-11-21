@@ -133,3 +133,11 @@ Lo que se construyó y se aprendió con el corpus anterior, y que sigue valiendo
 - **Detalles:** el panel escribe `224 x 224` y el nuestro `224 × 224`; al nuestro le falta la nota *"Commonly referred to as a Convolutional Base or a Backbone"* de la pág. 10.
 - **Hallazgo importante: los links de la bibliografía (pág. 24) están mal asignados en el nuestro.** El del panel no trae links (`[<u>link</u>]`). El nuestro sí, porque pedimos `annotate_links: true`, pero **cada texto apunta al link de otra línea**: *"Tutorial oficial de TensorFlow"* → opencv.org; *"Vision Transformer"* → ibm.com (fine-tuning); *"CLIP"* → openwebinars.net. Se verificó contra las anotaciones del PDF con pypdf: **el PDF tiene cada link en su lugar**, así que el error es de LlamaParse. La API no lo marca ni avisa.
 - **Qué se aprende:** un link anotado parece un dato confiable y no lo es. Si el chat cita un link de la bibliografía, puede estar mal.
+
+### 21/11 · Set de evals más exigente y línea de base de la búsqueda (sin costo: tokens gratis de Voyage)
+
+- **Set:** 13 preguntas nuevas (31 en total), todas con la respuesta verificada en el parse y con **todas** las páginas que la contienen como fuente: 5 `parafraseada` (la idea con otras palabras que las de la diapositiva), 4 `varias_diapositivas` y 4 `cruza_clases` (de 2 a 4 clases). Ahora hay preguntas de las clases 01, 02 y 11, que no tenían.
+- **Métrica nueva:** cobertura de clases = de las clases que tienen la respuesta, cuántas llegan al modelo. También se mide el tiempo de cada respuesta.
+- **Línea de base de la búsqueda** (6 páginas al modelo, 18 candidatos, sin MMR): hit rate 1,0 · **MRR 0,96** · **cobertura de clases 0,966**.
+- **Dónde falla:** `transformers-de-texto-a-imagen` (llegan las clases 07 y 12, pero no la 05: cobertura 0,5); `clip-en-la-materia` (llegan la 12 y la 08, faltan la 11 y la 13: cobertura 0,5; MRR 0,33); `clip-sin-etiquetas` (MRR 0,5: la primera página correcta llega segunda). Justo las preguntas que cruzan clases, que es lo que tiene que mejorar la búsqueda con MMR.
+- **Costo:** 0 créditos de LlamaCloud; 29 búsquedas de Voyage dentro de los tokens gratis.
