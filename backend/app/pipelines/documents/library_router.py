@@ -167,15 +167,18 @@ async def search(library_id: str, client: ClientDep, store: LibrariesDep, settin
 
 # Evals: mide la búsqueda (y, si se pide, las respuestas juzgadas por OpenAI) con un set de preguntas verificadas.
 # "candidatos" cambia cuántos candidatos trae la búsqueda por vectores antes del reranker (por defecto, el del chat).
+# "top_k" (páginas al modelo) y "modo" ("default" o "mmr") prueban otra configuración solo en esa corrida.
 @router.post("/{library_id}/evals")
 async def run_evals(library_id: str, store: LibrariesDep, settings: SettingsDep,
                     conjunto: Annotated[str, Body(embed=True)] = "aprendizaje-automatico-ii",
                     candidatos: Annotated[int | None, Body(embed=True)] = None,
-                    respuestas: Annotated[bool, Body(embed=True)] = False):
+                    respuestas: Annotated[bool, Body(embed=True)] = False,
+                    top_k: Annotated[int | None, Body(embed=True)] = None,
+                    modo: Annotated[str | None, Body(embed=True)] = None):
     library = find(store, library_id)
     if library.get("engine") != "local":
         raise HTTPException(409, "Los evals solo están hechos para las bibliotecas locales.")
-    return await guarded(library_evals.run_evals(store, settings, library, conjunto, candidatos, respuestas))
+    return await guarded(library_evals.run_evals(store, settings, library, conjunto, candidatos, respuestas, top_k, modo))
 
 
 # El turno de chat se manda en vivo: cada línea es lo que va enviando LlamaCloud (Server-Sent Events).

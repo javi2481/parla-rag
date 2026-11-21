@@ -39,6 +39,11 @@ class DocumentsSettings(BaseSettings):
     library_reasoning_effort: str = "minimal"
     # Cuántas páginas (las mejores según el reranker) se le pasan al modelo en cada pregunta.
     library_chat_top_k: int = 6
+    # Cómo elige los candidatos la búsqueda por vectores: "default" (los más parecidos) o "mmr"
+    # (parecidos pero distintos entre sí, para que lleguen páginas de varias clases). Es nativo de LlamaIndex.
+    library_retrieval_mode: str = "default"
+    # Con "mmr": 1 es solo parecido a la pregunta; cuanto más bajo, más peso a que los candidatos sean distintos.
+    library_mmr_threshold: float = 0.5
 
     # Cantidad máxima de documentos que se pueden subir por IP por día (0 = sin límite).
     documents_daily_limit: int = 0

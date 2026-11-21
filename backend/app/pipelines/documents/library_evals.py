@@ -76,7 +76,7 @@ async def eval_retrieval(index, settings: DocumentsSettings, question: dict, nam
     top_k = settings.library_chat_top_k
     evaluator = RetrieverEvaluator.from_metric_names(
         ["hit_rate", "mrr"],
-        retriever=index.as_retriever(similarity_top_k=candidates),
+        retriever=engine.make_retriever(index, settings, candidates),
         node_postprocessors=[engine.make_reranker(settings, top_k)],
     )
     result = await evaluator.aevaluate(query=question["pregunta"], expected_ids=expected_ids(index, question, names))
@@ -192,8 +192,13 @@ def saved_runs(library_folder) -> list[dict]:
 
 # Corre los evals de una biblioteca: la búsqueda de cada pregunta y, si se pide, también la respuesta juzgada.
 # Guarda todo en libraries/<id>/evals/<fecha>/.
+# "top_k" (páginas al modelo) y "mode" (default o mmr) sirven para comparar configuraciones: valen solo para
+# esta corrida (se arma una copia de la configuración) y quedan anotados en su request.json.
 async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict, name: str = "aprendizaje-automatico-ii",
-                    candidates: int | None = None, with_answers: bool = False) -> dict:
+                    candidates: int | None = None, with_answers: bool = False,
+                    top_k: int | None = None, mode: str | None = None) -> dict:
+    changes = {"library_chat_top_k": top_k, "library_retrieval_mode": mode}
+    settings = settings.model_copy(update={key: value for key, value in changes.items() if value is not None})
     engine.check_ready(settings)
     if with_answers and not settings.openai_api_key:
         raise ValueError("Falta configurar OPENAI_API_KEY en backend/.env.")
@@ -215,6 +220,8 @@ async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict,
 
     request = {"conjunto": name, "preguntas": len(results), "candidatos": candidates, "respuestas": with_answers,
                "splitter": library.get("splitter", "oraciones"), "top_k": settings.library_chat_top_k,
+               "modo": settings.library_retrieval_mode,
+               "mmr_threshold": settings.library_mmr_threshold if settings.library_retrieval_mode == "mmr" else None,
                "embed_model": settings.library_embed_model, "rerank_model": settings.library_rerank_model,
                "juez": settings.library_chat_model if with_answers else None}
     summary = summarize(library, results, candidates, with_answers)

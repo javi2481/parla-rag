@@ -106,6 +106,19 @@ def make_reranker(settings: DocumentsSettings, top_n: int):
     return VoyageAIRerank(model=settings.library_rerank_model, api_key=settings.voyage_api_key, top_n=top_n)
 
 
+# La búsqueda por vectores que comparten el chat, la búsqueda de prueba y los evals (así los evals miden lo mismo).
+# Trae "candidates" páginas (por defecto, top_k × 3) para que después el reranker deje las mejores.
+# Con library_retrieval_mode = "mmr" usa el MMR nativo del índice de LlamaIndex: candidatos parecidos pero distintos.
+def make_retriever(index: VectorStoreIndex, settings: DocumentsSettings, candidates: int | None = None,
+                   filters: MetadataFilters | None = None):
+    mode = settings.library_retrieval_mode
+    if mode not in ("default", "mmr"):
+        raise ValueError(f'El modo de búsqueda "{mode}" no existe: tiene que ser "default" o "mmr".')
+    extra = {"vector_store_kwargs": {"mmr_threshold": settings.library_mmr_threshold}} if mode == "mmr" else {}
+    return index.as_retriever(similarity_top_k=candidates or settings.library_chat_top_k * CANDIDATES_PER_RESULT,
+                              filters=filters, vector_store_query_mode=mode, **extra)
+
+
 # Revisa que esté la API key de Voyage antes de usarla.
 def check_ready(settings: DocumentsSettings) -> None:
     if not settings.voyage_api_key:
@@ -290,7 +303,7 @@ async def search(client, store: RunStore, settings: DocumentsSettings, library: 
     index = load_index(store, settings, library)
 
     def run() -> list:
-        retriever = index.as_retriever(similarity_top_k=top_k * CANDIDATES_PER_RESULT, filters=metadata_filters)
+        retriever = make_retriever(index, settings, candidates=top_k * CANDIDATES_PER_RESULT, filters=metadata_filters)
         candidates = retriever.retrieve(query)
         vector_scores = {node.node.node_id: node.score for node in candidates}
         reranked = make_reranker(settings, top_k).postprocess_nodes(candidates, QueryBundle(query))
@@ -401,7 +414,7 @@ def make_chat_engine(index: VectorStoreIndex, settings: DocumentsSettings, histo
                      candidates: int | None = None) -> CondensePlusContextChatEngine:
     top_k = settings.library_chat_top_k
     return CondensePlusContextChatEngine.from_defaults(
-        retriever=index.as_retriever(similarity_top_k=candidates or top_k * CANDIDATES_PER_RESULT),
+        retriever=make_retriever(index, settings, candidates),
         llm=make_llm(settings),
         chat_history=history,
         system_prompt=SYSTEM_PROMPT,

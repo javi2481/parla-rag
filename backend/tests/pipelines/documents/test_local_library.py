@@ -205,3 +205,49 @@ def test_evals_miden_cobertura_y_tiempo(setup, monkeypatch):
     con_respuestas = client.post(f"{base}/evals", json={"conjunto": "cobertura", "respuestas": True}).json()
     assert con_respuestas["resultados"][0]["respuesta"]["segundos"] >= 0
     assert any(m["label"] == "Tiempo por respuesta (promedio / máximo)" for m in con_respuestas["metricas"])
+
+
+# La búsqueda compartida (chat, búsqueda de prueba y evals) usa MMR solo si está configurado.
+def test_make_retriever_usa_mmr_si_esta_configurado():
+    from llama_index.core import VectorStoreIndex
+    from llama_index.core.schema import TextNode
+    from llama_index.core.vector_stores.types import VectorStoreQueryMode
+
+    index = VectorStoreIndex([TextNode(text="hola")], embed_model=MockEmbedding(embed_dim=8))
+    settings = DocumentsSettings(library_retrieval_mode="mmr", library_mmr_threshold=0.3, _env_file=None)
+    retriever = local_library.make_retriever(index, settings)
+    assert retriever._vector_store_query_mode == VectorStoreQueryMode.MMR
+    assert retriever._kwargs == {"mmr_threshold": 0.3}
+    assert retriever._similarity_top_k == settings.library_chat_top_k * local_library.CANDIDATES_PER_RESULT
+
+    settings.library_retrieval_mode = "default"
+    assert local_library.make_retriever(index, settings, candidates=4)._vector_store_query_mode == VectorStoreQueryMode.DEFAULT
+
+    settings.library_retrieval_mode = "otro"
+    with pytest.raises(ValueError, match="mmr"):
+        local_library.make_retriever(index, settings)
+
+
+# Los evals pueden probar otra cantidad de páginas y otro modo de búsqueda, y lo dejan anotado en la corrida.
+def test_evals_aceptan_top_k_y_modo(setup):
+    client, settings, tmp_path = setup
+    run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    client.post(f"/api/documents/runs/{run['id']}/steps/parse")
+    client.get(f"/api/documents/runs/{run['id']}/steps/parse")
+    library = client.post("/api/documents/libraries", json={"name": "Prueba"}).json()
+    base = f"/api/documents/libraries/{library['id']}"
+    client.post(f"{base}/documents", json={"run_id": run["id"]})
+    client.post(f"{base}/sync")
+    questions = {"documentos": {"CLASE": "clase.pdf"}, "preguntas": [
+        {"id": "neto", "tipo": "dato", "pregunta": "¿Resultado neto?", "respuesta_esperada": "22.162",
+         "fuentes": [{"doc": "CLASE", "pagina": 1}]},
+    ]}
+    folder = tmp_path / "samples" / "modos" / "evals"
+    folder.mkdir(parents=True)
+    (folder / "preguntas.json").write_text(json.dumps(questions))
+
+    result = client.post(f"{base}/evals", json={"conjunto": "modos", "top_k": 12, "modo": "mmr"}).json()
+    assert result["request"]["top_k"] == 12 and result["request"]["modo"] == "mmr"
+    assert result["request"]["candidatos"] == 12 * local_library.CANDIDATES_PER_RESULT
+    # La configuración del servidor no cambia: el cambio vale solo para esa corrida.
+    assert settings.library_chat_top_k == 6 and settings.library_retrieval_mode == "default"
