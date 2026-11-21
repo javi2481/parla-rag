@@ -1,4 +1,4 @@
-"""Bibliotecas locales (LlamaIndex + Voyage AI + DeepSeek) con modelos falsos: sin red ni créditos."""
+"""Bibliotecas locales (LlamaIndex + Voyage AI + OpenAI) con modelos falsos: sin red ni créditos."""
 import json
 
 import pytest
@@ -54,12 +54,12 @@ def setup(tmp_path, monkeypatch):
 
 def test_local_library_end_to_end(setup):
     client, settings, tmp_path = setup
-    run = client.post("/api/documents/runs", files={"file": ("EEFF.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
     client.post(f"/api/documents/runs/{run['id']}/steps/parse")
     client.get(f"/api/documents/runs/{run['id']}/steps/parse")
 
     # Crear: solo la carpeta, nada en LlamaCloud.
-    library = client.post("/api/documents/libraries", json={"name": "BYMA 3T26"}).json()
+    library = client.post("/api/documents/libraries", json={"name": "Aprendizaje Automático II"}).json()
     assert library["engine"] == "local" and library["embed_model"] == "voyage-4"
     base = f"/api/documents/libraries/{library['id']}"
     folder = tmp_path / "documents" / "libraries" / library["id"]
@@ -90,22 +90,22 @@ def test_local_library_end_to_end(setup):
         response = client.post(f"{base}/search", json={"query": "x", "filters": malformed})
         assert response.status_code == 409 and "mal armado" in response.json()["detail"]
 
-    # Sin la key de DeepSeek, el chat avisa qué falta.
+    # Sin la key de OpenAI, el chat avisa qué falta.
     with client.stream("POST", f"{base}/chat", json={"prompt": "hola"}) as response:
-        assert "DEEPSEEK_API_KEY" in "".join(response.iter_text())
+        assert "OPENAI_API_KEY" in "".join(response.iter_text())
 
     # Con la key: llegan la búsqueda, las páginas que encontró, la respuesta en pedacitos y el uso. Todo queda guardado.
-    settings.deepseek_api_key = "d"
+    settings.openai_api_key = "d"
     for prompt in ("¿Cuál fue el resultado neto?", "¿Y los ingresos?"):
         with client.stream("POST", f"{base}/chat", json={"prompt": prompt}) as response:
             events = [json.loads(line[5:]) for line in response.iter_lines() if line.startswith("data:")]
         types = [event["type"] for event in events]
         assert types[:2] == ["tool_call", "tool_result"] and "text_delta" in types and types[-1] == "stop"
-        assert events[1]["result"][0]["pagina"] in (1, 2) and events[1]["result"][0]["documento"] == "EEFF.pdf"
+        assert events[1]["result"][0]["pagina"] in (1, 2) and events[1]["result"][0]["documento"] == "clase.pdf"
     second = json.loads((folder / "chats" / "local" / "turno_2.json").read_text())
     assert second["answer"] and second["request"]["historial"] == 1 and second["sources"]
     # Con historial, el modelo primero reescribe la pregunta y lo que se busca es la pregunta reescrita.
-    assert second["searches"][0]["consulta"] != "¿Y los ingresos?" and second["usage"]["modelo"] == "deepseek-flash"
+    assert second["searches"][0]["consulta"] != "¿Y los ingresos?" and second["usage"]["modelo"] == "gpt-5-nano"
     turns = client.get(base).json()["turns"]
     assert [turn["prompt"] for turn in turns] == ["¿Cuál fue el resultado neto?", "¿Y los ingresos?"]
 
@@ -128,7 +128,7 @@ def test_local_library_evals(setup, monkeypatch):
 
     client, settings, tmp_path = setup
     monkeypatch.setattr(library_evals, "make_judge_llm", lambda settings: FakeJudge())
-    run = client.post("/api/documents/runs", files={"file": ("EEFF.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
     client.post(f"/api/documents/runs/{run['id']}/steps/parse")
     client.get(f"/api/documents/runs/{run['id']}/steps/parse")
     library = client.post("/api/documents/libraries", json={"name": "Prueba"}).json()
@@ -137,16 +137,16 @@ def test_local_library_evals(setup, monkeypatch):
     client.post(f"{base}/sync")
 
     # El set de preguntas vive junto a sus documentos, en samples/<conjunto>/evals/.
-    questions = {"documentos": {"EEFF": "EEFF.pdf"}, "preguntas": [
+    questions = {"documentos": {"CLASE": "clase.pdf"}, "preguntas": [
         {"id": "neto", "tipo": "dato", "pregunta": "¿Resultado neto?", "respuesta_esperada": "22.162",
-         "fuentes": [{"doc": "EEFF", "pagina": 1}, {"doc": "EEFF", "pagina": 2}]},
+         "fuentes": [{"doc": "CLASE", "pagina": 1}, {"doc": "CLASE", "pagina": 2}]},
         {"id": "trampa", "tipo": "trampa", "pregunta": "¿Empleados?", "respuesta_esperada": "No está", "fuentes": []},
     ]}
     folder = tmp_path / "samples" / "prueba" / "evals"
     folder.mkdir(parents=True)
     (folder / "preguntas.json").write_text(json.dumps(questions))
 
-    # Solo la búsqueda: no necesita DeepSeek. Las dos páginas son fuente, así que el primer resultado ya es correcto.
+    # Solo la búsqueda: no necesita OpenAI. Las dos páginas son fuente, así que el primer resultado ya es correcto.
     response = client.post(f"{base}/evals", json={"conjunto": "prueba", "candidatos": 4})
     assert response.status_code == 200, response.text
     result = response.json()
@@ -155,9 +155,9 @@ def test_local_library_evals(setup, monkeypatch):
     assert "busqueda" not in trampa  # las trampas no tienen página correcta
     assert {"label": "Candidatos antes del reranker", "value": 4} in result["metricas"]
 
-    # Con respuestas: pide la key de DeepSeek y después el juez califica cada una.
+    # Con respuestas: pide la key de OpenAI y después el juez califica cada una.
     assert client.post(f"{base}/evals", json={"conjunto": "prueba", "respuestas": True}).status_code == 409
-    settings.deepseek_api_key = "d"
+    settings.openai_api_key = "d"
     result = client.post(f"{base}/evals", json={"conjunto": "prueba", "respuestas": True}).json()
     answer = result["resultados"][0]["respuesta"]
     assert answer["fiel_a_los_fragmentos"] is True and answer["correccion"] == 4.5 and answer["correcta"] is True

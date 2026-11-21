@@ -78,14 +78,14 @@ function EvalRunView({ item, open }: { item: EvalRun; open: boolean }) {
 // La pestaña Evals: corre el set de preguntas contra la biblioteca (con los evaluadores nativos de LlamaIndex)
 // y muestra las corridas guardadas, la más nueva primero.
 export function LibraryEvals({ libraryId, runs, disabled, onDone }: { libraryId: string; runs: EvalRun[]; disabled: boolean; onDone: () => void }) {
-  const [set, setSet] = useState('byma');
+  const [set, setSet] = useState('aprendizaje-automatico-ii');
   const [withAnswers, setWithAnswers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Corre los evals; si incluyen las respuestas, primero pide confirmación porque DeepSeek cobra.
+  // Corre los evals; si incluyen las respuestas, primero pide confirmación porque OpenAI cobra.
   async function run() {
-    if (withAnswers && !confirm('Con respuestas, el chat responde cada pregunta y DeepSeek la juzga: tiene costo (centavos de dólar). ¿Seguir?')) return;
+    if (withAnswers && !confirm('Con respuestas, el chat responde cada pregunta y OpenAI la juzga: tiene costo (centavos de dólar). ¿Seguir?')) return;
     setBusy(true); setError('');
     try { await runEvals(libraryId, set, withAnswers); onDone(); }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudieron correr los evals.'); }
@@ -100,13 +100,13 @@ export function LibraryEvals({ libraryId, runs, disabled, onDone }: { libraryId:
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={withAnswers} disabled={busy} onChange={e => setWithAnswers(e.target.checked)} />
-          también las respuestas (juez DeepSeek)
+          también las respuestas (juez OpenAI)
         </label>
         <Button onClick={run} disabled={disabled || busy || !set.trim()}><FlaskConical /> {busy ? 'Corriendo…' : 'Correr evals'}</Button>
       </div>
       <p className="text-xs text-muted-foreground">
         Las preguntas están en <code>data/samples/{set}/evals/preguntas.json</code>. La búsqueda solo usa tokens de Voyage AI;
-        con respuestas, además, el chat responde y DeepSeek juzga cada una. Puede tardar unos minutos.
+        con respuestas, además, el chat responde y OpenAI juzga cada una. Puede tardar unos minutos.
       </p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {runs.length === 0 && <p className="text-sm text-muted-foreground">Esta biblioteca todavía no tiene evals.</p>}

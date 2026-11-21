@@ -37,7 +37,7 @@ function sourcesOf(events: ChatEvent[]): Source[] {
 }
 
 // Un turno de chat: la pregunta, el razonamiento, las búsquedas que hizo el agente con lo que encontró y la respuesta.
-// local: la biblioteca usa el motor local (LlamaIndex + Voyage AI + DeepSeek), que no cobra créditos de LlamaCloud.
+// local: la biblioteca usa el motor local (LlamaIndex + Voyage AI + OpenAI), que no cobra créditos de LlamaCloud.
 function TurnView({ turn, live, local }: { turn: Turn; live?: boolean; local: boolean }) {
   const thinking = thinkingOf(turn.events);
   const calls = turn.events.filter(e => e.type === 'tool_call');
@@ -133,7 +133,7 @@ export function LibraryChat({ libraryId, turns, disabled, local, onDone }: { lib
       </div>
       <p className="text-xs text-muted-foreground">
         {local
-          ? 'Cada pregunta busca en el índice local (Voyage AI) y la responde DeepSeek: no usa créditos de LlamaCloud.'
+          ? 'Cada pregunta busca en el índice local (Voyage AI) y la responde OpenAI: no usa créditos de LlamaCloud.'
           : 'Cada pregunta cuesta 100 créditos según la lista de precios de LlamaCloud.'}
       </p>
     </div>

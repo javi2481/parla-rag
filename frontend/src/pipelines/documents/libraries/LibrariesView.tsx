@@ -63,7 +63,7 @@ export function LibrariesView({ ready }: { ready: boolean }) {
       <aside className="space-y-4">
         <div className="space-y-2 rounded-xl border border-glass-border bg-glass/40 p-4">
           <h3 className="text-sm font-medium">Nueva biblioteca</h3>
-          <input className={INPUT} value={name} placeholder="Nombre, por ejemplo BYMA 3T26" onChange={e => setName(e.target.value)} />
+          <input className={INPUT} value={name} placeholder="Nombre, por ejemplo Aprendizaje Automático II" onChange={e => setName(e.target.value)} />
           <input className={INPUT} value={description} placeholder="Descripción (opcional)" onChange={e => setDescription(e.target.value)} />
           <Button size="sm" disabled={!ready || busy || !name.trim()}
             onClick={() => act(async () => { const created = await createLibrary(name, description); setName(''); setDescription(''); return created; })}>
@@ -98,7 +98,7 @@ export function LibrariesView({ ready }: { ready: boolean }) {
             </div>
             <p className="font-mono text-xs text-muted-foreground">
               {library.engine === 'local'
-                ? `índice local (LlamaIndex) · corte ${library.splitter ?? 'oraciones'} · embeddings ${library.embed_model} · reranker ${library.rerank_model} (Voyage AI) · chat DeepSeek`
+                ? `índice local (LlamaIndex) · corte ${library.splitter ?? 'oraciones'} · embeddings ${library.embed_model} · reranker ${library.rerank_model} (Voyage AI) · chat OpenAI`
                 : `LlamaCloud · directorio ${library.directory_id} · índice ${library.index_id}`}
             </p>
 

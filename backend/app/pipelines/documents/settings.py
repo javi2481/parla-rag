@@ -28,12 +28,15 @@ class DocumentsSettings(BaseSettings):
     library_embed_model: str = "voyage-4"
     library_rerank_model: str = "rerank-2.5"
     # Cómo se cortan las páginas en chunks antes de los embeddings (los dos son nativos de LlamaIndex):
-    # "pagina" (no corta: cada página es un chunk; es el que mejor dio en los evals de BYMA, ver docs/bitacora.md),
+    # "pagina" (no corta: cada página es un chunk; es el que mejor dio en los evals de búsqueda y respuestas),
     # "oraciones" (SentenceSplitter, el de por defecto de LlamaIndex) o "markdown" (MarkdownNodeParser: corta por títulos).
     library_splitter: str = "pagina"
-    # DeepSeek: el modelo de lenguaje que escribe las respuestas del chat de las bibliotecas locales.
-    deepseek_api_key: str = ""
-    library_chat_model: str = "deepseek-flash"
+    # OpenAI: el modelo de lenguaje que escribe las respuestas del chat de las bibliotecas locales.
+    # gpt-5-nano es el más barato de OpenAI. Es un modelo de razonamiento: "minimal" casi no razona,
+    # así responde rápido y gasta menos tokens (alcanza para redactar con las páginas que trae la búsqueda).
+    openai_api_key: str = ""
+    library_chat_model: str = "gpt-5-nano"
+    library_reasoning_effort: str = "minimal"
     # Cuántas páginas (las mejores según el reranker) se le pasan al modelo en cada pregunta.
     library_chat_top_k: int = 6
 

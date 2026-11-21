@@ -1,6 +1,6 @@
 # Parla RAG · reglas del proyecto
 
-Demo de clase que tiene que quedar como plantilla: un wizard de documentos con LlamaCloud y bibliotecas (RAG) con LlamaIndex, Voyage AI y DeepSeek.
+Demo de clase que tiene que quedar como plantilla: un wizard de documentos con LlamaCloud y bibliotecas (RAG) con LlamaIndex, Voyage AI y OpenAI.
 Antes de cualquier cosa, leé [docs/estado.md](docs/estado.md): ahí está lo hecho, lo pendiente en orden y el roadmap.
 
 ## Idioma
@@ -19,7 +19,7 @@ Antes de cualquier cosa, leé [docs/estado.md](docs/estado.md): ahí está lo he
 ## Solo lo nativo
 
 - **No implementar nada que LlamaCloud, LlamaParse o LlamaIndex no hagan de forma nativa.** Nada de código innecesario. Si la plataforma no lo hace, se dice y se decide con el usuario.
-- El framework LlamaIndex (código abierto) y sus **integraciones oficiales** (Voyage AI, DeepSeek) cuentan como nativos. No sumar otros frameworks ni herramientas.
+- El framework LlamaIndex (código abierto) y sus **integraciones oficiales** (Voyage AI, OpenAI) cuentan como nativos. No sumar otros frameworks ni herramientas.
 - Las bibliotecas usan el motor **local** (`local_library.py`) porque el índice v2 de LlamaCloud da 403 con el plan gratis. El motor de LlamaCloud (`library.py`) se mantiene para cuando haya plan.
 
 ## Traer todo, medir e interpretar
@@ -30,7 +30,7 @@ Antes de cualquier cosa, leé [docs/estado.md](docs/estado.md): ahí está lo he
 ## Registrar todo para auditar
 
 - Cada prueba, hallazgo y decisión va a [docs/bitacora.md](docs/bitacora.md), en orden cronológico.
-- **Cada llamada paga** va al registro de créditos de la bitácora (LlamaCloud). Los tokens de Voyage y el costo de DeepSeek también se anotan.
+- **Cada llamada paga** va al registro de créditos de la bitácora (LlamaCloud). Los tokens de Voyage y el costo de OpenAI también se anotan.
 - Los datos crudos de las pruebas, en `backend/data/verificacion/` o en la corrida (fuera de git).
 
 ## Créditos y seguridad

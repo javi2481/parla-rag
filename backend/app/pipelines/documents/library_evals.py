@@ -3,9 +3,9 @@
 Todo es nativo de LlamaIndex (llama_index.core.evaluation):
   - Búsqueda: RetrieverEvaluator, con el mismo buscador y el mismo reranker que el chat. Métricas hit_rate y mrr.
     No usa un modelo de lenguaje: solo los tokens de Voyage (gratis hasta 200 millones).
-  - Respuestas (opcional): el chat responde cada pregunta sin historial y DeepSeek hace de juez con
+  - Respuestas (opcional): el chat responde cada pregunta sin historial y OpenAI hace de juez con
     FaithfulnessEvaluator (¿la respuesta sale de los fragmentos?) y CorrectnessEvaluator (¿coincide con la respuesta
-    esperada?, de 1 a 5). Cuesta centavos de DeepSeek.
+    esperada?, de 1 a 5). Cuesta centavos de OpenAI.
 
 El set de preguntas vive junto a sus documentos: data/samples/<conjunto>/evals/preguntas.json (va a git).
 Cada corrida se guarda en la carpeta de la biblioteca: libraries/<id>/evals/<fecha>/ (request, resultados y métricas).
@@ -16,7 +16,7 @@ from llama_index.core.evaluation import (
     RetrieverEvaluator,
 )
 from llama_index.core.instrumentation import get_dispatcher
-from llama_index.llms.deepseek import DeepSeek
+from llama_index.llms.openai import OpenAI
 
 from app.core.runs.store import RunStore, now, read_json, write_json
 
@@ -25,10 +25,11 @@ from .library import stamp
 from .settings import DocumentsSettings
 
 
-# El juez de las respuestas: DeepSeek sin streaming (el del chat pide los tokens en streaming, que acá no sirve).
+# El juez de las respuestas: OpenAI sin streaming (el del chat pide los tokens en streaming, que acá no sirve).
 # Está en una función para que los tests lo reemplacen por uno falso.
 def make_judge_llm(settings: DocumentsSettings):
-    return DeepSeek(model=settings.library_chat_model, api_key=settings.deepseek_api_key)
+    return OpenAI(model=settings.library_chat_model, api_key=settings.openai_api_key,
+                  reasoning_effort=settings.library_reasoning_effort)
 
 
 # Lee el set de preguntas de data/samples/<conjunto>/evals/preguntas.json.
@@ -75,7 +76,7 @@ async def eval_retrieval(index, settings: DocumentsSettings, question: dict, nam
     }
 
 
-# El chat responde la pregunta sin historial y DeepSeek la juzga: fidelidad a los fragmentos y corrección.
+# El chat responde la pregunta sin historial y OpenAI la juzga: fidelidad a los fragmentos y corrección.
 async def eval_answer(index, settings: DocumentsSettings, question: dict, candidates: int) -> dict:
     recorder = engine.TurnRecorder()
     dispatcher = get_dispatcher()
@@ -137,13 +138,13 @@ def summarize(library: dict, results: list[dict], candidates: int, with_answers:
             {"label": "Respuestas fieles a los fragmentos", "value": f"{faithful} de {len(answers)}"},
             {"label": "Respuestas correctas (4 o más de 5)", "value": f"{correct} de {len(answers)}"},
             {"label": "Corrección promedio (1 a 5)", "value": average([a["correccion"] for a in answers])},
-            {"label": "Tokens de DeepSeek (entrada / salida)",
+            {"label": "Tokens de OpenAI (entrada / salida)",
              "value": f"{sum(a['usage']['tokens_de_entrada'] for a in answers)} / {sum(a['usage']['tokens_de_salida'] for a in answers)}"},
         ]
         wrong = [r["id"] for r in results if not r["respuesta"]["correcta"]]
         if wrong:
             interpretacion.append(f"El juez marcó como incorrectas: {', '.join(wrong)}. Su explicación está en cada resultado.")
-        interpretacion.append("El juez es DeepSeek: también puede equivocarse. Conviene leer sus explicaciones.")
+        interpretacion.append("El juez es OpenAI: también puede equivocarse. Conviene leer sus explicaciones.")
     metricas.append({"label": "Créditos de LlamaCloud", "value": 0})
     return {"metricas": metricas, "interpretacion": interpretacion}
 
@@ -165,11 +166,11 @@ def saved_runs(library_folder) -> list[dict]:
 
 # Corre los evals de una biblioteca: la búsqueda de cada pregunta y, si se pide, también la respuesta juzgada.
 # Guarda todo en libraries/<id>/evals/<fecha>/.
-async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict, name: str = "byma",
+async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict, name: str = "aprendizaje-automatico-ii",
                     candidates: int | None = None, with_answers: bool = False) -> dict:
     engine.check_ready(settings)
-    if with_answers and not settings.deepseek_api_key:
-        raise ValueError("Falta configurar DEEPSEEK_API_KEY en backend/.env.")
+    if with_answers and not settings.openai_api_key:
+        raise ValueError("Falta configurar OPENAI_API_KEY en backend/.env.")
     data_dir = engine.data_dir_of(store)
     engine.prepare_nltk(data_dir)
     questions = load_questions(data_dir, name)

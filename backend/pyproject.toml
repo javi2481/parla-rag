@@ -1,7 +1,7 @@
 [project]
 name = "parla-rag-api"
 version = "0.1.0"
-description = "Parla RAG: wizard de documentos con LlamaCloud (Parse, Split, Classify, Schema, Extract) y bibliotecas con LlamaIndex, Voyage AI y DeepSeek"
+description = "Parla RAG: wizard de documentos con LlamaCloud (Parse, Split, Classify, Schema, Extract) y bibliotecas con LlamaIndex, Voyage AI y OpenAI"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115",
@@ -14,7 +14,7 @@ dependencies = [
   "llama-index-core>=0.14.26",
   "llama-index-embeddings-voyageai>=0.8.0",
   "llama-index-postprocessor-voyageai-rerank>=0.7.0",
-  "llama-index-llms-deepseek>=0.5.0",
+  "llama-index-llms-openai>=0.9.0",
 ]
 
 [dependency-groups]
@@ -28,3 +28,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+# Ruff no revisa la carpeta-DB: ahí están las notebooks de las clases, que son material de ejemplo, no código del proyecto.
+[tool.ruff]
+extend-exclude = ["data"]

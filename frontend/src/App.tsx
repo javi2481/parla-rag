@@ -81,7 +81,7 @@ export function App() {
       <footer className="border-t border-glass-border/70">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted-foreground sm:px-6">
           <span className="flex items-center gap-2"><span className="font-display text-base text-foreground">Parla RAG</span> documentos que se leen solos</span>
-          <span>Documentos con LlamaCloud · Bibliotecas con LlamaIndex, Voyage AI y DeepSeek · Las claves nunca salen del servidor</span>
+          <span>Documentos con LlamaCloud · Bibliotecas con LlamaIndex, Voyage AI y OpenAI · Las claves nunca salen del servidor</span>
         </div>
       </footer>
     </Tabs>

@@ -165,11 +165,11 @@ async def search(library_id: str, client: ClientDep, store: LibrariesDep, settin
     return await guarded(engine_of(library).search(client, store, settings, library, query, top_k, filters))
 
 
-# Evals: mide la búsqueda (y, si se pide, las respuestas juzgadas por DeepSeek) con un set de preguntas verificadas.
+# Evals: mide la búsqueda (y, si se pide, las respuestas juzgadas por OpenAI) con un set de preguntas verificadas.
 # "candidatos" cambia cuántos candidatos trae la búsqueda por vectores antes del reranker (por defecto, el del chat).
 @router.post("/{library_id}/evals")
 async def run_evals(library_id: str, store: LibrariesDep, settings: SettingsDep,
-                    conjunto: Annotated[str, Body(embed=True)] = "byma",
+                    conjunto: Annotated[str, Body(embed=True)] = "aprendizaje-automatico-ii",
                     candidatos: Annotated[int | None, Body(embed=True)] = None,
                     respuestas: Annotated[bool, Body(embed=True)] = False):
     library = find(store, library_id)

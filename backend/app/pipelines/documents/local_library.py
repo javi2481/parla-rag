@@ -2,15 +2,15 @@
 
 Se usa porque el índice de LlamaCloud necesita un plan pago (ver docs/bitacora.md, 13/11).
 Todo es nativo de la familia LlamaIndex: el framework LlamaIndex (código abierto) arma el índice,
-Voyage AI hace los embeddings (voyage-4) y el reranking (rerank-2.5), y DeepSeek escribe las respuestas
-del chat (deepseek-flash). Las dos con sus integraciones oficiales de LlamaIndex.
+Voyage AI hace los embeddings (voyage-4) y el reranking (rerank-2.5), y OpenAI escribe las respuestas
+del chat (gpt-5-nano). Las dos con sus integraciones oficiales de LlamaIndex.
 
-    Biblioteca "BYMA 3T26"
-     ├── EEFF · Comunicado · Presentación    (corridas del wizard: se usa su parse, NO se vuelve a parsear)
+    Biblioteca "Aprendizaje Automático II"
+     ├── Clase 01 · Clase 02 · … · Clase 13  (corridas del wizard: se usa su parse, NO se vuelve a parsear)
      │      ↓ una página = un documento, con su número y la metadata de identidad
      ├── index/            el índice vectorial de LlamaIndex, guardado en la carpeta (carpeta como DB)
      ├── búsqueda          voyage-4 trae candidatos → rerank-2.5 los ordena por relevancia
-     └── chat              el chat engine de LlamaIndex: busca como arriba y DeepSeek responde citando documento y página
+     └── chat              el chat engine de LlamaIndex: busca como arriba y OpenAI responde citando documento y página
 
 Mismas funciones y mismas respuestas que library.py, así la pantalla de Bibliotecas no cambia.
 """
@@ -40,7 +40,7 @@ from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
 from llama_index.core.schema import QueryBundle, TextNode
 from llama_index.core.vector_stores import ExactMatchFilter, MetadataFilters
 from llama_index.embeddings.voyageai import VoyageEmbedding
-from llama_index.llms.deepseek import DeepSeek
+from llama_index.llms.openai import OpenAI
 from llama_index.postprocessor.voyageai_rerank import VoyageAIRerank
 from pydantic import Field
 
@@ -94,10 +94,11 @@ def make_embed_model(settings: DocumentsSettings):
     return VoyageEmbedding(model_name=settings.library_embed_model, voyage_api_key=settings.voyage_api_key)
 
 
-# El modelo de lenguaje del chat (DeepSeek). include_usage hace que DeepSeek mande los tokens usados al final de la respuesta.
+# El modelo de lenguaje del chat (OpenAI). include_usage hace que OpenAI mande los tokens usados al final de la respuesta.
 def make_llm(settings: DocumentsSettings):
-    return DeepSeek(model=settings.library_chat_model, api_key=settings.deepseek_api_key,
-                    additional_kwargs={"stream_options": {"include_usage": True}})
+    return OpenAI(model=settings.library_chat_model, api_key=settings.openai_api_key,
+                  reasoning_effort=settings.library_reasoning_effort,
+                  additional_kwargs={"stream_options": {"include_usage": True}})
 
 
 # El reranker de Voyage. También se reemplaza en los tests.
@@ -317,7 +318,7 @@ async def search(client, store: RunStore, settings: DocumentsSettings, library: 
 SYSTEM_PROMPT = """Sos un asistente que responde preguntas sobre los documentos de una biblioteca. Respondé en español.
 Usá SOLO la información de los fragmentos que se te pasan. Si lo que te preguntan no está en los fragmentos,
 decí que no está en los documentos de la biblioteca: no inventes ni completes con lo que sabés por tu cuenta.
-Después de cada dato, citá de dónde salió con el nombre del documento y la página, así: (BYMA - EEFF.pdf, pág. 12).
+Después de cada dato, citá de dónde salió con el nombre del documento y la página, así: (07 Clasificación de imágenes.pdf, pág. 12).
 Copiá los números tal como aparecen, con su unidad y su moneda."""
 
 # Cómo se le pasan los fragmentos al modelo. Cada fragmento es una página y empieza con su metadata (nombre, tipo, página).
@@ -357,7 +358,7 @@ class TurnRecorder(BaseEventHandler):
                                    "respuesta": event.response.message.content, "usage": usage_of(event.response)})
 
 
-# Los tokens que informó el modelo en su respuesta (DeepSeek los manda en "usage").
+# Los tokens que informó el modelo en su respuesta (OpenAI los manda en "usage").
 def usage_of(response) -> dict | None:
     usage = getattr(response.raw, "usage", None) if response.raw is not None else None
     return usage.model_dump() if hasattr(usage, "model_dump") else usage
@@ -374,7 +375,7 @@ def total_usage(llm_calls: list, model: str) -> dict:
         "tokens_de_entrada": sum(u.get("prompt_tokens") or 0 for u in usages),
         "tokens_de_salida": sum(u.get("completion_tokens") or 0 for u in usages),
         "de_esos_razonamiento": reasoning,
-        "tokens_en_cache": sum(u.get("prompt_cache_hit_tokens") or 0 for u in usages),
+        "tokens_en_cache": sum((u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0 for u in usages),
     }
 
 
@@ -411,14 +412,14 @@ def make_chat_engine(index: VectorStoreIndex, settings: DocumentsSettings, histo
 
 
 # Un turno de chat con el chat engine de LlamaIndex (condense_plus_context):
-#   1. si ya hubo preguntas, DeepSeek reescribe la nueva para que se entienda sola;
+#   1. si ya hubo preguntas, OpenAI reescribe la nueva para que se entienda sola;
 #   2. voyage-4 busca candidatos y rerank-2.5 deja las mejores páginas;
-#   3. DeepSeek responde con esas páginas, citando documento y página. La respuesta llega en vivo.
+#   3. OpenAI responde con esas páginas, citando documento y página. La respuesta llega en vivo.
 # Manda los mismos eventos que el chat de LlamaCloud (tool_call, tool_result, text_delta, stop) y guarda todo el turno.
 async def chat_turn(client, store: RunStore, settings: DocumentsSettings, library: dict, prompt: str):
     check_ready(settings)
-    if not settings.deepseek_api_key:
-        raise ValueError("Falta configurar DEEPSEEK_API_KEY en backend/.env.")
+    if not settings.openai_api_key:
+        raise ValueError("Falta configurar OPENAI_API_KEY en backend/.env.")
     prepare_nltk(data_dir_of(store))
     index = load_index(store, settings, library)
     folder = store.step_dir(library["id"], "chats/local", reset=False)
