@@ -155,3 +155,21 @@ Lo que se construyó y se aprendió con el corpus anterior, y que sigue valiendo
   - La única no fiel es `clip-sin-etiquetas`; el juez respondió solo "NO", sin explicar el motivo.
 - **Otro detalle:** en la trampa, el chat tuteó ("si quieres…, confirma…") y ofreció buscar "otros fragmentos", algo que no puede hacer. Queda para el `SYSTEM_PROMPT` de la tarea 4.
 - **Costo:** 0 créditos de LlamaCloud; 31 búsquedas de Voyage dentro de los tokens gratis.
+
+### 21/11 · Comparación de búsquedas: 6 o 12 páginas, con o sin MMR (~USD 0,08 de OpenAI en total; tokens gratis de Voyage)
+
+- **Prompt nuevo en las tres corridas:** el chat tiene que relacionar las clases cuando la pregunta cruza temas, responder con voseo y no ofrecer buscar en otros documentos.
+- **Un tropiezo que dejó un dato útil:** la primera tanda corrió con el código viejo (el `--reload` de uvicorn no tomó los cambios y FastAPI ignoró `top_k` y `modo`, que no conocía). Fueron **tres repeticiones de la línea de base** (`2026-11-21_185906`, `_190156`, `_190441`), con 23, 25 y 25 correctas. Junto con la línea de base (22), **la misma configuración da entre 22 y 25 correctas de 31**: el juez tiene un ruido de unas ±3 respuestas. Una diferencia más chica que eso no alcanza para elegir. Costo de esa tanda: unos USD 0,03.
+- **Las corridas de verdad** (con el backend reiniciado; se verificó `modo` y `candidatos` en el `request.json`):
+
+| Corrida | Páginas / modo | Candidatos | MRR | Cobertura de clases | Fieles | Correctas | Corrección | Tokens (entrada / salida) | Tiempo prom. / máx. |
+|---|---|---|---|---|---|---|---|---|---|
+| `2026-11-21_190942` | 6 / default | 18 | 0,96 | 0,966 | 30 de 31 | 24 de 31 | 3,71 | 137.295 / 11.056 | 2,70 s / 4,17 s |
+| `2026-11-21_191247` | 12 / default | 36 | 0,966 | 0,966 | 30 de 31 | 25 de 31 | 3,81 | 246.847 / 12.284 | 2,94 s / 5,95 s |
+| `2026-11-21_191729` | 12 / mmr (umbral 0,5) | 36 | 0,966 | **0,957** | 31 de 31 | 24 de 31 | 3,74 | 282.010 / 12.295 | 4,55 s / 5,85 s |
+
+- **Lo que dicen los números:** ninguna configuración mejora la cobertura de clases. Con MMR **empeora** (`clip-en-la-materia` baja de 0,5 a 0,25) y tarda casi el doble. Pasar a 12 páginas duplica los tokens de entrada y suma 1 correcta, que está dentro del ruido.
+- **Por qué MMR no ayudó (lo que se puede afirmar):** MMR elige candidatos variados **antes** del reranker, y el reranker después deja las 6 o 12 páginas más parecidas a la pregunta. Es probable que el reranker deshaga la variedad, pero la API no lo informa: es una hipótesis, no un dato medido.
+- **Decisión:** se queda **6 páginas, búsqueda `default`** (los valores por defecto de siempre): rinde igual, es la más rápida y gasta la mitad. MMR queda disponible (`LIBRARY_RETRIEVAL_MODE=mmr`, `LIBRARY_MMR_THRESHOLD`).
+- **Las trampas, con el prompt nuevo:** las tres corridas dicen que Q-learning no está y ya no ofrecen buscar en otros lados. El juez la sigue marcando como incorrecta: es el mismo error del juez de antes.
+- **Costo:** 0 créditos de LlamaCloud; 93 búsquedas de Voyage dentro de los tokens gratis.

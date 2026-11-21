@@ -72,7 +72,7 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
 - **Agregar un documento** copia el Markdown de cada página del parse del wizard (no se vuelve a parsear nada) con la **metadata de identidad**: el tipo de Classify y los campos **obligatorios** del schema de Extract.
 - **Sincronizar** arma el índice vectorial de LlamaIndex con los embeddings de **`voyage-4`** y lo guarda en la carpeta de la biblioteca (`index/`). El índice anterior pasa al historial.
 - **Corte por página** (`LIBRARY_SPLITTER=pagina`, por defecto): una página = un chunk. Fue el que mejor dio en las comparaciones con los otros dos cortes nativos (`SentenceSplitter` y `MarkdownNodeParser`), porque no separa una tabla de su encabezado. Las diapositivas de clase son cortas, así que una página entra entera.
-- **Búsqueda de prueba:** `voyage-4` trae 3 candidatos por resultado y **`rerank-2.5`** los ordena. Se puede filtrar por metadata (solo igualdad). Cada búsqueda queda guardada.
+- **Búsqueda de prueba:** `voyage-4` trae 3 candidatos por resultado y **`rerank-2.5`** los ordena. El chat, la búsqueda de prueba y los evals usan la misma búsqueda (`make_retriever`), con MMR opcional. Se puede filtrar por metadata (solo igualdad). Cada búsqueda queda guardada.
 - **Chat:** el chat engine nativo de LlamaIndex (`CondensePlusContextChatEngine`):
   1. si ya hubo preguntas, **`gpt-5-nano`** reescribe la nueva para que se entienda sola;
   2. Voyage busca y rerankea, y quedan las 6 mejores páginas;
@@ -83,8 +83,8 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
 
 - **14 corridas parseadas** (la presentación y las 13 clases): 410 páginas, **7.250 créditos** (17,7 por página en promedio, entre 15 y 25). Confianza del documento entre 78 % y 99 %.
 - **Sincronizada** en 6 s: 410 páginas en 410 chunks, 0 créditos de LlamaCloud.
-- **Set de evals** en [`samples/aprendizaje-automatico-ii/evals/preguntas.json`](../backend/data/samples/aprendizaje-automatico-ii/evals/preguntas.json): 18 preguntas (16 con fuente y 2 trampas), con las respuestas verificadas en el parse.
-- **Evals de búsqueda:** hit rate 1,0 y MRR 1,0. Ojo: las preguntas usan casi las mismas palabras que las diapositivas (ver la bitácora del 21/11).
+- **Set de evals** en [`samples/aprendizaje-automatico-ii/evals/preguntas.json`](../backend/data/samples/aprendizaje-automatico-ii/evals/preguntas.json): 31 preguntas (29 con fuente y 2 trampas; entre ellas, parafraseadas, de varias diapositivas y que cruzan clases), con las respuestas verificadas en el parse.
+- **Evals (configuración elegida: 6 páginas, búsqueda `default`):** hit rate 1,0 · MRR 0,96 · cobertura de clases 0,966 · entre 22 y 25 de 31 respuestas correctas según la corrida (el juez tiene ruido) · 2,7 s por respuesta. **MMR se probó y no mejoró la cobertura** (ver la bitácora del 21/11): queda como opción (`LIBRARY_RETRIEVAL_MODE=mmr`).
 
 ### Calidad y auditoría
 
