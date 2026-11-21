@@ -6,7 +6,7 @@ from app.core.runs.store import RunStore, mark_done, mark_running, slugify
 
 # Convierte nombres de archivo en nombres de carpeta seguros.
 def test_slugify():
-    assert slugify("BYMA Comunicado de Prensa - 3T26.pdf") == "byma-comunicado-de-prensa-3t26"
+    assert slugify("Clase 07 Clasificacion de imagenes.pdf") == "clase-07-clasificacion-de-imagenes"
     assert slugify("Presentación Ñandú.PDF") == "presentacion-nandu"
     assert slugify("###.pdf") == "documento"
 

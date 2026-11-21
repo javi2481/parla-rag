@@ -18,21 +18,19 @@ FOLDER = "3_split"
 TITLE = "Split"
 EXPLICACION = (
     "Split divide el documento en partes y le pone una categoría a cada una, por ejemplo "
-    "'estado de resultados' de la página 4 a la 5. Las categorías las definimos nosotros. "
+    "'teoría' de la página 3 a la 20. Las categorías las definimos nosotros. "
     "Sirve para documentos largos: después Extract puede trabajar solo sobre las páginas de una parte. "
     "Usa el parse del paso anterior, así que no vuelve a leer el documento."
 )
 
-# Categorías de ejemplo, pensadas para estados financieros. Se pueden cambiar en el wizard.
+# Categorías de ejemplo, pensadas para las diapositivas de una clase. Se pueden cambiar en el wizard.
 DEFAULTS = {
     "categories": [
-        {"name": "portada_e_indice", "description": "Portada, índice y datos generales de la empresa"},
-        {"name": "estado_de_situacion", "description": "Estado de situación financiera (balance): activos, pasivos y patrimonio"},
-        {"name": "estado_de_resultados", "description": "Estado de resultados y otros resultados integrales"},
-        {"name": "flujo_de_efectivo", "description": "Estado de flujo de efectivo"},
-        {"name": "cambios_en_el_patrimonio", "description": "Estado de cambios en el patrimonio"},
-        {"name": "notas", "description": "Notas a los estados financieros"},
-        {"name": "informes", "description": "Informe del auditor, de la comisión fiscalizadora o reseña informativa"},
+        {"name": "portada_y_contenidos", "description": "Portada, temario, contenidos y objetivos de la clase"},
+        {"name": "teoria", "description": "Conceptos, definiciones, fórmulas y explicaciones del tema"},
+        {"name": "arquitecturas_y_modelos", "description": "Diagramas y descripciones de arquitecturas o modelos concretos"},
+        {"name": "codigo_y_practica", "description": "Código, ejemplos prácticos y referencias a las notebooks"},
+        {"name": "bibliografia", "description": "Bibliografía, referencias y cierre de la clase"},
     ],
     # "include": las páginas que no encajan en ninguna categoría aparecen como "uncategorized".
     "allow_uncategorized": "include",

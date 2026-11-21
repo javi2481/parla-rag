@@ -61,7 +61,7 @@ class FakeLibraryCloud(FakeLlamaCloud):
     async def retrieve(self, index_id, query, top_k, custom_filters=None):
         self.calls.append(("retrieve", query, custom_filters))
         return Obj(results=[{"content": "Resultado neto 22.161.940", "score": 0.9, "rerank_score": 0.8,
-                             "metadata": {"nombre": "EEFF.pdf", "corrida": "x"}, "static_fields": {"page_range_start": 4}}])
+                             "metadata": {"nombre": "clase.pdf", "corrida": "x"}, "static_fields": {"page_range_start": 4}}])
 
     async def create_chat(self, index_ids):
         return Obj(id="chat-1", index_ids=index_ids)
@@ -102,12 +102,12 @@ def test_library_end_to_end(setup):
     client, fake = setup
 
     # Una corrida del wizard con el parse terminado.
-    run = client.post("/api/documents/runs", files={"file": ("EEFF.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
     client.post(f"/api/documents/runs/{run['id']}/steps/parse")
     client.get(f"/api/documents/runs/{run['id']}/steps/parse")
 
     # Crear: directorio + índice con NUESTRA configuración de parse y las capturas e items guardados.
-    library = client.post("/api/documents/libraries", json={"name": "BYMA 3T26"}).json()
+    library = client.post("/api/documents/libraries", json={"name": "Aprendizaje Automático II"}).json()
     assert library["index_id"] == "idx-1" and library["directory_id"] == "dir-1"
     assert ("create_index", "cfg-parse_v2", ["screenshots", "items"]) in fake.calls
     base = f"/api/documents/libraries/{library['id']}"
@@ -116,7 +116,7 @@ def test_library_end_to_end(setup):
     library = client.post(f"{base}/documents", json={"run_id": run["id"]}).json()
     assert library["needs_sync"] is True
     _, _, file_id, unique_id, metadata = next(c for c in fake.calls if c[0] == "add_file")
-    assert file_id == "dfl-1" and unique_id == run["id"] and metadata["nombre"] == "EEFF.pdf"
+    assert file_id == "dfl-1" and unique_id == run["id"] and metadata["nombre"] == "clase.pdf"
     assert client.post(f"{base}/documents", json={"run_id": run["id"]}).status_code == 409
 
     # Sincronizar: sigue corriendo mientras el índice está en curso; al terminar cuenta los parses que creó LlamaCloud.
@@ -130,7 +130,7 @@ def test_library_end_to_end(setup):
     # Buscar, con filtro por metadata.
     result = client.post(f"{base}/search", json={"query": "resultado neto", "filters": {"tipo": {"operator": "eq", "value": "x"}}}).json()
     assert result["response"]["results"][0]["score"] == 0.9
-    assert "Encontró 1 fragmento de 1 documento: EEFF.pdf." in result["interpretacion"]
+    assert "Encontró 1 fragmento de 1 documento: clase.pdf." in result["interpretacion"]
 
     # Chatear: los eventos llegan tal cual y el turno queda guardado.
     with client.stream("POST", f"{base}/chat", json={"prompt": "¿Cuál fue el resultado neto?"}) as response:

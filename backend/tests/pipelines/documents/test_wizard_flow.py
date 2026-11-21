@@ -59,7 +59,7 @@ class FakeLlamaCloud:
 
     async def get_classify(self, job_id, expand=None):
         return Obj(id=job_id, status="COMPLETED", error_message=None, usage={"credits": 0},
-                   result={"type": "comunicado_de_prensa", "confidence": 0.95, "reasoning": "Tiene encabezado de comunicado."})
+                   result={"type": "clase_teorica", "confidence": 0.95, "reasoning": "Tiene temario y bibliografía de una clase."})
 
     # Imita extract.generate_schema y extract.validate_schema.
     async def generate_schema(self, file_id, prompt):
@@ -79,7 +79,7 @@ class FakeLlamaCloud:
         citation = {"page": 3, "matching_text": "78,124", "bounding_boxes": [box], "page_dimensions": {"width": 612, "height": 792}}
         return Obj(id=job_id, status="COMPLETED", error_message=None,
                    usage={"credits": 30.0, "extract_credits": 9.0},
-                   extract_result={"emisor": "BYMA", "ingresos": 78124, "gastos": None},
+                   extract_result={"emisor": "ACME", "ingresos": 78124, "gastos": None},
                    extract_metadata={"field_metadata": {"document_metadata": {
                        "emisor": {"citation": [], "confidence": 0.7},
                        "ingresos": {"citation": [citation], "confidence": 0.95},
@@ -176,7 +176,7 @@ def test_cannot_start_running_step_twice(setup):
 # Después del parse: Split, Classify, Schema (manual y automático) y Extract sobre una parte del Split.
 def test_split_classify_schema_extract(setup):
     client, fake, tmp_path = setup
-    run = client.post("/api/documents/runs", files={"file": ("EEFF.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
     base = f"/api/documents/runs/{run['id']}"
     client.post(f"{base}/steps/parse")
     client.get(f"{base}/steps/parse")
@@ -195,7 +195,7 @@ def test_split_classify_schema_extract(setup):
     client.post(f"{base}/steps/classify")
     classify = client.get(f"{base}/steps/classify").json()["steps"][3]
     assert classify["state"] == "done" and classify["credits"] == 0
-    assert any("Tiene encabezado de comunicado." in s for s in classify["interpretacion"])
+    assert any("Tiene temario y bibliografía de una clase." in s for s in classify["interpretacion"])
 
     # Schema automático: lo propone el agente y se guarda con citas y confianza.
     schema = client.post(f"{base}/steps/schema", json={"mode": "auto", "prompt": "datos clave"}).json()["steps"][4]

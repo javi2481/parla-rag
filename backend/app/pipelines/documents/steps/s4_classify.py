@@ -22,9 +22,9 @@ EXPLICACION = (
 
 DEFAULTS = {
     "rules": [
-        {"type": "estados_financieros", "description": "Estados financieros: balance, resultados, flujo de efectivo, notas e informe del auditor"},
-        {"type": "comunicado_de_prensa", "description": "Comunicado de prensa que anuncia resultados con texto, tablas resumen y gráficos"},
-        {"type": "presentacion", "description": "Diapositivas de una presentación con mucho gráfico y poco texto"},
+        {"type": "clase_teorica", "description": "Diapositivas de una clase teórica: conceptos, diagramas, fórmulas y bibliografía"},
+        {"type": "presentacion_de_la_materia", "description": "Presentación del curso: docentes, temario, unidades y condiciones de aprobación"},
+        {"type": "enunciado_de_practica", "description": "Consigna de un trabajo práctico o ejercicio, con lo que hay que entregar"},
         {"type": "factura", "description": "Factura, ticket o recibo de una compra o servicio"},
     ],
 }

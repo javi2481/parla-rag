@@ -8,3 +8,10 @@ frontend/*.tsbuildinfo
 # La carpeta-DB: los datos generados no van al repo, los ejemplos sí
 backend/data/*
 !backend/data/samples/
+
+# El material de la materia no va al repo (es de la cátedra y el repo es público): solo el set de evals
+backend/data/samples/aprendizaje-automatico-ii/*
+!backend/data/samples/aprendizaje-automatico-ii/evals/
+
+# Bocetos y registro de avance de los planes (superpowers)
+.superpowers/

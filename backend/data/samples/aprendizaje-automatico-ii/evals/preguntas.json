@@ -1,0 +1,293 @@
+{
+  "nombre": "Aprendizaje Automático II",
+  "descripcion": "Preguntas con respuesta verificada a mano en el parse de las 14 clases, para medir la búsqueda y las respuestas de la biblioteca.",
+  "documentos": {
+    "C00": "00 Presentación.pdf",
+    "C01": "01 Introducción a Redes Neuronales.pdf",
+    "C02": "02 Perceptrón Multicapa y Deep Learning.pdf",
+    "C03": "03 PLN - Conceptos y técnicas de procesamiento.pdf",
+    "C04": "04 PLN - Modelos estadísticos y Representaciones Vectoriales.pdf",
+    "C05": "05 PLN - Redes neuronales.pdf",
+    "C06": "06 Procesamiento digital de imágenes.pdf",
+    "C07": "07 Clasificación de imágenes.pdf",
+    "C08": "08 Transferencia de aprendizaje.pdf",
+    "C09": "09 Detección de objetos.pdf",
+    "C10": "10 Segmentación de imágenes.pdf",
+    "C11": "11 Generación de imágenes.pdf",
+    "C12": "12 Modelos multimodales.pdf",
+    "C13": "13 Sesgo, ética y evaluación robusta de modelos .pdf"
+  },
+  "estado": "borrador: falta la revisión del usuario",
+  "preguntas": [
+    {
+      "id": "aprobacion",
+      "tipo": "dato",
+      "pregunta": "¿Cómo se aprueba la materia?",
+      "respuesta_esperada": "Con 2 trabajos prácticos (uno de PLN y otro de visión por computadora) en grupos de 4 a 6 personas, y 2 parciales individuales de preguntas conceptuales de elección múltiple, a mitad y al final del curso. Quienes no alcancen la promoción directa rinden un examen final.",
+      "fuentes": [
+        {
+          "doc": "C00",
+          "pagina": 14
+        }
+      ],
+      "que_mide": "Un dato administrativo que está en una sola diapositiva de la presentación.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "alexnet-parametros",
+      "tipo": "dato",
+      "pregunta": "¿Cuántos parámetros tiene AlexNet y quiénes la desarrollaron?",
+      "respuesta_esperada": "62 millones de parámetros. La desarrollaron Alex Krizhevsky, Ilya Sutskever y Geoffrey Hinton (Universidad de Toronto); ganó la competición ImageNet de 2012.",
+      "fuentes": [
+        {
+          "doc": "C07",
+          "pagina": 23
+        }
+      ],
+      "que_mide": "Un número puntual dentro de una diapositiva con una tabla grande.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "resnet-residuales",
+      "tipo": "explicacion",
+      "pregunta": "¿Qué problema resolvió ResNet y cómo?",
+      "respuesta_esperada": "Introdujo las conexiones residuales (el bloque suma la entrada a la salida: F(x) + x), que permiten entrenar redes muy profundas y resuelven el problema del vanishing gradient.",
+      "fuentes": [
+        {
+          "doc": "C07",
+          "pagina": 27
+        },
+        {
+          "doc": "C07",
+          "pagina": 28
+        }
+      ],
+      "que_mide": "Una explicación que está repetida en dos diapositivas seguidas.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "fasttext-subpalabras",
+      "tipo": "dato",
+      "pregunta": "¿Qué diferencia a FastText de Word2Vec?",
+      "respuesta_esperada": "FastText (Facebook AI Research, 2016) considera sub-palabras para mejorar la representación: funciona mejor en lenguajes con morfología rica y con palabras raras. El entrenamiento es similar al de Word2Vec, pero incluye sub-palabras.",
+      "fuentes": [
+        {
+          "doc": "C04",
+          "pagina": 30
+        },
+        {
+          "doc": "C04",
+          "pagina": 31
+        }
+      ],
+      "que_mide": "Un concepto que se cruza entre la diapositiva del modelo y la de comparación.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "formatos-fasttext",
+      "tipo": "comparacion",
+      "pregunta": "¿Qué diferencia hay entre los formatos .bin y .vec de FastText?",
+      "respuesta_esperada": ".bin es binario, incluye los vectores y el modelo completo, y puede generar vectores para palabras fuera del vocabulario, pero solo lo cargan bibliotecas que soportan FastText (como gensim). .vec es texto plano, solo tiene los vectores (una línea por palabra), es más universal y legible, pero no genera vectores para palabras fuera del vocabulario.",
+      "fuentes": [
+        {
+          "doc": "C04",
+          "pagina": 30
+        }
+      ],
+      "que_mide": "Comparar dos cosas descritas en la misma diapositiva.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "comparacion-embeddings",
+      "tipo": "comparacion",
+      "pregunta": "¿Cómo se comparan Word2Vec, GloVe y FastText?",
+      "respuesta_esperada": "Word2Vec es rápido y eficiente y capta relaciones locales; GloVe captura relaciones globales, pero es más lento de entrenar; FastText maneja mejor las palabras raras y la morfología compleja. La elección depende de la tarea y del corpus disponible.",
+      "fuentes": [
+        {
+          "doc": "C04",
+          "pagina": 31
+        }
+      ],
+      "que_mide": "Una lista comparativa corta.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "transformers-origen",
+      "tipo": "dato",
+      "pregunta": "¿Quién creó los Transformers, cuándo y en qué se diferencian de los modelos anteriores?",
+      "respuesta_esperada": "Los creó Google Brain en 2017, en el paper «Attention Is All You Need». Se basan solo en mecanismos de atención, sin recurrencia ni convoluciones, lo que los hace más paralelizables y más rápidos de entrenar.",
+      "fuentes": [
+        {
+          "doc": "C05",
+          "pagina": 11
+        }
+      ],
+      "que_mide": "Un dato que mezcla el texto de la diapositiva con el abstract del paper (en inglés).",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "rag",
+      "tipo": "explicacion",
+      "pregunta": "¿Qué es RAG y cuáles son sus etapas?",
+      "respuesta_esperada": "Retrieval-Augmented Generation: una técnica que combina modelos de generación de texto (como transformers) con sistemas de recuperación de información. Tiene tres etapas: recuperación (retrieval), aumento (augmented) y generación (generation). Se usa en preguntas y respuestas, asistentes virtuales y generación de contenido basado en datos actualizados o de un área específica.",
+      "fuentes": [
+        {
+          "doc": "C05",
+          "pagina": 24
+        }
+      ],
+      "que_mide": "Una explicación que en parte está en un diagrama convertido a Mermaid.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "umbralizacion",
+      "tipo": "dato",
+      "pregunta": "¿Qué hace la umbralización de una imagen y qué ejemplo se muestra?",
+      "respuesta_esperada": "Binariza la imagen en función de un parámetro u. El ejemplo es una radiografía de tórax: la imagen original, el contraste mejorado y la detección de los pulmones.",
+      "fuentes": [
+        {
+          "doc": "C06",
+          "pagina": 18
+        }
+      ],
+      "que_mide": "Un dato de texto en una página dominada por un histograma convertido en tabla.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "estrategia-transfer",
+      "tipo": "comparacion",
+      "pregunta": "¿Qué estrategia de transferencia de aprendizaje conviene según la cantidad de datos y el dominio?",
+      "respuesta_esperada": "Pocos datos y dominio similar: extracción de características (solo entrenar el clasificador). Pocos datos y dominio distinto: extraer características de capas más tempranas. Muchos datos y dominio similar: fine-tuning de las últimas capas. Muchos datos y dominio distinto: fine-tuning profundo o reentrenar todo, inicializando con pesos preentrenados. Ante la duda, empezar por la extracción de características.",
+      "fuentes": [
+        {
+          "doc": "C08",
+          "pagina": 13
+        },
+        {
+          "doc": "C08",
+          "pagina": 23
+        }
+      ],
+      "que_mide": "Leer una tabla de doble entrada.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "fine-tuning-dos-fases",
+      "tipo": "explicacion",
+      "pregunta": "¿Cómo es el fine-tuning en dos fases?",
+      "respuesta_esperada": "Fase 1: con la base congelada, se entrena solo el clasificador. Fase 2: se descongelan las últimas capas (en el ejemplo, las últimas 20) y se reentrena con un learning rate bajo (Adam 1e-5), dejando BatchNorm en modo inferencia y recompilando el modelo.",
+      "fuentes": [
+        {
+          "doc": "C08",
+          "pagina": 14
+        },
+        {
+          "doc": "C08",
+          "pagina": 23
+        }
+      ],
+      "que_mide": "Una explicación que está en código Python dentro de la diapositiva.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "iou",
+      "tipo": "dato",
+      "pregunta": "¿Qué es IoU en detección de objetos?",
+      "respuesta_esperada": "Intersection over Union: el área de superposición entre la caja predicha y la caja real (ground truth) dividida por el área de su unión. Va de 0 (sin superposición) a 1 (superposición perfecta).",
+      "fuentes": [
+        {
+          "doc": "C09",
+          "pagina": 35
+        },
+        {
+          "doc": "C09",
+          "pagina": 36
+        }
+      ],
+      "que_mide": "Una fórmula y una tabla de ejemplos en dos páginas.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "unet-origen",
+      "tipo": "dato",
+      "pregunta": "¿Dónde y para qué surgió U-Net?",
+      "respuesta_esperada": "En la Universidad de Freiburg (Alemania), en 2015, para la segmentación de imágenes médicas con pocos ejemplos y alta precisión.",
+      "fuentes": [
+        {
+          "doc": "C10",
+          "pagina": 12
+        }
+      ],
+      "que_mide": "Un dato de texto en una página casi toda ocupada por un diagrama.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "clip-matriz",
+      "tipo": "explicacion",
+      "pregunta": "¿Cómo se entrena CLIP con la matriz de similitudes?",
+      "respuesta_esperada": "En un batch de N pares (imagen, texto) se arma una matriz N × N de similitudes: la diagonal son los N pares correctos (positivos) y el resto, N² − N negativos. Cada fila es una clasificación en N clases. Las imágenes y los textos pasan por dos encoders independientes que terminan en el mismo espacio, con embeddings normalizados.",
+      "fuentes": [
+        {
+          "doc": "C12",
+          "pagina": 7
+        },
+        {
+          "doc": "C12",
+          "pagina": 8
+        }
+      ],
+      "que_mide": "Una explicación repartida en dos diapositivas seguidas.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "equidad-ejemplo",
+      "tipo": "dato",
+      "pregunta": "En el ejemplo numérico de equidad, ¿qué definiciones cumple el modelo?",
+      "respuesta_esperada": "Solo la paridad predictiva: la precisión es 0,80 en los dos grupos. No cumple la paridad demográfica (tasa de positivos 0,50 en A contra 0,25 en B) ni la igualdad de oportunidades (TPR 0,80 contra 0,50). Si las tasas base difieren y el clasificador no es perfecto, no se pueden cumplir todas a la vez (Kleinberg et al., 2016).",
+      "fuentes": [
+        {
+          "doc": "C13",
+          "pagina": 21
+        },
+        {
+          "doc": "C13",
+          "pagina": 22
+        }
+      ],
+      "que_mide": "Leer dos tablas y cruzarlas con la conclusión de la página siguiente.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "fgsm",
+      "tipo": "explicacion",
+      "pregunta": "¿Cómo funciona el ataque FGSM?",
+      "respuesta_esperada": "x_adv = x + ε · sign(∇x L(θ, x, y)): se calcula el gradiente de la pérdida respecto de la entrada (no de los pesos) y se mueve cada píxel un paso ε en la dirección que aumenta la pérdida. Con ε chico (de 2/255 a 8/255) el cambio es casi invisible. Es un solo paso, muy rápido, y es un ataque white-box.",
+      "fuentes": [
+        {
+          "doc": "C13",
+          "pagina": 28
+        }
+      ],
+      "que_mide": "Una fórmula en LaTeX y su explicación.",
+      "verificado_en": "parse"
+    },
+    {
+      "id": "trampa-q-learning",
+      "tipo": "trampa",
+      "pregunta": "¿Cómo funciona Q-learning y la ecuación de Bellman?",
+      "respuesta_esperada": "No está en el material: ninguna clase trata aprendizaje por refuerzo. El chat debería decir que no está en los documentos de la biblioteca.",
+      "fuentes": [],
+      "que_mide": "Que no complete con lo que sabe por su cuenta un tema que no se dio.",
+      "verificado_en": "parse (no aparecen «Q-learning», «Bellman», «reinforcement» ni «recompensa» en ninguna página)"
+    },
+    {
+      "id": "trampa-fecha-parcial",
+      "tipo": "trampa",
+      "pregunta": "¿En qué fecha es el primer parcial?",
+      "respuesta_esperada": "El material no da fechas: solo dice que hay 2 parciales, a mitad y al final del curso (presentación, pág. 14). El chat no debería inventar una fecha.",
+      "fuentes": [],
+      "que_mide": "Que no invente un dato que no está, aunque el tema sí aparezca.",
+      "verificado_en": "parse (la presentación nombra los parciales sin fecha)"
+    }
+  ]
+}

@@ -50,7 +50,7 @@ SYSTEM_PROMPT = (
 )
 
 # Lo que se fuerza siempre al guardar la configuración, venga el schema de donde venga.
-# (generate_schema propone tier cost_effective y sin citas ni confianza: ver docs/verificacion-2-fase3.md.)
+# (generate_schema propone tier cost_effective y sin citas ni confianza: se comprobó en las pruebas de la fase 3.)
 EXTRACT_OPTIONS = {
     "tier": "agentic",
     "cite_sources": True,          # de qué parte del documento salió cada valor
@@ -64,9 +64,9 @@ EXTRACT_OPTIONS = {
 TEMPLATES = {
     "Resultados trimestrales": [
         {"name": "emisor", "type": "texto", "required": True,
-         "description": "Código bursátil de la empresa que emite el documento. BYMA, Bolsas y Mercados Argentinos S.A. y 'la Sociedad' se refieren a la misma empresa: devolver siempre el código (por ejemplo BYMA)."},
+         "description": "Código bursátil de la empresa que emite el documento. El nombre legal y 'la Sociedad' se refieren a la misma empresa: devolver siempre el código."},
         {"name": "razon_social", "type": "texto", "required": True, "description": "Nombre legal completo de la empresa"},
-        {"name": "periodo", "type": "texto", "required": True, "description": "Trimestre informado, con el formato 3T26"},
+        {"name": "periodo", "type": "texto", "required": True, "description": "Trimestre informado, con el formato 1T a 4T y el año (por ejemplo 2T25)"},
         {"name": "fecha_de_cierre", "type": "fecha", "required": True, "description": "Fecha de cierre del período"},
         {"name": "moneda", "type": "texto", "required": False, "description": "Moneda de los importes (ARS, USD…)"},
         {"name": "unidad", "type": "texto", "required": False, "description": "Unidad de los importes, por ejemplo 'millones de pesos'"},

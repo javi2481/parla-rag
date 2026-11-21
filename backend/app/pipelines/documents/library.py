@@ -1,7 +1,7 @@
 """Bibliotecas: varios documentos relacionados con un índice compartido, búsqueda y chat. Todo nativo de LlamaCloud.
 
-    Biblioteca "BYMA 3T26"
-     ├── EEFF · Comunicado · Presentación       ┐
+    Biblioteca "Aprendizaje Automático II"
+     ├── Clase 01 · Clase 02 · … · Clase 13     ┐
      │   (corridas del wizard ya parseadas)     ├─ directorio ─→ índice ─→ búsqueda ─→ chat
      └── metadata de identidad de cada uno       ┘  (files.add)    (sync)   (retrieve)  (stream)
 
