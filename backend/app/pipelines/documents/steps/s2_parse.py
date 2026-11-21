@@ -147,13 +147,13 @@ async def save_outputs(folder: Path, response: dict) -> None:
     markdown = []
     for page in markdown_pages:
         markdown.append(f"<!-- página {page['page_number']} -->\n{page.get('markdown') or ''}")
-    (folder / "document.md").write_text("\n\n".join(markdown))
+    (folder / "document.md").write_text("\n\n".join(markdown), encoding="utf-8")
 
     text_pages = (response.get("text") or {}).get("pages") or []
     text = []
     for page in text_pages:
         text.append(page.get("text") or "")
-    (folder / "text.txt").write_text("\n\n".join(text))
+    (folder / "text.txt").write_text("\n\n".join(text), encoding="utf-8")
 
     for key in ("items", "metadata", "forms", "job_metadata"):
         if response.get(key) is not None:

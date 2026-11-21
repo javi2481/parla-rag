@@ -9,9 +9,9 @@
 El run.json es un diccionario simple, así se puede abrir y leer a mano:
 
     {
-      "id": "2026-11-13_1530_byma-comunicado",
-      "name": "BYMA Comunicado de Prensa - 3T26.pdf",
-      "created_at": "2026-11-13T15:30:00",
+      "id": "2026-11-21_1530_clase-07-clasificacion-de-imagenes",
+      "name": "Clase 07 Clasificacion de imagenes.pdf",
+      "created_at": "2026-11-21T15:30:00",
       "steps": {
         "upload": {"state": "done", "started_at": "...", "finished_at": "...", "credits": 0, ...},
         "parse":  {"state": "pending"}
@@ -40,7 +40,7 @@ def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-# Convierte un nombre de archivo en un texto apto para carpeta: "BYMA Comunicado.pdf" → "byma-comunicado".
+# Convierte un nombre de archivo en un texto apto para carpeta: "Clase 07 Clasificacion.pdf" → "clase-07-clasificacion".
 def slugify(name: str) -> str:
     without_extension = Path(name).stem
     ascii_text = unicodedata.normalize("NFKD", without_extension).encode("ascii", "ignore").decode()
@@ -51,12 +51,13 @@ def slugify(name: str) -> str:
 # Guarda un objeto como JSON legible (con sangría y acentos sin escapar).
 def write_json(path: Path, data: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2, default=str))
+    # Siempre en UTF-8: en Windows, sin decirlo, Python usa cp1252 y falla con caracteres como "○".
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
 
 # Lee un archivo JSON.
 def read_json(path: Path) -> object:
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 class RunStore:
