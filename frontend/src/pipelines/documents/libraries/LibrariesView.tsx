@@ -168,7 +168,7 @@ export function LibrariesView({ ready }: { ready: boolean }) {
                   onDone={() => getLibrary(library.id).then(setLibrary)} />
               </TabsContent>
               <TabsContent value="buscar" className="mt-4">
-                <LibrarySearch libraryId={library.id} searches={library.searches} disabled={syncing || sync?.state !== 'done'}
+                <LibrarySearch libraryId={library.id} searches={library.searches} disabled={syncing || sync?.state !== 'done'} local={library.engine === 'local'}
                   onDone={() => getLibrary(library.id).then(setLibrary)} />
               </TabsContent>
               {library.engine === 'local' && (

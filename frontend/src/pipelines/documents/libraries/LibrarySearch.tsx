@@ -37,7 +37,8 @@ function SearchView({ item }: { item: Search }) {
 }
 
 // La búsqueda de prueba: muestra qué chunks recuperaría el chat para una pregunta, sin gastar un turno de chat.
-export function LibrarySearch({ libraryId, searches, disabled, onDone }: { libraryId: string; searches: Search[]; disabled: boolean; onDone: () => void }) {
+// local: con el motor local busca Voyage AI (tokens, no créditos de LlamaCloud).
+export function LibrarySearch({ libraryId, searches, disabled, local, onDone }: { libraryId: string; searches: Search[]; disabled: boolean; local: boolean; onDone: () => void }) {
   const [query, setQuery] = useState('');
   const [topK, setTopK] = useState(8);
   const [busy, setBusy] = useState(false);
@@ -62,7 +63,11 @@ export function LibrarySearch({ libraryId, searches, disabled, onDone }: { libra
         </label>
         <Button onClick={run} disabled={disabled || busy || !query.trim()}><SearchIcon /> Buscar</Button>
       </div>
-      <p className="text-xs text-muted-foreground">Cada búsqueda cuesta 1 crédito según la lista de precios de LlamaCloud.</p>
+      <p className="text-xs text-muted-foreground">
+        {local
+          ? 'La búsqueda la hace Voyage AI (embeddings y reranker): usa tokens de Voyage y 0 créditos de LlamaCloud.'
+          : 'Cada búsqueda cuesta 1 crédito según la lista de precios de LlamaCloud.'}
+      </p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {searches.map(item => <SearchView key={item.at} item={item} />)}
     </div>
