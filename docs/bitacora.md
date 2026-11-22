@@ -201,3 +201,9 @@ El razonamiento lo devuelve la API en inglés; va recortado y tal cual (sin el n
 - **Biblioteca:** se sacaron y se volvieron a sumar las 14 corridas, así cada página toma el `tipo` nuevo, y se volvió a sincronizar: 410 páginas, 410 chunks, 0 créditos de LlamaCloud.
 - **El filtro por unidad funciona:** *"¿Cómo funciona una red convolucional para clasificar imágenes?"* trae solo la clase 07 sin filtro y solo la 05 con `tipo = procesamiento_del_lenguaje_natural`.
 - **Costo:** 0 créditos de LlamaCloud (14 Classify); embeddings de la sincronización y 4 búsquedas de Voyage dentro de los tokens gratis.
+
+## 21/11 · El chat como página principal: pestañas y filtros en el navegador
+
+- **Prueba en el navegador (pestaña Chat):** dos conversaciones en pestañas distintas. La primera, *"¿Qué es una función de activación?"*, sin filtros: citó páginas 3, 4, 6, 7 y 8 de la clase 01 y la 16 de la 07. La segunda, *"¿Cómo funciona una red convolucional para clasificar imágenes?"*, con la unidad **PLN**: las 6 páginas citadas son de la clase 05 (PLN - Redes neuronales).
+- **Pestañas:** cada una tomó como título las primeras palabras de su pregunta. Se cerró la primera y se recargó la página: volvió solo la segunda, con su turno, y la carpeta de la cerrada sigue en `chats/local/` (no se borra nada).
+- **Costo:** 0 créditos de LlamaCloud. OpenAI (`gpt-5-nano`): 2.954 tokens de entrada y 774 de salida en total, unos **USD 0,0005** (estimado con la lista de precios: 0,05 y 0,40 por millón). Las búsquedas de Voyage, dentro de los tokens gratis.

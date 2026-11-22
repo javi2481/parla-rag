@@ -38,7 +38,7 @@ function sourcesOf(events: ChatEvent[]): Source[] {
 
 // Un turno de chat: la pregunta, el razonamiento, las búsquedas que hizo el agente con lo que encontró y la respuesta.
 // local: la biblioteca usa el motor local (LlamaIndex + Voyage AI + OpenAI), que no cobra créditos de LlamaCloud.
-function TurnView({ turn, live, local }: { turn: Turn; live?: boolean; local: boolean }) {
+export function TurnView({ turn, live, local }: { turn: Turn; live?: boolean; local: boolean }) {
   const thinking = thinkingOf(turn.events);
   const calls = turn.events.filter(e => e.type === 'tool_call');
   const results = turn.events.filter(e => e.type === 'tool_result');
@@ -102,6 +102,8 @@ export function LibraryChat({ libraryId, turns, disabled, local, onDone }: { lib
   const [prompt, setPrompt] = useState('');
   const [live, setLive] = useState<Turn | null>(null);
   const [error, setError] = useState('');
+  // La conversación de esta pantalla: la crea el backend con la primera pregunta y llega en el evento "stop".
+  const [conversationId, setConversationId] = useState<string | undefined>();
 
   // Manda la pregunta y va mostrando los eventos a medida que llegan.
   async function send() {
@@ -111,8 +113,9 @@ export function LibraryChat({ libraryId, turns, disabled, local, onDone }: { lib
     try {
       await chat(libraryId, turn.prompt, event => {
         turn.events = [...turn.events, event];
+        if (event.type === 'stop' && event.conversation_id) setConversationId(event.conversation_id);
         setLive({ ...turn });
-      });
+      }, { conversationId: local ? conversationId : undefined });
       onDone();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo chatear.');

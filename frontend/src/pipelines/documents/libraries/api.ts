@@ -16,7 +16,7 @@ export type Search = { at: string; request: { query: string; top_k: number }; re
 
 // Un evento del chat, tal como lo manda LlamaCloud: texto, razonamiento, búsquedas que hizo el agente y lo que encontró.
 export type ChatEvent = { type: string; content?: string; name?: string; arguments?: unknown; result?: unknown; call_id?: string;
-  image_attachment?: { attachment_name: string; source_id: string } | null; usage?: Record<string, unknown>; error?: string | null };
+  image_attachment?: { attachment_name: string; source_id: string } | null; usage?: Record<string, unknown>; error?: string | null; conversation_id?: string };
 export type Turn = { at: string; prompt: string; events: ChatEvent[]; summary?: { job_metadata?: Record<string, unknown> } | null };
 
 // Una corrida de evals guardada (libraries/<id>/evals/<fecha>/): cómo se corrió, el resultado de cada pregunta y el resumen.
@@ -57,10 +57,28 @@ export const runEvals = (id: string, conjunto: string, respuestas: boolean) =>
   api<EvalRun>(`${BASE}/${id}/evals`, json({ conjunto, respuestas }));
 export const search = (id: string, query: string, topK: number) => api<Search>(`${BASE}/${id}/search`, json({ query, top_k: topK }));
 
+// Una conversación del chat (una pestaña): su título sale de la primera pregunta.
+export type Conversation = { id: string; titulo: string; creada: string; turnos: number; cerrada: boolean };
+
+export const listConversations = (id: string) => api<Conversation[]>(`${BASE}/${id}/conversations`);
+export const createConversation = (id: string) => api<Conversation>(`${BASE}/${id}/conversations`, { method: 'POST' });
+export const getConversation = (id: string, conversationId: string) =>
+  api<Conversation & { turns: Turn[] }>(`${BASE}/${id}/conversations/${conversationId}`);
+export const closeConversation = (id: string, conversationId: string) =>
+  api<unknown>(`${BASE}/${id}/conversations/${conversationId}/close`, { method: 'POST' });
+
+// Pasa los filtros elegidos ({ tipo: 'redes_neuronales' }) al formato que pide el backend ({ tipo: { operator: 'eq', value: ... } }).
+function toFilters(filters?: Record<string, string>) {
+  const entries = Object.entries(filters ?? {}).filter(([, value]) => value);
+  return entries.length ? Object.fromEntries(entries.map(([key, value]) => [key, { operator: 'eq', value }])) : undefined;
+}
+
 // Un turno de chat: va llamando a onEvent con cada evento a medida que llega (Server-Sent Events: líneas "data: {...}").
-export async function chat(id: string, prompt: string, onEvent: (event: ChatEvent) => void) {
-  const res = await fetch(`${BASE}/${id}/chat`, json({ prompt }));
-  if (!res.ok || !res.body) throw new Error(`El chat respondió con un error (${res.status}).`);
+// conversationId dice a qué conversación va (sin él, el backend crea una); sin filtros elegidos no se manda "filters".
+export async function chat(id: string, prompt: string, onEvent: (event: ChatEvent) => void,
+  options?: { conversationId?: string; filters?: Record<string, string> }) {
+  const res = await fetch(`${BASE}/${id}/chat`, json({ prompt, conversation_id: options?.conversationId, filters: toFilters(options?.filters) }));
+  if (!res.ok || !res.body) throw new Error(await chatError(res));
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -75,4 +93,13 @@ export async function chat(id: string, prompt: string, onEvent: (event: ChatEven
       try { onEvent(JSON.parse(line.slice(5).trim()) as ChatEvent); } catch { /* línea incompleta o no JSON */ }
     }
   }
+}
+
+// El mensaje de error del chat: el backend manda { detail } (404 si no existe la conversación, 409 si un filtro está mal).
+async function chatError(res: Response) {
+  try {
+    const body = await res.json() as { detail?: unknown };
+    if (typeof body.detail === 'string') return body.detail;
+  } catch { /* sin cuerpo JSON */ }
+  return `El chat respondió con un error (${res.status}).`;
 }

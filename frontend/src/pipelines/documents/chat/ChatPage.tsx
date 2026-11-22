@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { listRuns, type Run } from '@/pipelines/documents/api';
-import { getLibrary, listLibraries, type Library } from '@/pipelines/documents/libraries/api';
-import { LibraryChat } from '@/pipelines/documents/libraries/LibraryChat';
+import { closeConversation, createConversation, getLibrary, listConversations, listLibraries,
+  type Conversation, type Library } from '@/pipelines/documents/libraries/api';
+import { ChatFilters, SIN_FILTROS, type Filtros } from './ChatFilters';
+import { ChatThread } from './ChatThread';
+import { ConversationTabs } from './ConversationTabs';
 import { ProjectJourney, type NumerosDelRecorrido } from './ProjectJourney';
 
 // La biblioteca del chat: la local con la sincronización terminada más reciente (hay una sola, así que no hay selector).
@@ -43,6 +46,10 @@ export function ChatPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [state, setState] = useState<'cargando' | 'lista' | 'sin-biblioteca'>('cargando');
   const [error, setError] = useState('');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [active, setActive] = useState<string | null>(null);
+  const [filtros, setFiltros] = useState<Filtros>(SIN_FILTROS);
+  const [busy, setBusy] = useState(false);
 
   // Vuelve a pedir la biblioteca (con sus turnos) y las corridas; se usa al cargar y después de cada respuesta.
   const cargar = useCallback(async () => {
@@ -60,6 +67,49 @@ export function ChatPage() {
 
   useEffect(() => { void cargar(); }, [cargar]);
 
+  // Al tener la biblioteca, abre las mismas pestañas que había (la activa es la última). Si no hay ninguna, crea una.
+  const libraryId = library?.id;
+  useEffect(() => {
+    if (!libraryId) return;
+    (async () => {
+      let abiertas = await listConversations(libraryId);
+      if (!abiertas.length) abiertas = [await createConversation(libraryId)];
+      setConversations(abiertas);
+      setActive(actual => abiertas.some(c => c.id === actual) ? actual : abiertas.at(-1)!.id);
+    })().catch(e => setError(e instanceof Error ? e.message : 'No se pudieron cargar las conversaciones.'));
+  }, [libraryId]);
+
+  // El "+": crea una conversación vacía y la deja activa.
+  async function nueva() {
+    if (!libraryId) return;
+    try {
+      const creada = await createConversation(libraryId);
+      setConversations(previas => [...previas, creada]);
+      setActive(creada.id);
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo crear la conversación.'); }
+  }
+
+  // La "×": cierra la conversación (queda en disco) y pasa a la de al lado; si era la última, crea una nueva.
+  async function cerrar(id: string) {
+    if (!libraryId) return;
+    try {
+      await closeConversation(libraryId, id);
+      const quedan = conversations.filter(c => c.id !== id);
+      if (!quedan.length) quedan.push(await createConversation(libraryId));
+      setConversations(quedan);
+      if (active === id) setActive(quedan.at(-1)!.id);
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo cerrar la conversación.'); }
+  }
+
+  // Después de cada respuesta: actualiza los títulos de las pestañas y los números del recorrido (por ejemplo, el modelo).
+  async function alResponder() {
+    if (!libraryId) return;
+    try {
+      setConversations(await listConversations(libraryId));
+      setLibrary(await getLibrary(libraryId));
+    } catch { /* los números se actualizan en la próxima carga */ }
+  }
+
   if (error) return <p role="alert" className="mt-8 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">{error}</p>;
   if (state === 'cargando') return <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" /> Cargando la biblioteca…</p>;
   if (state === 'sin-biblioteca' || !library) {
@@ -75,7 +125,11 @@ export function ChatPage() {
     <div className="mt-8 flex flex-col gap-6">
       <ProjectJourney numeros={numerosDe(library, runs)} />
       <p className="text-sm text-muted-foreground">Chateás con <strong className="text-foreground">{library.name}</strong>.</p>
-      <LibraryChat libraryId={library.id} turns={library.turns} disabled={false} local onDone={() => void cargar()} />
+      <ConversationTabs conversations={conversations} active={active} disabled={busy}
+        onSelect={setActive} onCreate={() => void nueva()} onClose={id => void cerrar(id)} />
+      <ChatFilters documents={library.documents} value={filtros} onChange={setFiltros} disabled={busy} />
+      {active && <ChatThread libraryId={library.id} conversationId={active} filtros={filtros} busy={busy}
+        onBusyChange={setBusy} onDone={() => void alResponder()} />}
     </div>
   );
 }
