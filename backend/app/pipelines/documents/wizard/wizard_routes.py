@@ -20,7 +20,12 @@ from llama_cloud import APIError
 from app.core.limits import RateLimiter, client_ip
 from app.core.runs.store import RunStore
 from app.pipelines.documents.errors import DocumentError
-from app.pipelines.documents.route_dependencies import ClientDep, SettingsDep, StoreDep, llama_cloud_error
+from app.pipelines.documents.route_dependencies import (
+    ClientDep,
+    SettingsDep,
+    StoreDep,
+    llama_cloud_error,
+)
 from app.pipelines.documents.settings import DocumentsSettings, get_documents_settings
 
 from . import wizard_flow

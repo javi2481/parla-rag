@@ -21,7 +21,6 @@ from app.core.runs.store import (
     mark_running,
     write_json,
 )
-
 from app.pipelines.documents.number_format import number_es, percent
 from app.pipelines.documents.settings import DocumentsSettings
 
@@ -239,8 +238,8 @@ def processing_seconds(job_metadata: dict) -> float | None:
         return total_ms / 1000
     transitions = job_metadata.get("state_transitions") or {}
     if transitions.get("running_at") and transitions.get("completed_at"):
-        start = datetime.fromisoformat(transitions["running_at"].replace("Z", "+00:00"))
-        end = datetime.fromisoformat(transitions["completed_at"].replace("Z", "+00:00"))
+        start = datetime.fromisoformat(transitions["running_at"])
+        end = datetime.fromisoformat(transitions["completed_at"])
         return (end - start).total_seconds()
     return None
 

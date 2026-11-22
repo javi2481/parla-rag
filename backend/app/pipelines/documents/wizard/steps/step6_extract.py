@@ -9,7 +9,6 @@ Si se elige una parte del Split, solo analiza esas páginas (target_pages).
 from llama_cloud import AsyncLlamaCloud
 
 from app.core.runs.store import RunStore, mark_done, mark_running, read_json, write_json
-
 from app.pipelines.documents.number_format import percent
 from app.pipelines.documents.settings import DocumentsSettings
 

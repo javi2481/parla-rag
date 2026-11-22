@@ -21,7 +21,14 @@ from llama_cloud import AsyncLlamaCloud
 from app.core.runs.store import RunStore, read_json
 from app.pipelines.documents.settings import DocumentsSettings
 
-from .steps import step1_upload, step2_parse, step3_split, step4_classify, step5_schema, step6_extract
+from .steps import (
+    step1_upload,
+    step2_parse,
+    step3_split,
+    step4_classify,
+    step5_schema,
+    step6_extract,
+)
 
 log = logging.getLogger(__name__)
 

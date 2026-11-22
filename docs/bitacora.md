@@ -378,3 +378,10 @@ Evals con respuestas, configuración por defecto (18 candidatos, 6 páginas, mod
 
 - **Verificación:** 31 tests pasan, ruff sin avisos, `npm run build` compila. Con el backend reiniciado: `/api/config` y las 14 corridas responden, la búsqueda de prueba corre en modo `hibrida` (para la consulta sobre Bolukbasi trae las págs. 12 y 11 de la clase 13 y tres de la 04) y un turno real del chat ("¿Qué relación hay entre los embeddings de palabras de PLN y los problemas de sesgo?") usó páginas de las clases 13, 03 y 04. Esa conversación de prueba se cerró.
 - **Costo:** 0 créditos de LlamaCloud. OpenAI: USD 0,000315 (el turno de prueba). Voyage, dentro de los tokens gratis.
+
+## 22/11 · El CI falló en Ruff después del merge
+
+- **Qué pasó:** la corrida [45051303785](https://github.com/javi2481/parla-rag/actions/runs/45051303785) falló en el paso de Ruff con 12 avisos. Los tests ni llegaron a correr.
+- **Causa:** el CI usa `uvx ruff` (la última versión, 0.17.6) y en la máquina local estaba la 0.15.22. La versión nueva marca cosas que la vieja no: una línea en blanco de más entre imports (9 archivos de la reorganización), `.replace("Z", "+00:00")` innecesario en `fromisoformat` (desde Python 3.11 entiende la `Z`) y una variable desempaquetada sin usar en un test.
+- **Arreglo:** imports ordenados con `ruff --fix`, se sacó el `.replace` en `step2_parse.py` y la variable quedó como `_settings`. Las dos versiones de Ruff pasan sin avisos y los 31 tests pasan.
+- **Para no repetirlo:** correr `uvx ruff check .` en local antes del push, que es lo mismo que corre el CI.

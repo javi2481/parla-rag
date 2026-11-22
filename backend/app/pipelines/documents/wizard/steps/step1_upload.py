@@ -9,7 +9,6 @@ from pathlib import Path
 from llama_cloud import AsyncLlamaCloud
 
 from app.core.runs.store import RunStore, mark_done, mark_running, write_json
-
 from app.pipelines.documents.errors import DocumentError
 
 NAME = "upload"

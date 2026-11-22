@@ -331,7 +331,7 @@ def test_conversaciones_separadas(setup):
 
 # Cerrar una conversación la saca de la lista, pero no borra nada del disco.
 def test_conversacion_cerrada_no_se_lista(setup):
-    client, settings, tmp_path = setup
+    client, _settings, tmp_path = setup
     base, library = synced_library(client)
     vacia = client.post(f"{base}/conversations").json()
     otra = client.post(f"{base}/conversations").json()

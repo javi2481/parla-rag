@@ -6,7 +6,6 @@ Las reglas se editan en el wizard y se guardan como configuración en LlamaCloud
 from llama_cloud import AsyncLlamaCloud
 
 from app.core.runs.store import RunStore, mark_done, mark_running, read_json, write_json
-
 from app.pipelines.documents.number_format import percent
 from app.pipelines.documents.settings import DocumentsSettings
 
