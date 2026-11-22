@@ -327,3 +327,31 @@ Evals con respuestas, configuración por defecto (18 candidatos, 6 páginas, mod
 
 - **Conclusión:** la mejora de 22–25 a 28 de 31 era **del juez**, no del chat. Con el mismo juez, el chat en `minimal` acierta lo mismo, es más fiel y más rápido. **El chat queda en `minimal`**; la mejora de la pregunta del sobreajuste con `low` fue una sola muestra.
 - **Costo:** 0 créditos de LlamaCloud. OpenAI: unos USD 0,015 (estimado). Voyage, dentro de los tokens gratis.
+
+## 22/11 · Agente y búsqueda híbrida (BM25 + vectores)
+
+- **Qué se probó:** si la configuración heredada de los documentos financieros conviene para los apuntes de clase. El parse y el corte por página se dejan como están (el corte por página se midió con estos apuntes). Se probó lo que falla en las preguntas que cruzan clases: **la búsqueda** y **cuántas veces se busca**.
+- **Cambios (todo nativo de LlamaIndex):**
+  - `LIBRARY_RETRIEVAL_MODE=hibrida`: `QueryFusionRetriever` junta vectores (voyage-4) y `BM25Retriever` (stemmer en español) con reciprocal rank fusion; `num_queries=1`, así no llama a ningún modelo. Paquete nuevo: `llama-index-retrievers-bm25` (integración oficial).
+  - `LIBRARY_CHAT_ENGINE=agente`: `FunctionAgent` con la herramienta `buscar_en_la_biblioteca` (mismo buscador y reranker), hasta 6 pasos. Por ahora solo en los evals; el chat sigue con `contexto`.
+  - Los evals anotan qué buscó y qué páginas vio el modelo, y la cobertura de clases **al responder** (con el agente puede ser más que una búsqueda).
+- **Prueba suelta del agente** (pregunta de atención): 1 búsqueda, páginas de las clases 05, 10, 00 y 08 (antes, las 6 de la 12). USD 0,0006.
+- **Evals con respuestas, juez `low`, chat `minimal`, 18 candidatos, 6 páginas:**
+
+| | Contexto + vectores (`141208`) | Contexto + híbrida (`141600`) | Agente + vectores (`142039`) | Agente + híbrida (`142520`) |
+|---|---|---|---|---|
+| Correctas (4 o más de 5) | 26 de 31 | **29 de 31** | 29 de 31 | **30 de 31** |
+| Corrección promedio | 4,484 | **4,629** | 4,484 | 4,597 |
+| Fieles a los fragmentos | 25 de 31 | 27 de 31 | 25 de 31 | **28 de 31** |
+| Cobertura de clases al responder | 0,966 | 0,966 | 0,922 | 0,931 |
+| Búsquedas por respuesta (reales) | 1 | 1 | 1,48 | 1,29 |
+| Tiempo por respuesta (promedio) | **3,0 s** | 3,1 s | 4,6 s | 4,6 s |
+
+- **Búsqueda sola (sin modelo):** la híbrida cambia las páginas en 18 de 31 preguntas, pero hit rate (1), MRR (0,96) y cobertura (0,966) quedan iguales.
+- **Ruido:** la misma configuración (contexto + vectores) dio 28 de 31 en `121929` y 26 de 31 hoy. Diferencias de ±2 son ruido del juez.
+- **Lectura:**
+  - La híbrida mejora las respuestas en los dos motores (+3 y +1 correctas, +2 y +3 fieles), sin costo ni demora extra. Es la mejora más consistente.
+  - El agente **casi no reparte la pregunta**: con razonamiento `minimal` hace una sola búsqueda en 22 o 23 de 31 preguntas, y la cobertura de clases **baja** (0,966 → 0,93). Tarda 1,5 s más y usa ~60 % más tokens. Con estos datos no lo justifica.
+  - Siguen fallando en cobertura `transformers-de-texto-a-imagen` y `clip-en-la-materia` (0,5) en todas las combinaciones.
+- **Errores de medición encontrados y arreglados:** el registrador de llamadas seguía escuchando mientras juzgaba el juez, así que **los tokens de los evals (también los del 21/11 y 22/11) incluían los del juez**, y la búsqueda interna de `FaithfulnessEvaluator` se contaba como búsqueda del chat. Ahora se deja de escuchar antes del juez y las búsquedas se cuentan por las llamadas a la herramienta. Los tokens de la tabla de arriba siguen incluyendo al juez.
+- **Costo:** 0 créditos de LlamaCloud. OpenAI: unos USD 0,075 las cuatro corridas (estimado con la lista de precios, con el juez incluido). Voyage, dentro de los tokens gratis.

@@ -21,13 +21,19 @@ import os
 from pathlib import Path
 
 import nltk
+import Stemmer
 from llama_index.core import (
     Document,
     StorageContext,
     VectorStoreIndex,
     load_index_from_storage,
 )
+from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.chat_engine import CondensePlusContextChatEngine
+from llama_index.core.llms import MockLLM
+from llama_index.core.retrievers import QueryFusionRetriever
+from llama_index.core.tools import FunctionTool
+from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.core.instrumentation.event_handlers import BaseEventHandler
 from llama_index.core.instrumentation.events.llm import (
@@ -37,7 +43,7 @@ from llama_index.core.instrumentation.events.llm import (
 from llama_index.core.instrumentation.events.retrieval import RetrievalEndEvent
 from llama_index.core.llms import ChatMessage
 from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
-from llama_index.core.schema import QueryBundle, TextNode
+from llama_index.core.schema import MetadataMode, QueryBundle, TextNode
 from llama_index.core.vector_stores import ExactMatchFilter, MetadataFilters
 from llama_index.embeddings.voyageai import VoyageEmbedding
 from llama_index.llms.openai import OpenAI
@@ -109,14 +115,30 @@ def make_reranker(settings: DocumentsSettings, top_n: int):
 # La búsqueda por vectores que comparten el chat, la búsqueda de prueba y los evals (así los evals miden lo mismo).
 # Trae "candidates" páginas (por defecto, top_k × 3) para que después el reranker deje las mejores.
 # Con library_retrieval_mode = "mmr" usa el MMR nativo del índice de LlamaIndex: candidatos parecidos pero distintos.
+# Con "hibrida" junta los vectores con BM25 (ver make_hybrid_retriever).
 def make_retriever(index: VectorStoreIndex, settings: DocumentsSettings, candidates: int | None = None,
                    filters: MetadataFilters | None = None):
     mode = settings.library_retrieval_mode
-    if mode not in ("default", "mmr"):
-        raise ValueError(f'El modo de búsqueda "{mode}" no existe: tiene que ser "default" o "mmr".')
+    if mode not in ("default", "mmr", "hibrida"):
+        raise ValueError(f'El modo de búsqueda "{mode}" no existe: tiene que ser "default", "mmr" o "hibrida".')
+    candidates = candidates or settings.library_chat_top_k * CANDIDATES_PER_RESULT
+    if mode == "hibrida":
+        return make_hybrid_retriever(index, candidates, filters)
     extra = {"vector_store_kwargs": {"mmr_threshold": settings.library_mmr_threshold}} if mode == "mmr" else {}
-    return index.as_retriever(similarity_top_k=candidates or settings.library_chat_top_k * CANDIDATES_PER_RESULT,
-                              filters=filters, vector_store_query_mode=mode, **extra)
+    return index.as_retriever(similarity_top_k=candidates, filters=filters, vector_store_query_mode=mode, **extra)
+
+
+# La búsqueda híbrida: vectores (voyage-4, entiende el sentido aunque cambien las palabras) + BM25 (busca las
+# palabras exactas, como "Bolukbasi" o "GRU", que los vectores a veces pierden). BM25 corta en palabras en español
+# y les saca la terminación ("redes" y "red" cuentan igual). Se arma en el momento con las páginas del índice: son pocas.
+# QueryFusionRetriever junta las dos listas con reciprocal rank fusion: suben las páginas que están arriba en las dos.
+# num_queries=1 busca la pregunta tal cual: no le pide a un modelo que invente otras, por eso alcanza con MockLLM.
+def make_hybrid_retriever(index: VectorStoreIndex, candidates: int, filters: MetadataFilters | None):
+    vectors = index.as_retriever(similarity_top_k=candidates, filters=filters)
+    words = BM25Retriever.from_defaults(docstore=index.docstore, similarity_top_k=candidates, filters=filters,
+                                        stemmer=Stemmer.Stemmer("spanish"), language="es")
+    return QueryFusionRetriever([vectors, words], llm=MockLLM(), mode="reciprocal_rerank",
+                                similarity_top_k=candidates, num_queries=1, use_async=False)
 
 
 # Revisa que esté la API key de Voyage antes de usarla.
@@ -500,6 +522,47 @@ def make_chat_engine(index: VectorStoreIndex, settings: DocumentsSettings, histo
         condense_prompt=CONDENSE_PROMPT,
         node_postprocessors=[make_reranker(settings, top_k)],
     )
+
+
+# Las instrucciones del agente: las mismas del chat, más cómo usar la herramienta de búsqueda.
+AGENT_PROMPT = SYSTEM_PROMPT + """
+Para responder tenés la herramienta buscar_en_la_biblioteca. Usala siempre antes de responder: nunca respondas sin buscar.
+Si la pregunta junta varios temas, modelos o clases, hacé una búsqueda corta y concreta por cada uno
+y después relacioná lo que encontraste. Si una búsqueda no trae lo que necesitás, probá con otras palabras."""
+
+# Cuántos pasos puede dar el agente como máximo (cada búsqueda es un paso). Al llegar al tope, responde con lo que tiene.
+AGENT_MAX_STEPS = 6
+
+
+# El agente (FunctionAgent de LlamaIndex): en vez de una sola búsqueda, el modelo decide qué buscar y cuántas veces.
+# Sirve para las preguntas que cruzan clases: puede buscar "atención en Transformers" y "atención en visión" por separado.
+# Cada búsqueda usa el mismo buscador y el mismo reranker que el chat. Las páginas que va viendo se suman a "seen",
+# así se pueden mostrar como fuentes y los evals pueden medir qué le llegó al modelo.
+def make_agent(index: VectorStoreIndex, settings: DocumentsSettings, seen: list,
+               filters: MetadataFilters | None = None) -> FunctionAgent:
+    retriever = make_retriever(index, settings, filters=filters)
+    reranker = make_reranker(settings, settings.library_chat_top_k)
+
+    # La herramienta del agente. El docstring es la descripción que lee el modelo para saber cuándo usarla.
+    async def buscar_en_la_biblioteca(consulta: str) -> str:
+        """Busca en la biblioteca de la materia las páginas más relevantes para una consulta corta y devuelve su texto, con el documento y la página."""
+        # Buscar y rerankear es código bloqueante: corre en otro hilo.
+        def run() -> list:
+            return reranker.postprocess_nodes(retriever.retrieve(consulta), QueryBundle(consulta))
+        nodes = await asyncio.to_thread(run)
+        seen.extend(nodes)
+        return "\n\n---\n\n".join(node.node.get_content(metadata_mode=MetadataMode.LLM) for node in nodes)
+
+    return FunctionAgent(tools=[FunctionTool.from_defaults(async_fn=buscar_en_la_biblioteca)],
+                         llm=make_llm(settings), system_prompt=AGENT_PROMPT)
+
+
+# Las páginas que vio el modelo, sin repetir (el agente puede traer la misma página en dos búsquedas).
+def unique_nodes(nodes: list) -> list:
+    unique = {}
+    for node in nodes:
+        unique.setdefault(node.node.node_id, node)
+    return list(unique.values())
 
 
 # Un turno de chat con el chat engine de LlamaIndex (condense_plus_context):

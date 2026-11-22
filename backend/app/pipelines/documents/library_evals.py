@@ -98,24 +98,37 @@ async def eval_retrieval(index, settings: DocumentsSettings, question: dict, nam
 
 
 # El chat responde la pregunta sin historial y OpenAI la juzga: fidelidad a los fragmentos y corrección.
+# Con library_chat_engine = "agente" responde el agente, que puede hacer varias búsquedas.
 async def eval_answer(index, settings: DocumentsSettings, question: dict, candidates: int) -> dict:
     recorder = engine.TurnRecorder()
     dispatcher = get_dispatcher()
     dispatcher.add_event_handler(recorder)
     try:
-        chat = engine.make_chat_engine(index, settings, history=[], candidates=candidates)
         started = time.perf_counter()  # el tiempo es el de la respuesta del chat, sin contar al juez
-        response = await chat.astream_chat(question["pregunta"])
-        answer = "".join([token async for token in response.async_response_gen()])
+        if settings.library_chat_engine == "agente":
+            seen = []
+            agent = engine.make_agent(index, settings, seen)
+            output = await agent.run(user_msg=question["pregunta"], max_iterations=engine.AGENT_MAX_STEPS,
+                                     early_stopping_method="generate")
+            answer = output.response.content or ""
+            nodes = engine.unique_nodes(seen)
+            searches = [call.tool_kwargs.get("consulta") for call in output.tool_calls]
+        else:
+            chat = engine.make_chat_engine(index, settings, history=[], candidates=candidates)
+            response = await chat.astream_chat(question["pregunta"])
+            answer = "".join([token async for token in response.async_response_gen()])
+            nodes = response.source_nodes
+            searches = [question["pregunta"]]  # sin historial, busca la pregunta tal cual
         seconds = round(time.perf_counter() - started, 2)
-        contexts = [node.node.get_content() for node in response.source_nodes]
-        judge = make_judge_llm(settings)
-        faithfulness = await FaithfulnessEvaluator(llm=judge).aevaluate(
-            query=question["pregunta"], response=answer, contexts=contexts)
-        correctness = await CorrectnessEvaluator(llm=judge).aevaluate(
-            query=question["pregunta"], response=answer, reference=question["respuesta_esperada"])
     finally:
+        # Se deja de escuchar antes del juez: si no, sus llamadas y su búsqueda interna se contarían como del chat.
         dispatcher.event_handlers.remove(recorder)
+    contexts = [node.node.get_content() for node in nodes]
+    judge = make_judge_llm(settings)
+    faithfulness = await FaithfulnessEvaluator(llm=judge).aevaluate(
+        query=question["pregunta"], response=answer, contexts=contexts)
+    correctness = await CorrectnessEvaluator(llm=judge).aevaluate(
+        query=question["pregunta"], response=answer, reference=question["respuesta_esperada"])
     return {
         "respuesta": answer,
         "fiel_a_los_fragmentos": faithfulness.passing,
@@ -124,6 +137,10 @@ async def eval_answer(index, settings: DocumentsSettings, question: dict, candid
         "correcta": correctness.passing,
         "correccion_explicacion": correctness.feedback,
         "segundos": seconds,
+        # Qué buscó y qué páginas le llegaron al modelo (con el agente pueden ser varias búsquedas).
+        "busquedas": searches,
+        "paginas_que_vio": [f"{n.node.metadata.get('nombre')}, pág. {n.node.metadata.get('pagina')}" for n in nodes],
+        "clases_que_vio": list(dict.fromkeys(n.node.metadata.get("nombre") for n in nodes)),
         "llamadas_al_modelo": recorder.llm_calls,
         "usage": engine.total_usage(recorder.llm_calls, settings),
     }
@@ -172,6 +189,9 @@ def summarize(library: dict, results: list[dict], candidates: int, with_answers:
             {"label": "Respuestas fieles a los fragmentos", "value": f"{faithful} de {len(answers)}"},
             {"label": "Respuestas correctas (4 o más de 5)", "value": f"{correct} de {len(answers)}"},
             {"label": "Corrección promedio (1 a 5)", "value": decimal_es(average([a["correccion"] for a in answers]))},
+            {"label": "Cobertura de clases al responder (promedio)",
+             "value": decimal_es(average([a.get("cobertura_de_clases") for a in answers]))},
+            {"label": "Búsquedas por respuesta (promedio)", "value": decimal_es(average([len(a["busquedas"]) for a in answers]))},
             {"label": "Tokens de OpenAI (entrada / salida)",
              "value": f"{number_es(sum(a['usage']['tokens_de_entrada'] for a in answers))} / {number_es(sum(a['usage']['tokens_de_salida'] for a in answers))}"},
             {"label": "Tiempo por respuesta (promedio / máximo)",
@@ -206,8 +226,8 @@ def saved_runs(library_folder) -> list[dict]:
 # esta corrida (se arma una copia de la configuración) y quedan anotados en su request.json.
 async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict, name: str = "aprendizaje-automatico-ii",
                     candidates: int | None = None, with_answers: bool = False,
-                    top_k: int | None = None, mode: str | None = None) -> dict:
-    changes = {"library_chat_top_k": top_k, "library_retrieval_mode": mode}
+                    top_k: int | None = None, mode: str | None = None, chat_engine: str | None = None) -> dict:
+    changes = {"library_chat_top_k": top_k, "library_retrieval_mode": mode, "library_chat_engine": chat_engine}
     settings = settings.model_copy(update={key: value for key, value in changes.items() if value is not None})
     engine.check_ready(settings)
     if with_answers and not settings.openai_api_key:
@@ -225,12 +245,18 @@ async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict,
         if question["fuentes"]:
             result["busqueda"] = await eval_retrieval(index, settings, question, questions["documentos"], candidates)
         if with_answers:
-            result["respuesta"] = await eval_answer(index, settings, question, candidates)
+            result["respuesta"] = answer = await eval_answer(index, settings, question, candidates)
+            # La cobertura de clases de lo que vio el modelo al responder (con el agente puede ser más que la búsqueda de arriba).
+            if result.get("busqueda"):
+                expected = result["busqueda"]["clases_esperadas"]
+                answer["cobertura_de_clases"] = round(
+                    len([doc for doc in expected if doc in answer["clases_que_vio"]]) / len(expected), 3)
         results.append(result)
 
     request = {"conjunto": name, "preguntas": len(results), "candidatos": candidates, "respuestas": with_answers,
                "splitter": library.get("splitter", "oraciones"), "top_k": settings.library_chat_top_k,
                "modo": settings.library_retrieval_mode,
+               "motor_del_chat": settings.library_chat_engine if with_answers else None,
                "mmr_threshold": settings.library_mmr_threshold if settings.library_retrieval_mode == "mmr" else None,
                "embed_model": settings.library_embed_model, "rerank_model": settings.library_rerank_model,
                "razonamiento": settings.library_reasoning_effort if with_answers else None,

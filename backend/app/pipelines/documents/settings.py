@@ -45,9 +45,13 @@ class DocumentsSettings(BaseSettings):
     library_judge_reasoning_effort: str = "low"
     # Cuántas páginas (las mejores según el reranker) se le pasan al modelo en cada pregunta.
     library_chat_top_k: int = 6
-    # Cómo elige los candidatos la búsqueda por vectores: "default" (los más parecidos) o "mmr"
-    # (parecidos pero distintos entre sí, para que lleguen páginas de varias clases). Es nativo de LlamaIndex.
+    # Cómo elige los candidatos la búsqueda: "default" (los más parecidos por vectores), "mmr"
+    # (parecidos pero distintos entre sí, para que lleguen páginas de varias clases) o "hibrida"
+    # (vectores + BM25, que busca las palabras exactas). Los tres son nativos de LlamaIndex.
     library_retrieval_mode: str = "default"
+    # Cómo responde el chat: "contexto" (CondensePlusContextChatEngine: una búsqueda por pregunta y responde)
+    # o "agente" (FunctionAgent: el modelo decide qué buscar y cuántas veces antes de responder).
+    library_chat_engine: str = "contexto"
     # Con "mmr": 1 es solo parecido a la pregunta; cuanto más bajo, más peso a que los candidatos sean distintos.
     library_mmr_threshold: float = 0.5
 
