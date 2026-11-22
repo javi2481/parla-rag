@@ -1,29 +1,35 @@
 import { useEffect, useState } from 'react';
-import { FileText, Library, LoaderCircle } from 'lucide-react';
+import { FileText, Library, LoaderCircle, MessagesSquare } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Brand } from '@/components/Brand';
 import { getConfig, type AppConfig } from '@/lib/api';
+import { ChatPage } from '@/pipelines/documents/chat/ChatPage';
 import { DocumentsWizard } from '@/pipelines/documents/DocumentsWizard';
 import { LibrariesView } from '@/pipelines/documents/libraries/LibrariesView';
 
 const TABS = [
   {
-    id: 'documentos', label: 'Documentos', icon: FileText, eyebrow: '01 · Documentos',
+    id: 'chat', label: 'Chat', icon: MessagesSquare, eyebrow: '01 · Chat',
+    title: <>Preguntale a <em className="text-primary">toda la materia</em></>,
+    lead: 'Las respuestas salen de todas las clases a la vez y dicen de qué clase y página sale cada cosa. Arriba está el recorrido: tocá cada caja para ver qué hace y por qué se eligió.',
+  },
+  {
+    id: 'documentos', label: 'Documentos', icon: FileText, eyebrow: '02 · Documentos',
     title: <>Documentos que se <em className="text-primary">leen solos</em></>,
     lead: 'Subí un documento y recorré el pipeline paso por paso: en cada paso ves qué hizo LlamaCloud, cuánto costó y qué significa el resultado.',
   },
   {
-    id: 'bibliotecas', label: 'Bibliotecas', icon: Library, eyebrow: '02 · Bibliotecas',
+    id: 'bibliotecas', label: 'Bibliotecas', icon: Library, eyebrow: '03 · Bibliotecas',
     title: <>Varios documentos, <em className="text-primary">una conversación</em></>,
     lead: 'Juntá documentos relacionados en un índice compartido. Probá la búsqueda y chateá con todos a la vez: se ve qué se buscó y de qué documento y página sale cada respuesta.',
   },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
-// Lee la pestaña inicial desde la URL (#documentos o #bibliotecas).
+// Lee la pestaña inicial desde la URL (#chat, #documentos o #bibliotecas). Sin #, abre el chat.
 function initialTab(): TabId {
   const h = window.location.hash.slice(1);
-  return TABS.some(t => t.id === h) ? (h as TabId) : 'documentos';
+  return TABS.some(t => t.id === h) ? (h as TabId) : 'chat';
 }
 
 // Pantalla principal: encabezado con pestañas, la sección elegida y el pie.
@@ -71,6 +77,7 @@ export function App() {
         {error && <p role="alert" className="mt-8 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">{error} ¿Está corriendo el backend en el puerto 8000?</p>}
         {!config && !error && <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" /> Conectando…</p>}
         {config && <>
+          <TabsContent value="chat"><ChatPage /></TabsContent>
           <TabsContent value="documentos">
             <DocumentsWizard ready={config.documents.ready} maxUploadMb={config.documents.maxUploadMb} />
           </TabsContent>

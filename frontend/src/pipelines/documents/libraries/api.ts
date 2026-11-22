@@ -3,7 +3,8 @@ import { api } from '@/lib/api';
 type Metric = { label: string; value: string | number | null };
 
 // Un documento de la biblioteca: la corrida del wizard de donde salió y su metadata de identidad.
-export type LibraryDocument = { run_id: string; name: string; file_id: string; directory_file_id: string; metadata: Record<string, unknown>; added_at: string };
+// pages: cuántas páginas tiene (lo informa la biblioteca local).
+export type LibraryDocument = { run_id: string; name: string; file_id: string; directory_file_id: string; metadata: Record<string, unknown>; added_at: string; pages?: number };
 
 // Un resultado de la búsqueda: el chunk, su score y de qué documento y páginas salió.
 export type SearchResult = {
