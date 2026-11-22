@@ -213,3 +213,22 @@ El razonamiento lo devuelve la API en inglés; va recortado y tal cual (sin el n
 - **Costo estimado por turno:** `total_usage` suma `costo_estimado_usd` = tokens × la lista de precios de OpenAI del 21/11 (USD 0,05 por millón de entrada y 0,40 de salida, en `settings.py`). OpenAI no informa el costo en la respuesta, por eso se marca "estimado". El evento de la búsqueda suma el `modo` (`default` o `mmr`).
 - **Prueba en el navegador:** *"¿Qué tienen en común ResNet y U-Net?"*, sin filtros. Las páginas que llegaron al modelo, agrupadas: clase 07 (págs. 28, 27 y 32), clase 10 (págs. 12 y 13) y clase 00 (pág. 13). La captura y el texto de la página 12 de la clase 10 abren bien. Detrás de escena: 18 candidatos en modo `default`, 6 páginas después del reranker (puntajes de 0,64 a 0,50), `gpt-5-nano` con 2.409 tokens de entrada y 293 de salida.
 - **Costo:** 0 créditos de LlamaCloud; OpenAI **USD 0,00024** (estimado, coincide con la cuenta a mano); Voyage dentro de los tokens gratis.
+
+## 21/11 · Pruebas e2e de la app (antes de Docker)
+
+Con el backend en :8000 y el frontend de desarrollo en :5173, manejando el navegador con Playwright (script `e2e-chat.js`, fuera de git). Antes de empezar se cerraron las conversaciones abiertas (quedan en disco).
+
+| Prueba | Resultado |
+|---|---|
+| La app abre en Chat, con el recorrido y sus números | ✅ `#chat`; 14 documentos · 410 páginas, 7.250 créditos en 14 corridas, 410 chunks, `voyage-4 · rerank-2.5`, `gpt-5-nano` |
+| Sin conversaciones abiertas, se crea una sola | ✅ 1 pestaña |
+| Pregunta que cruza clases: *"¿Qué tienen en común ResNet y U-Net?"* | ✅ citas agrupadas: 07, 10 y 00; la captura de la clase 10 abre (3000 px de ancho) |
+| Filtro de unidad PLN: *"¿Cómo funciona una red convolucional…?"* | ✅ solo la clase 05; la respuesta aclara que esas páginas son de PLN y no describen CNN para imágenes |
+| Trampa: *"¿Cómo funciona Q-learning y la ecuación de Bellman?"* | ✅ dice que no aparece en los fragmentos; ⚠️ igual sugiere "fragmentos relevantes que podrías consultar" (01, 08 y 05) |
+| Cerrar una pestaña y recargar | ✅ queda solo la otra, con sus 2 turnos |
+| Filtros que no dejan páginas (unidad Temas complementarios + clase 03, por la API) | ✅ "No encontré páginas con esos filtros.", 0 llamadas al modelo, 0 tokens |
+| Wizard: Classify sin Split | ✅ las 14 corridas tienen Classify hecho con Split pendiente; Classify no muestra bloqueo y Extract dice "Primero terminá el paso Schema" |
+| Bibliotecas: los evals guardados | ✅ se ven las métricas de la última corrida (hit rate 1, MRR 0,966, cobertura 0,957, 24 de 31 correctas, 4,6 s promedio) |
+
+- **Hallazgo:** el script falló dos veces por escribir antes de que la pestaña nueva terminara de cargar (el cuadro se deshabilita mientras carga y el texto se pierde). En la app real pasa lo mismo si se escribe muy rápido después del "+".
+- **Costo:** 0 créditos de LlamaCloud. OpenAI: 5 respuestas (2 corridas del script, la segunda completa), menos de USD 0,002 estimado. Voyage, dentro de los tokens gratis.

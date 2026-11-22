@@ -1,6 +1,6 @@
 # Estado del proyecto · Parla RAG
 
-**Última actualización:** 21/11/2026 (corpus de Aprendizaje Automático II, chat con OpenAI, evals nuevos) · **Commit de partida:** `c3660a9` (antes de separar Parla en dos proyectos)
+**Última actualización:** 21/11/2026 (el chat como página principal: recorrido, pestañas, filtros por unidad y detrás de escena) · **Commit de partida:** `c3660a9` (antes de separar Parla en dos proyectos)
 
 Este archivo es el resumen para retomar el trabajo: qué está hecho, qué falta y en qué orden, y qué queda para después.
 El detalle de cada prueba, con sus datos y lo que costó, está en la [bitácora](bitacora.md). El diseño completo está en el [plan](plan.md).
@@ -31,7 +31,7 @@ El **21/11/2026** se cambió el corpus de ejemplo por el material teórico de **
 | 3 | Split, Classify, Schema (manual o automático) y Extract, con cajas sobre las capturas | ✅ Hecha y probada |
 | 4 | Bibliotecas: índice compartido, búsqueda, chat y evals | ✅ Hecha con el motor local: "Aprendizaje Automático II", 410 páginas indexadas |
 | 5 | Audio | ➡️ Se fue a **parla-audio** |
-| 6 | Cierre para la clase | 🟡 En curso |
+| 6 | Cierre para la clase: el chat como página principal | 🟡 Página principal hecha y probada de punta a punta; falta Docker y la revisión final |
 
 ---
 
@@ -77,7 +77,9 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
   1. si ya hubo preguntas, **`gpt-5-nano`** reescribe la nueva para que se entienda sola;
   2. Voyage busca y rerankea, y quedan las 6 mejores páginas;
   3. `gpt-5-nano` responde **en vivo**, solo con esas páginas y citando *(documento, pág. N)*. Si el dato no está, lo dice.
-- **Auditoría de cada turno** (`chats/local/turno_N.json`), con la instrumentación nativa de LlamaIndex: la consulta que se buscó de verdad, las páginas con su score, el prompt completo de cada llamada al modelo y los tokens (incluidos los de razonamiento).
+- **Conversaciones:** cada una es una carpeta (`chats/local/<conversación>/`, con `conversacion.json` y sus turnos). Cerrar una solo la oculta.
+- **Filtros por unidad y por clase** (`tipo` y `nombre` de la metadata): si no queda ninguna página, responde "No encontré páginas con esos filtros." sin llamar al modelo.
+- **Auditoría de cada turno** (`chats/local/<conversación>/turno_N.json`), con la instrumentación nativa de LlamaIndex: la consulta que se buscó de verdad, las páginas con su score, el prompt completo de cada llamada al modelo y los tokens (incluidos los de razonamiento) y el **costo estimado en dólares** (tokens × la lista de precios de OpenAI que está en `settings.py`).
 
 ### La biblioteca "Aprendizaje Automático II" (21/11)
 
@@ -86,9 +88,21 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
 - **Set de evals** en [`samples/aprendizaje-automatico-ii/evals/preguntas.json`](../backend/data/samples/aprendizaje-automatico-ii/evals/preguntas.json): 31 preguntas (29 con fuente y 2 trampas; entre ellas, parafraseadas, de varias diapositivas y que cruzan clases), con las respuestas verificadas en el parse.
 - **Evals (configuración elegida: 6 páginas, búsqueda `default`):** hit rate 1,0 · MRR 0,96 · cobertura de clases 0,966 · entre 22 y 25 de 31 respuestas correctas según la corrida (el juez tiene ruido) · 2,7 s por respuesta. **MMR se probó y no mejoró la cobertura** (ver la bitácora del 21/11): queda como opción (`LIBRARY_RETRIEVAL_MODE=mmr`).
 
+### La página principal: el chat (21/11)
+
+La pestaña **Chat** es la primera y la que abre la app (`#chat`). Usa la biblioteca local con la sincronización más reciente.
+- **El recorrido, fijo arriba:** 5 cajas con los colores del README (los PDF, Parse, 1 página = 1 chunk, Voyage AI y OpenAI). Cada una se abre con qué hace y por qué se eligió (`chat/explicaciones.ts`) y muestra números de la API: 14 documentos · 410 páginas, 7.250 créditos, 410 chunks, los modelos.
+- **Pestañas de conversación**, con "+" y "×"; al recargar vuelven las mismas.
+- **Filtros** por unidad (las de Classify) y por clase, apagados por defecto.
+- **Citas agrupadas por clase:** cada página se abre con su captura de Parse y su texto, para comprobar la cita.
+- **Detrás de escena** de cada respuesta: la búsqueda (candidatos y modo), el reranker (páginas y puntajes) y la respuesta (modelo, tokens y costo estimado).
+- **Classify por unidad:** las reglas son las 4 unidades del programa más "temas complementarios" y "presentación"; las 14 clases quedaron bien ubicadas, con 0 créditos. Classify ya no depende de Split (solo del parse).
+- **Probado de punta a punta** con Playwright (bitácora del 21/11): todo pasó.
+- El guion para mostrarlo está en [guion-demo.md](guion-demo.md).
+
 ### Calidad y auditoría
 
-- **18 tests** con clientes falsos (sin red ni créditos): el wizard completo, los resúmenes, las bibliotecas con los dos motores, el chat local y los evals.
+- **28 tests** con clientes falsos (sin red ni créditos): el wizard completo, los resúmenes, las bibliotecas con los dos motores, el chat local, las conversaciones, los filtros, los evals y el costo estimado.
 - **Bitácora** con cada prueba, hallazgo y decisión, y **registro de créditos** con cada llamada paga.
 - **Datos crudos** de cada verificación en `backend/data/verificacion/` (fuera de git).
 
@@ -109,8 +123,7 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
 ### 1. Revisar el set de evals
 
 - [ ] **El usuario tiene que revisar** [`preguntas.json`](../backend/data/samples/aprendizaje-automatico-ii/evals/preguntas.json) (está marcado como borrador).
-- [ ] Sumar **preguntas más exigentes**: parafraseadas y que crucen clases (por ejemplo, *"¿qué tienen en común ResNet y U-Net?"*). Las actuales copian el vocabulario de las diapositivas.
-- [ ] Cubrir las clases que no tienen preguntas: 01, 02 y 11.
+- [x] Sumar **preguntas más exigentes**: parafraseadas y que crucen clases (el set pasó a 31).
 
 ### 2. Revisar las páginas con baja confianza
 
@@ -130,7 +143,7 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
 
 - [ ] Revisar los comentarios del código.
 - [ ] Dejar listas en `data/` las corridas y la biblioteca sincronizada, por si falla el wifi en clase.
-- [ ] Escribir un **guion corto de la demo**: qué mostrar en cada paso y qué preguntarle al chat. Sugeridos: una clase con gráficos (09), la pregunta trampa de Q-learning y una pregunta que cruce clases.
+- [x] Escribir un **guion corto de la demo**: [guion-demo.md](guion-demo.md).
 - [ ] **Capturas nuevas para el README** con la biblioteca de la materia.
 - [ ] **Volver a probar Docker** con el corpus nuevo (la imagen copia `data/samples/`: ahora son 57 MB de PDF y notebooks).
 - [ ] **Decidir si el material de la materia va a git** (`backend/data/samples/aprendizaje-automatico-ii/`) o queda fuera, si el repo es público.

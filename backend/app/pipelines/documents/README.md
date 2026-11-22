@@ -113,7 +113,7 @@ sincronizar una página = un Document de LlamaIndex → build_nodes corta según
 buscar      voyage-4 trae top_k × 3 candidatos → rerank-2.5 deja los top_k → searches/<fecha>.json
 chatear     CondensePlusContextChatEngine: gpt-5-nano reescribe la pregunta si hay historial,
             se busca como arriba (6 páginas) y gpt-5-nano responde en vivo citando documento y página
-            → chats/local/turno_N.json
+            (se puede acotar con filtros por unidad o clase) → chats/local/<conversación>/turno_N.json
 ```
 
 - **No se vuelve a parsear nada:** se usa el parse que ya hizo el wizard.
@@ -154,7 +154,7 @@ data/documents/libraries/<id>/
 ├── index/                   el índice de LlamaIndex (motor local)
 ├── syncs/<fecha>/           las métricas de cada sincronización
 ├── searches/<fecha>.json    cada búsqueda con sus resultados
-├── chats/<sesión>/turno_N.json cada turno de chat
+├── chats/local/<conversación>/ cada conversación: conversacion.json (id, creada, cerrada) y sus turno_N.json
 ├── evals/<fecha>/           cada corrida de evals: request.json · resultados.json · metrics.json
 └── historial/               los índices anteriores
 ```

@@ -33,6 +33,7 @@ Una app web que recorre un documento **paso por paso** con LlamaCloud (leerlo, p
 - [2. Parse: el corazón](#2-parse-el-corazón)
 - [3. Split, Classify, Schema y Extract](#3-split-classify-schema-y-extract)
 - [4. Bibliotecas: quién hace qué](#4-bibliotecas-quién-hace-qué)
+- [La página principal: el chat](#la-página-principal-el-chat)
 - [5. Evals: medir la búsqueda y las respuestas](#5-evals-medir-la-búsqueda-y-las-respuestas)
 - [Qué aprendimos](#qué-aprendimos)
 - [Costos medidos](#costos-medidos)
@@ -52,9 +53,10 @@ Una app web que recorre un documento **paso por paso** con LlamaCloud (leerlo, p
 | Páginas parseadas | **410**, de 14 PDF, en un lote de 84 s |
 | Créditos de LlamaCloud | **7.250** (17,7 por página en promedio) |
 | Biblioteca | 410 páginas, una por chunk, sincronizada en 6 s y sin créditos |
-| Búsqueda (18 preguntas verificadas) | hit rate **1,0** · MRR **1,0** |
-| Respuestas | **15 de 18 correctas** y **17 de 18 fieles** a los fragmentos |
-| Costo de una corrida de evals con respuestas | unos **USD 0,006** de OpenAI |
+| Búsqueda (31 preguntas verificadas, varias cruzan clases) | hit rate **1,0** · MRR **0,96** · cobertura de clases **0,966** |
+| Respuestas | entre **22 y 25 de 31 correctas** según la corrida (el juez tiene ruido) y **30 de 31 fieles** a los fragmentos |
+| Tiempo por respuesta | **2,7 s** en promedio (4,2 s la más lenta) |
+| Costo de una pregunta en el chat | unos **USD 0,0003** de OpenAI (estimado con su lista de precios) y 0 créditos de LlamaCloud |
 
 El número que más enseña no está en la tabla: **el chat responde bien, pero a veces cita mal**. En dos preguntas dio el contenido correcto con la página o el nombre del documento equivocados. Por eso cada respuesta muestra las páginas que se buscaron: la cita se puede comprobar, no hay que creerle. Está explicado en la [sección 5](#5-evals-medir-la-búsqueda-y-las-respuestas).
 
@@ -219,6 +221,18 @@ sequenceDiagram
 - **El modelo:** `gpt-5-nano`, el más barato de OpenAI ([precios](https://developers.openai.com/api/docs/pricing)), con `reasoning_effort=minimal` para que casi no razone: el razonamiento se cobra como tokens de salida.
 - **Las instrucciones** piden responder solo con los fragmentos, decir que el dato no está cuando no está, citar *(documento, pág. N)* y copiar los números tal cual.
 
+## La página principal: el chat
+
+La app abre en la pestaña **Chat**: se le pregunta a las 14 clases a la vez.
+
+- **El recorrido, fijo arriba:** cinco cajas con los mismos colores de los diagramas (los PDF → Parse → 1 página = 1 chunk → Voyage AI → OpenAI). Cada caja se abre con qué hace y por qué se eligió, y muestra números reales de la API (páginas, créditos, chunks, modelos).
+- **Pestañas de conversación:** cada una tiene su historial (el chat lo usa para entender las preguntas de seguimiento). Cerrar una solo la oculta: queda en disco para auditar.
+- **Filtros por unidad y por clase**, apagados por defecto. Las unidades salen de **Classify**, con las 4 unidades del programa como reglas: las 14 clases quedaron bien ubicadas, sin créditos.
+- **Citas agrupadas por clase:** cada página citada se abre con su captura de Parse y su texto, para comprobar la cita.
+- **Detrás de escena** de cada respuesta: ① la búsqueda (candidatos y modo), ② el reranker (las páginas elegidas con su puntaje) y ③ la respuesta (modelo, tokens y costo **estimado**).
+
+El guion para mostrarlo en clase está en [docs/guion-demo.md](docs/guion-demo.md).
+
 ## 5. Evals: medir la búsqueda y las respuestas
 
 Todo es **nativo de LlamaIndex** (`llama_index.core.evaluation`). LlamaCloud y Voyage AI no tienen un producto de evals propio.
@@ -252,6 +266,8 @@ flowchart LR
 3. **La trampa de Q-learning:** el chat hizo lo correcto (dijo que no está en los documentos) y **el juez lo penalizó** por no explicar el tema. Es un error del juez.
 
 Además, en una respuesta que el juez dio por buena, el chat citó *"04 CLIP: arquitectura"* en lugar de *"12 Modelos multimodales.pdf"*. **Con un modelo tan chico, el contenido es bueno, pero las citas no son confiables.**
+
+**El set ampliado (21/11):** 31 preguntas (29 con fuente y 2 trampas), con preguntas parafraseadas y que cruzan clases. Suma la **cobertura de clases** (en las preguntas que cruzan clases, cuántas de las clases correctas llegaron al modelo) y el **tiempo por respuesta**. Con la configuración elegida (6 páginas, búsqueda `default`): hit rate 1,0 · MRR 0,96 · cobertura 0,966 · 24 de 31 correctas · 2,7 s por respuesta. Se probaron 12 páginas y MMR: **ninguno mejoró la cobertura** y MMR tardó casi el doble. Corriendo la misma configuración varias veces, el juez da entre 22 y 25 correctas: una diferencia más chica que eso no alcanza para elegir. El detalle está en la [bitácora](docs/bitacora.md).
 
 > **Ojo con leer el 1,0 de la búsqueda como definitivo.** Las preguntas se armaron mirando los títulos de las diapositivas y usan casi las mismas palabras. Mide que la búsqueda encuentra lo que está escrito, no que entienda una pregunta formulada de otra manera. El paso siguiente son preguntas parafraseadas y que crucen clases.
 
@@ -358,7 +374,7 @@ Las claves se leen de `backend/.env` al arrancar y nunca entran en la imagen; lo
 │   └── tests/                         # misma forma que app/
 ├── frontend/src/
 │   ├── components/                    # wizard (stepper, visores, cajas sobre la página) y ui/
-│   └── pipelines/documents/           # el wizard, un panel por paso y las bibliotecas
+│   └── pipelines/documents/           # el chat (la página principal), el wizard, un panel por paso y las bibliotecas
 ├── docs/
 │   ├── estado.md                      # hecho, pendiente y roadmap
 │   ├── bitacora.md                    # cada prueba, hallazgo y decisión, con el registro de créditos
@@ -398,8 +414,10 @@ flowchart LR
 | `POST /api/documents/libraries/{id}/documents` | Agrega una corrida (copia su Markdown por página) | `documents/` | 0 |
 | `POST /api/documents/libraries/{id}/sync` | Arma el índice | `index/` · `syncs/` | Tokens de Voyage |
 | `POST /api/documents/libraries/{id}/search` | Búsqueda de prueba, con filtros por metadata | `searches/` | Tokens de Voyage |
-| `POST /api/documents/libraries/{id}/chat` | Un turno de chat, en vivo | `chats/local/` | Fracciones de centavo de OpenAI |
-| `POST /api/documents/libraries/{id}/evals` | Evals: `conjunto`, `candidatos`, `respuestas` | `evals/‹fecha›/` | Voyage; OpenAI si hay respuestas |
+| `POST /api/documents/libraries/{id}/chat` | Un turno de chat, en vivo (`conversation_id`, `filters`) | `chats/local/‹conversación›/` | Fracciones de centavo de OpenAI |
+| `GET` / `POST /api/documents/libraries/{id}/conversations` | Las conversaciones abiertas · crea una vacía | `chats/local/‹conversación›/` | 0 |
+| `GET /api/documents/libraries/{id}/conversations/{c}` · `POST …/close` | Una conversación con sus turnos · la cierra (no borra) | `conversacion.json` | 0 |
+| `POST /api/documents/libraries/{id}/evals` | Evals: `conjunto`, `candidatos`, `respuestas`, `top_k`, `modo` | `evals/‹fecha›/` | Voyage; OpenAI si hay respuestas |
 
 ## La documentación
 

@@ -1,6 +1,6 @@
 # Plan completo · Parla RAG como demo de clase
 
-**Escrito:** 13/11/2026 · **Actualizado:** 21/11/2026 (corpus de Aprendizaje Automático II y chat con OpenAI) · **Estado de cada fase:** [estado.md](estado.md) · **Detalle técnico de la API:** [informe-fase-1.md](informe-fase-1.md)
+**Escrito:** 13/11/2026 · **Actualizado:** 21/11/2026 (el chat como página principal) · **Estado de cada fase:** [estado.md](estado.md) · **Detalle técnico de la API:** [informe-fase-1.md](informe-fase-1.md)
 
 > El 15/11/2026 Parla se separó en dos proyectos. Este plan es el de **documentos y bibliotecas**. La fase 5 (audio con ElevenLabs) sigue en **parla-audio**.
 
@@ -111,10 +111,11 @@ Biblioteca "Aprendizaje Automático II"
 - **Agregar** una corrida copia a la biblioteca el Markdown de cada página de su parse, con la metadata: el tipo de Classify y los campos **obligatorios** del schema de Extract (los de identidad). Así queda auditable qué texto se indexó.
 - **Sacar** un documento lo deja afuera en la próxima sincronización; su copia queda para auditar.
 - **Sincronizar** vuelve a armar el índice entero y guarda el anterior en el historial. Es local y responde en el momento (las 410 páginas tardan 6 s).
-- **Buscar** acepta filtros por metadata (solo igualdad) y guarda cada búsqueda con sus resultados.
+- **Buscar** acepta filtros por metadata (solo igualdad) y guarda cada búsqueda con sus resultados. El chat, la búsqueda de prueba y los evals usan la misma búsqueda (`make_retriever`): `default` por defecto, MMR nativo opcional (se midió y no mejoró la cobertura de clases).
+- **Conversaciones:** cada una es una carpeta `chats/local/<conversación>/` con sus turnos; cerrarla solo la oculta. El chat recibe `conversation_id` y filtros por `tipo` (unidad) y `nombre` (clase).
 - **Chatear:** las instrucciones piden responder solo con los fragmentos, decir que el dato no está cuando no está, citar *(documento, pág. N)* y copiar los números tal cual. Los eventos son los mismos que los del chat de LlamaCloud (`tool_call`, `tool_result`, `text_delta`, `stop`).
 - **El modelo:** `gpt-5-nano`, el más barato de OpenAI, con `reasoning_effort=minimal` para que razone poco (el razonamiento se cobra como tokens de salida).
-- **Qué se mide:** páginas indexadas y chunks; de cada búsqueda, el score vectorial y el del reranker; de cada turno, la consulta real, las páginas que leyó el modelo, el prompt completo y los tokens (con la instrumentación nativa de LlamaIndex).
+- **Qué se mide:** páginas indexadas y chunks; de cada búsqueda, el score vectorial y el del reranker; de cada turno, la consulta real, las páginas que leyó el modelo, el prompt completo, los tokens y el costo estimado en dólares (con la instrumentación nativa de LlamaIndex y la lista de precios de `settings.py`).
 
 ### Motor de LlamaCloud (escrito, bloqueado por el plan)
 
@@ -209,18 +210,22 @@ Cada paso guarda siempre `request.json` (qué se pidió) y `response.json` (la r
 | `POST /api/documents/libraries/{id}/documents` · `DELETE …/documents/{corrida}` | Suma o saca una corrida del wizard |
 | `POST` / `GET /api/documents/libraries/{id}/sync` | Arranca y consulta la sincronización del índice |
 | `POST /api/documents/libraries/{id}/search` | Búsqueda de prueba (`query`, `top_k`, `filters`) |
-| `POST /api/documents/libraries/{id}/chat` | Un turno de chat: los eventos llegan en vivo (Server-Sent Events) y al final se guardan |
-| `POST /api/documents/libraries/{id}/evals` | Corre los evals con un set de preguntas (`conjunto`, `candidatos`, `respuestas`) |
+| `POST /api/documents/libraries/{id}/chat` | Un turno de chat (`prompt`, `conversation_id`, `filters`): los eventos llegan en vivo (Server-Sent Events) y al final se guardan |
+| `GET` / `POST /api/documents/libraries/{id}/conversations` | Las conversaciones abiertas (las pestañas del chat) · crea una vacía |
+| `GET /api/documents/libraries/{id}/conversations/{c}` · `POST …/{c}/close` | Una conversación con sus turnos · la cierra (no borra nada) |
+| `POST /api/documents/libraries/{id}/evals` | Corre los evals con un set de preguntas (`conjunto`, `candidatos`, `respuestas`, `top_k`, `modo`) |
 
 ### Frontend
 
 ```
 frontend/src/
-├── App.tsx                              las pestañas Documentos y Bibliotecas
+├── App.tsx                              las pestañas Chat (la principal), Documentos y Bibliotecas
 ├── components/wizard/                   Stepper · StepPanel · JsonView · MarkdownView · RunList · RowsEditor · PageBoxes
 └── pipelines/documents/
     ├── DocumentsWizard.tsx · api.ts
     ├── steps/                           UploadStep · ParseStep · SplitStep · ClassifyStep · SchemaStep · ExtractStep
+    ├── chat/                            ChatPage · ProjectJourney · ConversationTabs · ChatThread · ChatFilters
+    │                                    AnswerSources · BehindTheScenes · explicaciones.ts (los textos fijos)
     └── libraries/                       LibrariesView · LibrarySearch · LibraryChat · LibraryEvals · api.ts
 ```
 
@@ -236,7 +241,7 @@ frontend/src/
 | 3 | Split, Classify, Schema (manual o automático) y Extract, con las cajas sobre las capturas | ✅ |
 | 4 | Bibliotecas: índice compartido, búsqueda, chat, evals y paso 7 del wizard | ✅ con el motor local · 🔒 el de LlamaCloud necesita plan pago |
 | 5 | Audio | ➡️ En **parla-audio** |
-| 6 | Cierre para la clase: guion de la demo, revisión de comentarios, Docker | 🟡 En curso (ver [estado.md](estado.md)) |
+| 6 | Cierre para la clase: el chat como página principal, guion de la demo, Docker | 🟡 Página principal y guion hechos; falta Docker y la revisión final (ver [estado.md](estado.md)) |
 
 **Listo cuando (fase 4, con el corpus nuevo):** en la biblioteca "Aprendizaje Automático II", una pregunta que cruza clases (por ejemplo, *"¿qué tienen en común ResNet y U-Net?"*) se responde citando las dos clases, y se ve qué buscó en cada una.
 
@@ -246,7 +251,7 @@ frontend/src/
 
 - **Pasar la carpeta-DB a `agent_data`.** Es la base JSON nativa de LlamaCloud, con búsqueda, filtros y agregaciones. Hoy elegimos la carpeta para que la demo funcione sin conexión y los archivos se puedan abrir a mano.
 - **Verify** (`alpha.verify`): detectar si un documento fue adulterado. Lo sumamos cuando salga de alpha.
-- **Evals más exigentes:** preguntas parafraseadas y que crucen clases. [Ragas](https://docs.ragas.io/) queda solo si lo nativo de LlamaIndex no alcanza (sumaría *context precision* y *context recall*; tiene integración con LlamaIndex).
+- **Evals más exigentes:** el set ya tiene preguntas parafraseadas y que cruzan clases. [Ragas](https://docs.ragas.io/) queda solo si lo nativo de LlamaIndex no alcanza (sumaría *context precision* y *context recall*; tiene integración con LlamaIndex).
 - **Notebooks de las clases** con `IPYNBReader` (lector nativo de LlamaIndex), si se quiere que el chat responda sobre el código de las prácticas.
 - **Webhooks:** que LlamaCloud avise cuando termina un job o un lote, en lugar de consultar. Solo sirve con el servidor publicado en internet.
 - **Índice de LlamaCloud** cuando haya un plan pago: el motor ya está escrito; comparar calidad, velocidad y costo contra el local.
