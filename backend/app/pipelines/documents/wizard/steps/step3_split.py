@@ -10,8 +10,9 @@ from llama_cloud import AsyncLlamaCloud
 
 from app.core.runs.store import RunStore, mark_done, mark_running, write_json
 
-from ..settings import DocumentsSettings
-from .jobs import option, parse_job_id, poll
+from app.pipelines.documents.settings import DocumentsSettings
+
+from .llamacloud_jobs import option, parse_job_id, poll
 
 NAME = "split"
 FOLDER = "3_split"

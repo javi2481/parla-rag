@@ -1,4 +1,5 @@
-"""Bibliotecas: varios documentos relacionados con un índice compartido, búsqueda y chat. Todo nativo de LlamaCloud.
+"""El motor de LlamaCloud de las bibliotecas: índice, búsqueda y chat, todo en LlamaCloud.
+Necesita un plan pago (con el gratis, crear el directorio da 403); el que se usa hoy es el motor local (local/).
 
     Biblioteca "Aprendizaje Automático II"
      ├── Clase 01 · Clase 02 · … · Clase 13     ┐
@@ -23,25 +24,18 @@ from app.core.runs.store import (
     mark_failed,
     mark_running,
     now,
-    read_json,
+    stamp,
     write_json,
 )
+from app.pipelines.documents.settings import DocumentsSettings
+from app.pipelines.documents.wizard.steps import step2_parse
 
-from .settings import DocumentsSettings
-from .steps import s2_parse
+from .document_metadata import identity_metadata, summarize_search
 
 log = logging.getLogger(__name__)
 
 # Lo que guarda el índice además de los chunks: la captura de cada página y los items con sus cajas.
 STORE_ATTACHMENTS = ["screenshots", "items"]
-
-# Los tipos de valor que pueden ir en la metadata de identidad (los grupos y las listas no).
-IDENTITY_TYPES = (str, int, float, bool)
-
-
-# Una marca de tiempo para nombrar carpetas y archivos: 2026-11-13_201203.
-def stamp() -> str:
-    return datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
 
 # Crea la biblioteca: un directorio en LlamaCloud y un índice sobre él que parsea con nuestra configuración
@@ -63,7 +57,7 @@ async def setup_index(client: AsyncLlamaCloud, store: RunStore, settings: Docume
     folder = store.step_dir(library["id"], "create")
     write_json(folder / "directory.json", directory.model_dump())
 
-    configuration = await s2_parse.save_configuration(client, s2_parse.build_request(settings))
+    configuration = await step2_parse.save_configuration(client, step2_parse.build_request(settings))
     write_json(folder / "configuration.json", configuration)
 
     index = await client.indexes.create(
@@ -87,25 +81,6 @@ async def setup_index(client: AsyncLlamaCloud, store: RunStore, settings: Docume
     })
     store.save(library)
     return library
-
-
-# Arma la metadata de identidad de un documento a partir de su corrida del wizard:
-# el tipo que eligió Classify y los datos de identidad que sacó Extract, o sea los campos sueltos del primer nivel
-# que el schema marca como obligatorios (emisor, período, fecha…). Los datos como el resultado neto no entran.
-# Son datos trazables: cada uno tiene su cita en la corrida. Sirven para filtrar la búsqueda.
-def identity_metadata(runs: RunStore, run: dict) -> dict:
-    folder = runs.run_dir(run["id"])
-    metadata = {"corrida": run["id"], "nombre": run["name"]}
-    if (folder / "4_classify" / "result.json").is_file():
-        kind = (read_json(folder / "4_classify" / "result.json") or {}).get("type")
-        if kind:
-            metadata["tipo"] = kind
-    if (folder / "6_extract" / "result.json").is_file() and (folder / "5_schema" / "schema.json").is_file():
-        identity = set(read_json(folder / "5_schema" / "schema.json").get("required") or [])
-        for key, value in (read_json(folder / "6_extract" / "result.json") or {}).items():
-            if key in identity and isinstance(value, IDENTITY_TYPES) and value != "":
-                metadata[key] = value
-    return metadata
 
 
 # Agrega una corrida del wizard a la biblioteca: suma su archivo (el mismo file_id, no se vuelve a subir)
@@ -233,25 +208,6 @@ async def search(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSe
     result = {"at": now(), "request": request, "response": response, **summarize_search(response)}
     write_json(store.step_dir(library["id"], "searches") / f"{stamp()}.json", result)
     return result
-
-
-# Las métricas y la interpretación de una búsqueda.
-def summarize_search(response: dict) -> dict:
-    results = response.get("results") or []
-    documents = {(r.get("metadata") or {}).get("nombre") for r in results} - {None}
-    scores = [r["score"] for r in results if r.get("score") is not None]
-    metricas = [
-        {"label": "Resultados", "value": len(results)},
-        {"label": "Documentos distintos", "value": len(documents)},
-        {"label": "Mejor score", "value": round(max(scores), 3) if scores else "—"},
-        {"label": "Créditos", "value": "1 por búsqueda (lista de precios; no se informa)"},
-    ]
-    interpretacion = []
-    if results:
-        interpretacion.append(f"Encontró {len(results)} {'fragmento' if len(results) == 1 else 'fragmentos'} de {len(documents)} {'documento' if len(documents) == 1 else 'documentos'}: " + ", ".join(sorted(documents)) + ".")
-    else:
-        interpretacion.append("No encontró nada parecido a la pregunta.")
-    return {"metricas": metricas, "interpretacion": interpretacion}
 
 
 # Devuelve la sesión de chat de la biblioteca; si todavía no hay, la crea atada a su índice.

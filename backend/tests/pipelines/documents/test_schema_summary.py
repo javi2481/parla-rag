@@ -1,5 +1,5 @@
 """La interpretación del paso Schema, con schemas armados a mano (sin red ni créditos)."""
-from app.pipelines.documents.steps.s5_schema import (
+from app.pipelines.documents.wizard.steps.step5_schema import (
     TEMPLATES,
     fields_to_schema,
     forced_fields,

@@ -27,10 +27,10 @@ from voyageai.error import RateLimitError, VoyageError
 
 from app.core.runs.store import RunStore, read_json
 from app.core.settings import CoreSettings, get_core_settings
+from app.pipelines.documents.route_dependencies import ClientDep, SettingsDep, get_store, llama_cloud_error
 
-from . import library as lib
-from . import library_evals, local_library
-from .router import ClientDep, SettingsDep, get_store, llama_cloud_error
+from . import llamacloud_engine
+from .local import conversations, local_engine, rag_evals, retrieval
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/documents/libraries", tags=["libraries"])
@@ -55,12 +55,12 @@ def find(store: RunStore, library_id: str) -> dict:
 
 # El motor de una biblioteca: "local" (LlamaIndex + Voyage AI) o LlamaCloud. Cada biblioteca guarda con cuál se creó.
 def engine_of(library: dict):
-    return local_library if library.get("engine") == "local" else lib
+    return local_engine if library.get("engine") == "local" else llamacloud_engine
 
 
 # El motor para crear una biblioteca nueva, según LIBRARY_ENGINE en el .env.
 def engine_for(settings) -> object:
-    return local_library if settings.library_engine == "local" else lib
+    return local_engine if settings.library_engine == "local" else llamacloud_engine
 
 
 # Saca los eventos de las líneas de Server-Sent Events: cada "data: {...}" es un evento en JSON.
@@ -82,7 +82,7 @@ def describe(store: RunStore, library: dict) -> dict:
     # Todos los turnos de la biblioteca, de todas las conversaciones, en el orden en que se hicieron.
     turns = sorted((read_json(path) for path in (folder / "chats").glob("**/turno_*.json")), key=lambda turn: turn["at"])
     return {**library, "searches": searches, "turns": [turn_view(turn) for turn in turns],
-            "evals": library_evals.saved_runs(folder)}
+            "evals": rag_evals.saved_runs(folder)}
 
 
 # Un turno guardado, como lo muestra la pantalla: la pregunta, los eventos del chat y el resumen (si lo hay).
@@ -102,7 +102,7 @@ def find_local(store: RunStore, library_id: str) -> dict:
 # La carpeta de una conversación; si no existe, responde 404.
 def find_conversation(store: RunStore, library: dict, conversation_id: str):
     try:
-        return local_library.conversation_folder(store, library, conversation_id)
+        return conversations.conversation_folder(store, library, conversation_id)
     except LookupError as e:
         raise HTTPException(404, str(e)) from e
 
@@ -200,7 +200,7 @@ async def search(library_id: str, client: ClientDep, store: LibrariesDep, settin
 
 # Evals: mide la búsqueda (y, si se pide, las respuestas juzgadas por OpenAI) con un set de preguntas verificadas.
 # "candidatos" cambia cuántos candidatos trae la búsqueda por vectores antes del reranker (por defecto, el del chat).
-# "top_k" (páginas al modelo) y "modo" ("default" o "mmr") prueban otra configuración solo en esa corrida.
+# "top_k" (páginas al modelo) y "modo" ("hibrida", "default" o "mmr") prueban otra configuración solo en esa corrida.
 @router.post("/{library_id}/evals")
 async def run_evals(library_id: str, store: LibrariesDep, settings: SettingsDep,
                     conjunto: Annotated[str, Body(embed=True)] = "aprendizaje-automatico-ii",
@@ -211,21 +211,21 @@ async def run_evals(library_id: str, store: LibrariesDep, settings: SettingsDep,
     library = find(store, library_id)
     if library.get("engine") != "local":
         raise HTTPException(409, "Los evals solo están hechos para las bibliotecas locales.")
-    return await guarded(library_evals.run_evals(store, settings, library, conjunto, candidatos, respuestas, top_k, modo))
+    return await guarded(rag_evals.run_evals(store, settings, library, conjunto, candidatos, respuestas, top_k, modo))
 
 
 # Las conversaciones abiertas de la biblioteca (las pestañas del chat), de la más vieja a la más nueva.
 @router.get("/{library_id}/conversations")
 def list_conversations(library_id: str, store: LibrariesDep):
-    return local_library.list_conversations(store, find_local(store, library_id))
+    return conversations.list_conversations(store, find_local(store, library_id))
 
 
 # Crea una conversación vacía (el "+" de las pestañas).
 @router.post("/{library_id}/conversations")
 def create_conversation(library_id: str, store: LibrariesDep):
     library = find_local(store, library_id)
-    folder = local_library.conversation_folder(store, library, local_library.create_conversation(store, library)["id"])
-    return local_library.conversation_summary(folder)
+    folder = conversations.conversation_folder(store, library, conversations.create_conversation(store, library)["id"])
+    return conversations.conversation_summary(folder)
 
 
 # Una conversación con todos sus turnos, para volver a mostrarla al recargar la página.
@@ -233,8 +233,8 @@ def create_conversation(library_id: str, store: LibrariesDep):
 def get_conversation(library_id: str, conversation_id: str, store: LibrariesDep):
     library = find_local(store, library_id)
     folder = find_conversation(store, library, conversation_id)
-    return {**local_library.conversation_summary(folder),
-            "turns": [turn_view(turn) for turn in local_library.saved_turns(folder)]}
+    return {**conversations.conversation_summary(folder),
+            "turns": [turn_view(turn) for turn in conversations.saved_turns(folder)]}
 
 
 # Cierra una conversación (la "x" de la pestaña): deja de aparecer, pero queda en disco para auditar.
@@ -242,7 +242,7 @@ def get_conversation(library_id: str, conversation_id: str, store: LibrariesDep)
 def close_conversation(library_id: str, conversation_id: str, store: LibrariesDep):
     library = find_local(store, library_id)
     find_conversation(store, library, conversation_id)
-    return local_library.close_conversation(store, library, conversation_id)
+    return conversations.close_conversation(store, library, conversation_id)
 
 
 # El turno de chat se manda en vivo: cada línea es lo que va enviando el motor (Server-Sent Events).
@@ -261,7 +261,7 @@ async def chat(library_id: str, client: ClientDep, store: LibrariesDep, settings
         if conversation_id is not None:
             find_conversation(store, library, conversation_id)
         try:
-            local_library.to_filters(filters)
+            retrieval.to_filters(filters)
         except ValueError as e:
             raise HTTPException(409, str(e)) from e
 

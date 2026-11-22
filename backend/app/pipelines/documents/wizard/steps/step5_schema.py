@@ -20,8 +20,9 @@ from app.core.runs.store import (
     write_json,
 )
 
-from ..settings import DocumentsSettings
-from .jobs import option
+from app.pipelines.documents.settings import DocumentsSettings
+
+from .llamacloud_jobs import option
 
 NAME = "schema"
 FOLDER = "5_schema"

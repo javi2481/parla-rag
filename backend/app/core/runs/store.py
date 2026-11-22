@@ -40,6 +40,11 @@ def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+# Una marca de tiempo para nombrar carpetas y archivos: 2026-11-13_201203.
+def stamp() -> str:
+    return datetime.now().strftime("%Y-%m-%d_%H%M%S")
+
+
 # Convierte un nombre de archivo en un texto apto para carpeta: "Clase 07 Clasificacion.pdf" → "clase-07-clasificacion".
 def slugify(name: str) -> str:
     without_extension = Path(name).stem

@@ -7,9 +7,10 @@ from llama_cloud import AsyncLlamaCloud
 
 from app.core.runs.store import RunStore, mark_done, mark_running, read_json, write_json
 
-from ..settings import DocumentsSettings
-from .jobs import LOW_CONFIDENCE, option, parse_job_id, poll
-from .s2_parse import percent
+from app.pipelines.documents.number_format import percent
+from app.pipelines.documents.settings import DocumentsSettings
+
+from .llamacloud_jobs import LOW_CONFIDENCE, option, parse_job_id, poll
 
 NAME = "classify"
 FOLDER = "4_classify"

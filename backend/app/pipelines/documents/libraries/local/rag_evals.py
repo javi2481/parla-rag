@@ -1,4 +1,4 @@
-"""Evals de una biblioteca local: miden la búsqueda y las respuestas del chat contra un set de preguntas verificadas a mano.
+"""Evals del RAG de una biblioteca local: miden la búsqueda y las respuestas del chat contra un set de preguntas verificadas a mano.
 
 Todo es nativo de LlamaIndex (llama_index.core.evaluation):
   - Búsqueda: RetrieverEvaluator, con el mismo buscador y el mismo reranker que el chat. Métricas hit_rate y mrr.
@@ -10,22 +10,22 @@ Todo es nativo de LlamaIndex (llama_index.core.evaluation):
 El set de preguntas vive junto a sus documentos: data/samples/<conjunto>/evals/preguntas.json (va a git).
 Cada corrida se guarda en la carpeta de la biblioteca: libraries/<id>/evals/<fecha>/ (request, resultados y métricas).
 """
+import time
+
 from llama_index.core.evaluation import (
     CorrectnessEvaluator,
     FaithfulnessEvaluator,
     RetrieverEvaluator,
 )
-import time
-
 from llama_index.core.instrumentation import get_dispatcher
 from llama_index.llms.openai import OpenAI
 
-from app.core.runs.store import RunStore, now, read_json, write_json
+from app.core.runs.store import RunStore, now, read_json, stamp, write_json
+from app.pipelines.documents.number_format import number_es
+from app.pipelines.documents.settings import DocumentsSettings
 
-from . import local_library as engine
-from .library import stamp
-from .settings import DocumentsSettings
-from .steps.s2_parse import number_es
+from . import ai_models, chat_engine, index_builder, retrieval
+from .turn_recorder import TurnRecorder, total_usage
 
 
 # El juez de las respuestas: OpenAI sin streaming (el del chat pide los tokens en streaming, que acá no sirve).
@@ -78,8 +78,8 @@ async def eval_retrieval(index, settings: DocumentsSettings, question: dict, nam
     top_k = settings.library_chat_top_k
     evaluator = RetrieverEvaluator.from_metric_names(
         ["hit_rate", "mrr"],
-        retriever=engine.make_retriever(index, settings, candidates),
-        node_postprocessors=[engine.make_reranker(settings, top_k)],
+        retriever=retrieval.make_retriever(index, settings, candidates),
+        node_postprocessors=[ai_models.make_reranker(settings, top_k)],
     )
     result = await evaluator.aevaluate(query=question["pregunta"], expected_ids=expected_ids(index, question, names))
     # La cobertura de clases: de las clases que tienen la respuesta, cuántas llegaron al modelo.
@@ -100,21 +100,21 @@ async def eval_retrieval(index, settings: DocumentsSettings, question: dict, nam
 # El chat responde la pregunta sin historial y OpenAI la juzga: fidelidad a los fragmentos y corrección.
 # Con library_chat_engine = "agente" responde el agente, que puede hacer varias búsquedas.
 async def eval_answer(index, settings: DocumentsSettings, question: dict, candidates: int) -> dict:
-    recorder = engine.TurnRecorder()
+    recorder = TurnRecorder()
     dispatcher = get_dispatcher()
     dispatcher.add_event_handler(recorder)
     try:
         started = time.perf_counter()  # el tiempo es el de la respuesta del chat, sin contar al juez
         if settings.library_chat_engine == "agente":
             seen = []
-            agent = engine.make_agent(index, settings, seen)
-            output = await agent.run(user_msg=question["pregunta"], max_iterations=engine.AGENT_MAX_STEPS,
+            agent = chat_engine.make_agent(index, settings, seen)
+            output = await agent.run(user_msg=question["pregunta"], max_iterations=chat_engine.AGENT_MAX_STEPS,
                                      early_stopping_method="generate")
             answer = output.response.content or ""
-            nodes = engine.unique_nodes(seen)
+            nodes = chat_engine.unique_nodes(seen)
             searches = [call.tool_kwargs.get("consulta") for call in output.tool_calls]
         else:
-            chat = engine.make_chat_engine(index, settings, history=[], candidates=candidates)
+            chat = chat_engine.make_chat_engine(index, settings, history=[], candidates=candidates)
             response = await chat.astream_chat(question["pregunta"])
             answer = "".join([token async for token in response.async_response_gen()])
             nodes = response.source_nodes
@@ -142,7 +142,7 @@ async def eval_answer(index, settings: DocumentsSettings, question: dict, candid
         "paginas_que_vio": [f"{n.node.metadata.get('nombre')}, pág. {n.node.metadata.get('pagina')}" for n in nodes],
         "clases_que_vio": list(dict.fromkeys(n.node.metadata.get("nombre") for n in nodes)),
         "llamadas_al_modelo": recorder.llm_calls,
-        "usage": engine.total_usage(recorder.llm_calls, settings),
+        "usage": total_usage(recorder.llm_calls, settings),
     }
 
 
@@ -222,21 +222,21 @@ def saved_runs(library_folder) -> list[dict]:
 
 # Corre los evals de una biblioteca: la búsqueda de cada pregunta y, si se pide, también la respuesta juzgada.
 # Guarda todo en libraries/<id>/evals/<fecha>/.
-# "top_k" (páginas al modelo) y "mode" (default o mmr) sirven para comparar configuraciones: valen solo para
-# esta corrida (se arma una copia de la configuración) y quedan anotados en su request.json.
+# "top_k" (páginas al modelo), "mode" (hibrida, default o mmr) y "chat_mode" (contexto o agente) sirven para comparar
+# configuraciones: valen solo para esta corrida (se arma una copia de la configuración) y quedan anotados en su request.json.
 async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict, name: str = "aprendizaje-automatico-ii",
                     candidates: int | None = None, with_answers: bool = False,
-                    top_k: int | None = None, mode: str | None = None, chat_engine: str | None = None) -> dict:
-    changes = {"library_chat_top_k": top_k, "library_retrieval_mode": mode, "library_chat_engine": chat_engine}
+                    top_k: int | None = None, mode: str | None = None, chat_mode: str | None = None) -> dict:
+    changes = {"library_chat_top_k": top_k, "library_retrieval_mode": mode, "library_chat_engine": chat_mode}
     settings = settings.model_copy(update={key: value for key, value in changes.items() if value is not None})
-    engine.check_ready(settings)
+    ai_models.check_ready(settings)
     if with_answers and not settings.openai_api_key:
         raise ValueError("Falta configurar OPENAI_API_KEY en backend/.env.")
-    data_dir = engine.data_dir_of(store)
-    engine.prepare_nltk(data_dir)
+    data_dir = ai_models.data_dir_of(store)
+    ai_models.prepare_nltk(data_dir)
     questions = load_questions(data_dir, name)
-    candidates = candidates or settings.library_chat_top_k * engine.CANDIDATES_PER_RESULT
-    index = engine.load_index(store, settings, library)
+    candidates = candidates or settings.library_chat_top_k * retrieval.CANDIDATES_PER_RESULT
+    index = index_builder.load_index(store, settings, library)
 
     results = []
     for question in questions["preguntas"]:

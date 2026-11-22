@@ -1,13 +1,13 @@
-"""El pipeline de documentos: la lista ordenada de pasos del wizard. Empezá a leer por acá.
+"""El wizard: la lista ordenada de pasos sobre UN documento. Empezá a leer por acá.
 
-    1 Subir      steps/s1_upload.py
-    2 Parse      steps/s2_parse.py
-    3 Split      steps/s3_split.py
-    4 Classify   steps/s4_classify.py
-    5 Schema     steps/s5_schema.py
-    6 Extract    steps/s6_extract.py
+    1 Subir      steps/step1_upload.py
+    2 Parse      steps/step2_parse.py
+    3 Split      steps/step3_split.py
+    4 Classify   steps/step4_classify.py
+    5 Schema     steps/step5_schema.py
+    6 Extract    steps/step6_extract.py
 
-(Biblioteca se suma en la fase 4.)
+Después, el documento se puede sumar a una biblioteca (ver ../libraries/).
 
 Cada paso es un módulo con NAME, FOLDER, TITLE, REQUIRES y EXPLICACION. REQUIRES es el paso que tiene que
 estar terminado antes (Split, Classify y Schema usan el parse; Extract usa el schema). El paso 1 corre al subir el archivo;
@@ -19,13 +19,13 @@ import logging
 from llama_cloud import AsyncLlamaCloud
 
 from app.core.runs.store import RunStore, read_json
+from app.pipelines.documents.settings import DocumentsSettings
 
-from .settings import DocumentsSettings
-from .steps import s1_upload, s2_parse, s3_split, s4_classify, s5_schema, s6_extract
+from .steps import step1_upload, step2_parse, step3_split, step4_classify, step5_schema, step6_extract
 
 log = logging.getLogger(__name__)
 
-STEPS = [s1_upload, s2_parse, s3_split, s4_classify, s5_schema, s6_extract]
+STEPS = [step1_upload, step2_parse, step3_split, step4_classify, step5_schema, step6_extract]
 STEP_NAMES = [step.NAME for step in STEPS]
 
 

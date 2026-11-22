@@ -22,7 +22,8 @@ from app.core.runs.store import (
     write_json,
 )
 
-from ..settings import DocumentsSettings
+from app.pipelines.documents.number_format import number_es, percent
+from app.pipelines.documents.settings import DocumentsSettings
 
 NAME = "parse"
 FOLDER = "2_parse"
@@ -230,12 +231,6 @@ def count_charts(response: dict) -> int:
     return len([image for image in images if image.get("category") == "layout" and "_chart_" in image.get("filename", "")])
 
 
-# Escribe un número con formato argentino: 133812 → "133.812" y 21.1 → "21,1".
-def number_es(value: float, decimals: int = 0) -> str:
-    text = f"{value:,.{decimals}f}"
-    return text.replace(",", "_").replace(".", ",").replace("_", ".")
-
-
 # Cuántos segundos tardó LlamaParse, solo con lo que informa la API: `latency.total_ms` si viene,
 # si no, la diferencia entre `running_at` y `completed_at` de `state_transitions`. Si no hay nada, None.
 def processing_seconds(job_metadata: dict) -> float | None:
@@ -294,13 +289,6 @@ def join_pages(pages: list[int]) -> str:
     if len(texts) == 1:
         return texts[0]
     return ", ".join(texts[:-1]) + " y " + texts[-1]
-
-
-# Pasa un número de 0 a 1 a porcentaje: 0.93 → "93%".
-def percent(value: float | None) -> str:
-    if value is None:
-        return "—"
-    return f"{round(value * 100)}%"
 
 
 # Arma el texto de tokens del modelo: "133.812 / 46.288" (o "—" si LlamaParse no lo informa).

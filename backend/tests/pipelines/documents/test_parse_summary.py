@@ -1,5 +1,5 @@
 """Pruebas de las métricas y la interpretación del paso Parse, con una respuesta parecida a la real."""
-from app.pipelines.documents.steps.s2_parse import summarize
+from app.pipelines.documents.wizard.steps.step2_parse import summarize
 
 # Una respuesta de LlamaParse recortada: 3 páginas, la 2 con confianza baja y un gráfico.
 RESPONSE = {

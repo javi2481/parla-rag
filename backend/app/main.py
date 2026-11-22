@@ -12,10 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.settings import get_core_settings
-from app.pipelines.documents import library_router as libraries
-from app.pipelines.documents import router as documents
-from app.pipelines.documents.client import make_client
+from app.pipelines.documents.libraries import library_routes
+from app.pipelines.documents.llamacloud_client import make_client
 from app.pipelines.documents.settings import DocumentsSettings, get_documents_settings
+from app.pipelines.documents.wizard import wizard_routes
 
 logging.basicConfig(level=logging.INFO)
 
@@ -38,8 +38,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(documents.router)
-app.include_router(libraries.router)
+app.include_router(wizard_routes.router)
+app.include_router(library_routes.router)
 
 
 # GET /api/config: le cuenta al frontend qué pipelines están listos y con qué opciones.
@@ -47,7 +47,7 @@ app.include_router(libraries.router)
 def config(
     documents_settings: Annotated[DocumentsSettings, Depends(get_documents_settings)],
 ):
-    return {"documents": documents.public_config(documents_settings)}
+    return {"documents": wizard_routes.public_config(documents_settings)}
 
 
 # En producción, FastAPI también sirve el frontend compilado (npm run build → frontend/dist).

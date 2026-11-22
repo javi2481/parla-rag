@@ -9,7 +9,7 @@ from llama_index.core.postprocessor.types import BaseNodePostprocessor
 
 from app.core.settings import CoreSettings, get_core_settings
 from app.main import app
-from app.pipelines.documents import local_library
+from app.pipelines.documents.libraries.local import ai_models, retrieval, turn_recorder
 from app.pipelines.documents.settings import DocumentsSettings, get_documents_settings
 from tests.pipelines.documents.test_wizard_flow import FakeLlamaCloud
 
@@ -39,10 +39,10 @@ class ParseWithPages(FakeLlamaCloud):
 @pytest.fixture
 def setup(tmp_path, monkeypatch):
     fake = ParseWithPages(["COMPLETED"])
-    monkeypatch.setattr(local_library, "make_embed_model", lambda settings: MockEmbedding(embed_dim=8))
-    monkeypatch.setattr(local_library, "make_reranker", lambda settings, top_n: FakeReranker(top_n=top_n))
-    monkeypatch.setattr(local_library, "make_llm", lambda settings: MockLLM(max_tokens=5))
-    monkeypatch.setattr(local_library, "prepare_nltk", lambda data_dir: None)  # sin bajar nada de internet
+    monkeypatch.setattr(ai_models, "make_embed_model", lambda settings: MockEmbedding(embed_dim=8))
+    monkeypatch.setattr(ai_models, "make_reranker", lambda settings, top_n: FakeReranker(top_n=top_n))
+    monkeypatch.setattr(ai_models, "make_llm", lambda settings: MockLLM(max_tokens=5))
+    monkeypatch.setattr(ai_models, "prepare_nltk", lambda data_dir: None)  # sin bajar nada de internet
     app.dependency_overrides[get_core_settings] = lambda: CoreSettings(data_dir=str(tmp_path), _env_file=None)
     settings = DocumentsSettings(llama_cloud_api_key="x", voyage_api_key="v", library_engine="local", _env_file=None)
     app.dependency_overrides[get_documents_settings] = lambda: settings
@@ -126,10 +126,10 @@ class FakeJudge(MockLLM):
 
 
 def test_local_library_evals(setup, monkeypatch):
-    from app.pipelines.documents import library_evals
+    from app.pipelines.documents.libraries.local import rag_evals
 
     client, settings, tmp_path = setup
-    monkeypatch.setattr(library_evals, "make_judge_llm", lambda settings: FakeJudge())
+    monkeypatch.setattr(rag_evals, "make_judge_llm", lambda settings: FakeJudge())
     run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
     client.post(f"/api/documents/runs/{run['id']}/steps/parse")
     client.get(f"/api/documents/runs/{run['id']}/steps/parse")
@@ -180,10 +180,10 @@ def test_local_library_evals(setup, monkeypatch):
 # Una pregunta que cruza dos clases, pero solo una está en la biblioteca: la cobertura de clases es 0,5.
 # Y con respuestas, cada una dice cuánto tardó.
 def test_evals_miden_cobertura_y_tiempo(setup, monkeypatch):
-    from app.pipelines.documents import library_evals
+    from app.pipelines.documents.libraries.local import rag_evals
 
     client, settings, tmp_path = setup
-    monkeypatch.setattr(library_evals, "make_judge_llm", lambda settings: FakeJudge())
+    monkeypatch.setattr(rag_evals, "make_judge_llm", lambda settings: FakeJudge())
     run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
     client.post(f"/api/documents/runs/{run['id']}/steps/parse")
     client.get(f"/api/documents/runs/{run['id']}/steps/parse")
@@ -220,17 +220,17 @@ def test_make_retriever_usa_mmr_si_esta_configurado():
 
     index = VectorStoreIndex([TextNode(text="hola")], embed_model=MockEmbedding(embed_dim=8))
     settings = DocumentsSettings(library_retrieval_mode="mmr", library_mmr_threshold=0.3, _env_file=None)
-    retriever = local_library.make_retriever(index, settings)
+    retriever = retrieval.make_retriever(index, settings)
     assert retriever._vector_store_query_mode == VectorStoreQueryMode.MMR
     assert retriever._kwargs == {"mmr_threshold": 0.3}
-    assert retriever._similarity_top_k == settings.library_chat_top_k * local_library.CANDIDATES_PER_RESULT
+    assert retriever._similarity_top_k == settings.library_chat_top_k * retrieval.CANDIDATES_PER_RESULT
 
     settings.library_retrieval_mode = "default"
-    assert local_library.make_retriever(index, settings, candidates=4)._vector_store_query_mode == VectorStoreQueryMode.DEFAULT
+    assert retrieval.make_retriever(index, settings, candidates=4)._vector_store_query_mode == VectorStoreQueryMode.DEFAULT
 
     settings.library_retrieval_mode = "otro"
     with pytest.raises(ValueError, match="mmr"):
-        local_library.make_retriever(index, settings)
+        retrieval.make_retriever(index, settings)
 
 
 # La híbrida junta vectores y BM25. Con filtros, BM25 solo ve las páginas que los cumplen;
@@ -244,14 +244,14 @@ def test_busqueda_hibrida_respeta_los_filtros():
              TextNode(text="redes recurrentes", metadata={"pagina": 2})]
     index = VectorStoreIndex(nodes, embed_model=MockEmbedding(embed_dim=8))
     settings = DocumentsSettings(library_retrieval_mode="hibrida", _env_file=None)
-    assert isinstance(local_library.make_retriever(index, settings), QueryFusionRetriever)
+    assert isinstance(retrieval.make_retriever(index, settings), QueryFusionRetriever)
 
-    only_two = local_library.to_filters({"pagina": {"operator": "eq", "value": 2}})
-    found = local_library.make_retriever(index, settings, filters=only_two).retrieve("redes")
+    only_two = retrieval.to_filters({"pagina": {"operator": "eq", "value": 2}})
+    found = retrieval.make_retriever(index, settings, filters=only_two).retrieve("redes")
     assert [node.node.metadata["pagina"] for node in found] == [2]
 
-    nothing = local_library.to_filters({"pagina": {"operator": "eq", "value": 9}})
-    assert not isinstance(local_library.make_retriever(index, settings, filters=nothing), QueryFusionRetriever)
+    nothing = retrieval.to_filters({"pagina": {"operator": "eq", "value": 9}})
+    assert not isinstance(retrieval.make_retriever(index, settings, filters=nothing), QueryFusionRetriever)
 
 
 # Los evals pueden probar otra cantidad de páginas y otro modo de búsqueda, y lo dejan anotado en la corrida.
@@ -274,7 +274,7 @@ def test_evals_aceptan_top_k_y_modo(setup):
 
     result = client.post(f"{base}/evals", json={"conjunto": "modos", "top_k": 12, "modo": "mmr"}).json()
     assert result["request"]["top_k"] == 12 and result["request"]["modo"] == "mmr"
-    assert result["request"]["candidatos"] == 12 * local_library.CANDIDATES_PER_RESULT
+    assert result["request"]["candidatos"] == 12 * retrieval.CANDIDATES_PER_RESULT
     # La configuración del servidor no cambia: el cambio vale solo para esa corrida.
     assert settings.library_chat_top_k == 6 and settings.library_retrieval_mode == "hibrida"
 
@@ -382,14 +382,14 @@ def test_chat_con_filtros_sin_paginas(setup):
 # El costo en dólares de un turno se estima con la lista de precios de OpenAI (por millón de tokens): 0,05 entrada y 0,40 salida.
 def test_usage_trae_costo_estimado():
     calls = [{"usage": {"prompt_tokens": 1_000_000, "completion_tokens": 100_000}}]
-    usage = local_library.total_usage(calls, DocumentsSettings())
+    usage = turn_recorder.total_usage(calls, DocumentsSettings())
     assert usage["costo_estimado_usd"] == 0.09
     assert usage["modelo"] == DocumentsSettings().library_chat_model
 
 
 # El juez tiene su propio razonamiento: cambiar el del chat no lo cambia (así se compara con el mismo juez).
 def test_el_juez_no_depende_del_razonamiento_del_chat():
-    from app.pipelines.documents.library_evals import make_judge_llm
+    from app.pipelines.documents.libraries.local.rag_evals import make_judge_llm
 
     settings = DocumentsSettings(openai_api_key="d", library_reasoning_effort="minimal", library_judge_reasoning_effort="low")
     assert make_judge_llm(settings).reasoning_effort == "low"
