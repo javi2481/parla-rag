@@ -353,3 +353,11 @@ def test_chat_con_filtros_sin_paginas(setup):
     folder = tmp_path / "documents" / "libraries" / library["id"] / "chats" / "local" / events[-1]["conversation_id"]
     turn = json.loads((folder / "turno_1.json").read_text(encoding="utf-8"))
     assert turn["answer"] == "No encontré páginas con esos filtros." and turn["llm_calls"] == []
+
+
+# El costo en dólares de un turno se estima con la lista de precios de OpenAI (por millón de tokens): 0,05 entrada y 0,40 salida.
+def test_usage_trae_costo_estimado():
+    calls = [{"usage": {"prompt_tokens": 1_000_000, "completion_tokens": 100_000}}]
+    usage = local_library.total_usage(calls, DocumentsSettings())
+    assert usage["costo_estimado_usd"] == 0.09
+    assert usage["modelo"] == DocumentsSettings().library_chat_model

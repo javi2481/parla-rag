@@ -207,3 +207,9 @@ El razonamiento lo devuelve la API en inglés; va recortado y tal cual (sin el n
 - **Prueba en el navegador (pestaña Chat):** dos conversaciones en pestañas distintas. La primera, *"¿Qué es una función de activación?"*, sin filtros: citó páginas 3, 4, 6, 7 y 8 de la clase 01 y la 16 de la 07. La segunda, *"¿Cómo funciona una red convolucional para clasificar imágenes?"*, con la unidad **PLN**: las 6 páginas citadas son de la clase 05 (PLN - Redes neuronales).
 - **Pestañas:** cada una tomó como título las primeras palabras de su pregunta. Se cerró la primera y se recargó la página: volvió solo la segunda, con su turno, y la carpeta de la cerrada sigue en `chats/local/` (no se borra nada).
 - **Costo:** 0 créditos de LlamaCloud. OpenAI (`gpt-5-nano`): 2.954 tokens de entrada y 774 de salida en total, unos **USD 0,0005** (estimado con la lista de precios: 0,05 y 0,40 por millón). Las búsquedas de Voyage, dentro de los tokens gratis.
+
+## 21/11 · Citas por documento y detrás de escena
+
+- **Costo estimado por turno:** `total_usage` suma `costo_estimado_usd` = tokens × la lista de precios de OpenAI del 21/11 (USD 0,05 por millón de entrada y 0,40 de salida, en `settings.py`). OpenAI no informa el costo en la respuesta, por eso se marca "estimado". El evento de la búsqueda suma el `modo` (`default` o `mmr`).
+- **Prueba en el navegador:** *"¿Qué tienen en común ResNet y U-Net?"*, sin filtros. Las páginas que llegaron al modelo, agrupadas: clase 07 (págs. 28, 27 y 32), clase 10 (págs. 12 y 13) y clase 00 (pág. 13). La captura y el texto de la página 12 de la clase 10 abren bien. Detrás de escena: 18 candidatos en modo `default`, 6 páginas después del reranker (puntajes de 0,64 a 0,50), `gpt-5-nano` con 2.409 tokens de entrada y 293 de salida.
+- **Costo:** 0 créditos de LlamaCloud; OpenAI **USD 0,00024** (estimado, coincide con la cuenta a mano); Voyage dentro de los tokens gratis.

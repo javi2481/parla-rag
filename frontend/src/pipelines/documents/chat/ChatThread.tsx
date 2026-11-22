@@ -1,10 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { MarkdownView } from '@/components/wizard/MarkdownView';
 import { INPUT } from '@/components/wizard/RowsEditor';
 import { chat, getConversation, type Turn } from '@/pipelines/documents/libraries/api';
-import { TurnView } from '@/pipelines/documents/libraries/LibraryChat';
+import { answerOf } from '@/pipelines/documents/libraries/LibraryChat';
+import { AnswerSources } from './AnswerSources';
+import { BehindTheScenes } from './BehindTheScenes';
 import type { Filtros } from './ChatFilters';
+
+// Un turno del chat: la pregunta, la respuesta, las páginas citadas agrupadas por clase y el detrás de escena.
+function ChatTurn({ turn, live }: { turn: Turn; live?: boolean }) {
+  const answer = answerOf(turn.events);
+  const done = turn.events.some(e => e.type === 'stop');
+  const errors = turn.events.filter(e => e.type === 'error' || e.error);
+  return (
+    <div className="space-y-3 rounded-xl border border-glass-border bg-background/40 p-4">
+      <p className="font-medium">{turn.prompt}</p>
+      {answer && <MarkdownView markdown={answer} />}
+      {live && !done && <p className="flex items-center gap-2 text-xs text-primary"><LoaderCircle className="size-3.5 animate-spin" /> Buscando en las clases y escribiendo la respuesta…</p>}
+      {errors.map((e, i) => <p key={i} className="text-xs text-destructive">{e.content ?? e.error}</p>)}
+      <AnswerSources events={turn.events} />
+      <BehindTheScenes events={turn.events} />
+    </div>
+  );
+}
 
 // Una conversación: los turnos se acumulan (una pregunta nueva no borra las anteriores) y abajo está el cuadro de pregunta.
 // Al terminar cada respuesta baja hasta el final y el foco vuelve al cuadro, listo para la próxima pregunta.
@@ -60,8 +80,8 @@ export function ChatThread({ libraryId, conversationId, filtros, busy, onBusyCha
     <div className="space-y-4">
       {!turns && !error && <p className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" /> Cargando la conversación…</p>}
       {turns?.length === 0 && !live && <p className="text-sm text-muted-foreground">Conversación nueva: preguntá algo sobre cualquier clase de la materia.</p>}
-      {turns?.map((turn, i) => <TurnView key={i} turn={turn} local />)}
-      {live && <TurnView turn={live} live local />}
+      {turns?.map((turn, i) => <ChatTurn key={i} turn={turn} />)}
+      {live && <ChatTurn turn={live} live />}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <div ref={end} className="flex gap-2">
         <textarea ref={box} className={`${INPUT} min-h-16`} value={prompt} disabled={busy || !turns} placeholder="Preguntale algo a la materia…"

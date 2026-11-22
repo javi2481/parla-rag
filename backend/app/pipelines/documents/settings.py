@@ -36,6 +36,9 @@ class DocumentsSettings(BaseSettings):
     # así responde rápido y gasta menos tokens (alcanza para redactar con las páginas que trae la búsqueda).
     openai_api_key: str = ""
     library_chat_model: str = "gpt-5-nano"
+    # Precios de OpenAI por millón de tokens (lista de precios del 21/11), para estimar el costo en dólares de cada turno.
+    library_chat_price_input_usd: float = 0.05
+    library_chat_price_output_usd: float = 0.40
     library_reasoning_effort: str = "minimal"
     # Cuántas páginas (las mejores según el reranker) se le pasan al modelo en cada pregunta.
     library_chat_top_k: int = 6

@@ -123,7 +123,7 @@ async def eval_answer(index, settings: DocumentsSettings, question: dict, candid
         "correccion_explicacion": correctness.feedback,
         "segundos": seconds,
         "llamadas_al_modelo": recorder.llm_calls,
-        "usage": engine.total_usage(recorder.llm_calls, settings.library_chat_model),
+        "usage": engine.total_usage(recorder.llm_calls, settings),
     }
 
 

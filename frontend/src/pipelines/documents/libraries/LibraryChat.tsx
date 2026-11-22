@@ -7,7 +7,7 @@ import { INPUT } from '@/components/wizard/RowsEditor';
 import { chat, type ChatEvent, type Turn } from './api';
 
 // Junta el texto de la respuesta. Si LlamaCloud mandó el texto completo ("text"), se usa ese; si no, se suman los pedacitos ("text_delta").
-function answerOf(events: ChatEvent[]) {
+export function answerOf(events: ChatEvent[]) {
   const full = events.filter(e => e.type === 'text').map(e => e.content ?? '').join('');
   return full || events.filter(e => e.type === 'text_delta').map(e => e.content ?? '').join('');
 }

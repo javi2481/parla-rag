@@ -391,16 +391,21 @@ def usage_of(response) -> dict | None:
 
 # Suma los tokens de todas las llamadas al modelo del turno (la que reescribe la pregunta y la que responde).
 # Las llamadas sin "usage" no suman (el modelo falso de los tests no lo informa).
-def total_usage(llm_calls: list, model: str) -> dict:
+# El costo en dólares es estimado: tokens × la lista de precios de settings (OpenAI no informa el costo en la respuesta).
+def total_usage(llm_calls: list, settings: DocumentsSettings) -> dict:
     usages = [call["usage"] or {} for call in llm_calls]
     reasoning = sum((u.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0 for u in usages)
+    tokens_in = sum(u.get("prompt_tokens") or 0 for u in usages)
+    tokens_out = sum(u.get("completion_tokens") or 0 for u in usages)
+    cost = (tokens_in * settings.library_chat_price_input_usd + tokens_out * settings.library_chat_price_output_usd) / 1_000_000
     return {
-        "modelo": model,
+        "modelo": settings.library_chat_model,
         "llamadas_al_modelo": sum(1 for u in usages if u),
-        "tokens_de_entrada": sum(u.get("prompt_tokens") or 0 for u in usages),
-        "tokens_de_salida": sum(u.get("completion_tokens") or 0 for u in usages),
+        "tokens_de_entrada": tokens_in,
+        "tokens_de_salida": tokens_out,
         "de_esos_razonamiento": reasoning,
         "tokens_en_cache": sum((u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0 for u in usages),
+        "costo_estimado_usd": round(cost, 6),
     }
 
 
@@ -529,7 +534,8 @@ async def chat_turn(client, store: RunStore, settings: DocumentsSettings, librar
         if has_pages:
             response = await engine.astream_chat(prompt)
             search_call = {"type": "tool_call", "call_id": "busqueda", "name": "buscar_en_la_biblioteca",
-                           "arguments": {"busquedas": recorder.searches, "paginas_para_el_modelo": top_k}}
+                           "arguments": {"busquedas": recorder.searches, "paginas_para_el_modelo": top_k,
+                                         "modo": settings.library_retrieval_mode}}
             sources = [{"documento": node.node.metadata.get("nombre"), "pagina": node.node.metadata.get("pagina"),
                         "rerank_score": node.score, "metadata": node.node.metadata, "texto": node.node.get_content()}
                        for node in response.source_nodes]
@@ -555,7 +561,7 @@ async def chat_turn(client, store: RunStore, settings: DocumentsSettings, librar
 # Cierra un turno: manda el evento "stop" (con el uso de tokens y la conversación) y guarda todo en turno_N.json.
 def finish_turn(folder: Path, settings: DocumentsSettings, prompt: str, answer: str, error: str | None,
                 history: list, filters: dict | None, recorder, sources: list, events: list, conversation_id: str) -> str:
-    usage = total_usage(recorder.llm_calls, settings.library_chat_model)
+    usage = total_usage(recorder.llm_calls, settings)
     stop = {"type": "stop", "usage": usage, "conversation_id": conversation_id}
     events.append(stop)
     number = len(list(folder.glob("turno_*.json"))) + 1
