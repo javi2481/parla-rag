@@ -233,6 +233,27 @@ def test_make_retriever_usa_mmr_si_esta_configurado():
         local_library.make_retriever(index, settings)
 
 
+# La híbrida junta vectores y BM25. Con filtros, BM25 solo ve las páginas que los cumplen;
+# si ninguna cumple, queda la búsqueda por vectores sola (sin el error de BM25 con el índice vacío).
+def test_busqueda_hibrida_respeta_los_filtros():
+    from llama_index.core import VectorStoreIndex
+    from llama_index.core.retrievers import QueryFusionRetriever
+    from llama_index.core.schema import TextNode
+
+    nodes = [TextNode(text="redes convolucionales", metadata={"pagina": 1}),
+             TextNode(text="redes recurrentes", metadata={"pagina": 2})]
+    index = VectorStoreIndex(nodes, embed_model=MockEmbedding(embed_dim=8))
+    settings = DocumentsSettings(library_retrieval_mode="hibrida", _env_file=None)
+    assert isinstance(local_library.make_retriever(index, settings), QueryFusionRetriever)
+
+    only_two = local_library.to_filters({"pagina": {"operator": "eq", "value": 2}})
+    found = local_library.make_retriever(index, settings, filters=only_two).retrieve("redes")
+    assert [node.node.metadata["pagina"] for node in found] == [2]
+
+    nothing = local_library.to_filters({"pagina": {"operator": "eq", "value": 9}})
+    assert not isinstance(local_library.make_retriever(index, settings, filters=nothing), QueryFusionRetriever)
+
+
 # Los evals pueden probar otra cantidad de páginas y otro modo de búsqueda, y lo dejan anotado en la corrida.
 def test_evals_aceptan_top_k_y_modo(setup):
     client, settings, tmp_path = setup
@@ -255,7 +276,7 @@ def test_evals_aceptan_top_k_y_modo(setup):
     assert result["request"]["top_k"] == 12 and result["request"]["modo"] == "mmr"
     assert result["request"]["candidatos"] == 12 * local_library.CANDIDATES_PER_RESULT
     # La configuración del servidor no cambia: el cambio vale solo para esa corrida.
-    assert settings.library_chat_top_k == 6 and settings.library_retrieval_mode == "default"
+    assert settings.library_chat_top_k == 6 and settings.library_retrieval_mode == "hibrida"
 
 
 # Arma una biblioteca local sincronizada con el parse de dos páginas y devuelve la ruta base de la API.

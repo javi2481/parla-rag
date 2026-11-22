@@ -133,9 +133,15 @@ def make_retriever(index: VectorStoreIndex, settings: DocumentsSettings, candida
 # y les saca la terminación ("redes" y "red" cuentan igual). Se arma en el momento con las páginas del índice: son pocas.
 # QueryFusionRetriever junta las dos listas con reciprocal rank fusion: suben las páginas que están arriba en las dos.
 # num_queries=1 busca la pregunta tal cual: no le pide a un modelo que invente otras, por eso alcanza con MockLLM.
+# Con filtros, BM25 se arma solo con las páginas que los cumplen: su opción "filters" no las saca, les pone
+# puntaje 0 y las sigue devolviendo. Si ninguna página cumple, queda la búsqueda por vectores sola (que no trae nada).
 def make_hybrid_retriever(index: VectorStoreIndex, candidates: int, filters: MetadataFilters | None):
     vectors = index.as_retriever(similarity_top_k=candidates, filters=filters)
-    words = BM25Retriever.from_defaults(docstore=index.docstore, similarity_top_k=candidates, filters=filters,
+    nodes = [node for node in index.docstore.docs.values()
+             if all(node.metadata.get(f.key) == f.value for f in (filters.filters if filters else []))]
+    if not nodes:
+        return vectors
+    words = BM25Retriever.from_defaults(nodes=nodes, similarity_top_k=candidates,
                                         stemmer=Stemmer.Stemmer("spanish"), language="es")
     return QueryFusionRetriever([vectors, words], llm=MockLLM(), mode="reciprocal_rerank",
                                 similarity_top_k=candidates, num_queries=1, use_async=False)
