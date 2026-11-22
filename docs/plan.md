@@ -145,21 +145,34 @@ backend/app/
 │   ├── settings.py · limits.py          configuración general y límites por IP
 │   └── runs/store.py                    la carpeta-DB: crear, leer, listar, archivar y borrar corridas y bibliotecas
 └── pipelines/documents/
-    ├── README.md · settings.py · client.py · errors.py
-    ├── pipeline.py                      la lista ordenada de pasos (empezá a leer por acá)
-    ├── router.py                        /api/documents/runs/...
-    ├── steps/                           un archivo por paso; cada uno tiene:
-    │   ├── s1_upload.py                   EXPLICACION  el texto para la clase
-    │   ├── s2_parse.py                    start()      arranca el job en LlamaCloud
-    │   ├── s3_split.py                    check()      consulta el estado y, si terminó, guarda todo
-    │   ├── s4_classify.py                 summarize()  métricas e interpretación con lo guardado
-    │   ├── s5_schema.py                   DEFAULTS     las opciones con las que arranca el editor
-    │   ├── s6_extract.py
-    │   └── jobs.py                        lo común a los pasos con job
-    ├── library_router.py                /api/documents/libraries/... (elige el motor de cada biblioteca)
-    ├── local_library.py                 motor local: LlamaIndex + Voyage AI + OpenAI
-    ├── library_evals.py                 evals de las bibliotecas locales (nativos de LlamaIndex)
-    └── library.py                       motor de LlamaCloud: directorio, índice, búsqueda y chat
+    ├── README.md · settings.py · errors.py
+    ├── llamacloud_client.py             crea el cliente de LlamaCloud
+    ├── route_dependencies.py            lo que comparten las rutas (cliente, carpeta-DB, errores de LlamaCloud)
+    ├── number_format.py                 números con formato argentino para las métricas
+    ├── wizard/                          los 6 pasos sobre UN documento
+    │   ├── wizard_flow.py                 la lista ordenada de pasos (empezá a leer por acá)
+    │   ├── wizard_routes.py               /api/documents/runs/...
+    │   └── steps/                         un archivo por paso; cada uno tiene:
+    │       ├── step1_upload.py              EXPLICACION  el texto para la clase
+    │       ├── step2_parse.py               start()      arranca el job en LlamaCloud
+    │       ├── step3_split.py               check()      consulta el estado y, si terminó, guarda todo
+    │       ├── step4_classify.py            summarize()  métricas e interpretación con lo guardado
+    │       ├── step5_schema.py              DEFAULTS     las opciones con las que arranca el editor
+    │       ├── step6_extract.py
+    │       └── llamacloud_jobs.py           lo común a los pasos con job
+    └── libraries/                       el RAG: varios documentos, búsqueda y chat
+        ├── library_routes.py              /api/documents/libraries/... (elige el motor de cada biblioteca)
+        ├── document_metadata.py           metadata de identidad y resumen de búsqueda (los dos motores)
+        ├── llamacloud_engine.py           motor de LlamaCloud: directorio, índice, búsqueda y chat
+        └── local/                         motor local: LlamaIndex + Voyage AI + OpenAI
+            ├── local_engine.py              la puerta de entrada que usa la ruta
+            ├── ai_models.py                 embeddings, reranker, modelo de lenguaje y NLTK
+            ├── index_builder.py             páginas → chunks → índice
+            ├── retrieval.py                 vectores / MMR / híbrida (BM25) + reranker + filtros
+            ├── chat_engine.py               prompts, chat de contexto, agente y turno del chat
+            ├── turn_recorder.py             qué buscó, llamadas al modelo, tokens y costo
+            ├── conversations.py             las pestañas del chat
+            └── rag_evals.py                 evals de búsqueda y respuestas (nativos de LlamaIndex)
 ```
 
 ### La carpeta-DB

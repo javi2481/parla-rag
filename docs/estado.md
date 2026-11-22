@@ -65,8 +65,8 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
 
 | Motor | Estado | Por qué |
 |---|---|---|
-| **Local** (`local_library.py`, el que se usa): LlamaIndex + Voyage AI + OpenAI | ✅ Funciona | El índice de LlamaCloud necesita un plan pago |
-| **LlamaCloud** (`library.py`): directorio + índice v2 + `retrieval` + `chat` | 🔒 Código hecho y probado con el cliente falso; con el plan gratis responde **403** | Necesita Pay as you go, Pro o Enterprise |
+| **Local** (`libraries/local/`, el que se usa): LlamaIndex + Voyage AI + OpenAI | ✅ Funciona | El índice de LlamaCloud necesita un plan pago |
+| **LlamaCloud** (`libraries/llamacloud_engine.py`): directorio + índice v2 + `retrieval` + `chat` | 🔒 Código hecho y probado con el cliente falso; con el plan gratis responde **403** | Necesita Pay as you go, Pro o Enterprise |
 
 **El motor local:**
 - **Agregar un documento** copia el Markdown de cada página del parse del wizard (no se vuelve a parsear nada) con la **metadata de identidad**: el tipo de Classify y los campos **obligatorios** del schema de Extract.
@@ -86,7 +86,7 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
 - **14 corridas parseadas** (la presentación y las 13 clases): 410 páginas, **7.250 créditos** (17,7 por página en promedio, entre 15 y 25). Confianza del documento entre 78 % y 99 %.
 - **Sincronizada** en 6 s: 410 páginas en 410 chunks, 0 créditos de LlamaCloud.
 - **Set de evals** en [`samples/aprendizaje-automatico-ii/evals/preguntas.json`](../backend/data/samples/aprendizaje-automatico-ii/evals/preguntas.json): 31 preguntas (29 con fuente y 2 trampas; entre ellas, parafraseadas, de varias diapositivas y que cruzan clases), con las respuestas verificadas en el parse.
-- **Evals (configuración elegida: 6 páginas, búsqueda `default`, chat en `minimal`):** hit rate 1,0 · MRR 0,96 · cobertura de clases 0,966 · **28 de 31 respuestas correctas** con el juez en `low` (con el juez en `minimal` daba entre 22 y 25: el juez se equivocaba más) · 2,9 s por respuesta. El juez tiene su propio razonamiento (`LIBRARY_JUDGE_REASONING_EFFORT`); con el mismo juez, el chat en `low` no acierta más y es más lento (bitácora del 22/11). **MMR se probó y no mejoró la cobertura** (ver la bitácora del 21/11): queda como opción (`LIBRARY_RETRIEVAL_MODE=mmr`).
+- **Evals (configuración elegida: 6 páginas, búsqueda `hibrida`, chat de contexto en `minimal`):** hit rate 1,0 · MRR 0,96 · cobertura de clases 0,966 · **29 de 31 respuestas correctas** y 27 de 31 fieles con el juez en `low` (con búsqueda solo por vectores, 26 a 28) · 3,1 s por respuesta. El juez tiene su propio razonamiento (`LIBRARY_JUDGE_REASONING_EFFORT`); con el mismo juez, el chat en `low` no acierta más y es más lento (bitácora del 22/11). **MMR se probó y no mejoró la cobertura** (bitácora del 21/11) y **el agente** (`LIBRARY_CHAT_ENGINE=agente`) casi siempre hace una sola búsqueda, baja la cobertura y tarda 1,5 s más (bitácora del 22/11): quedan como opciones para comparar.
 
 ### La página principal: el chat (21/11)
 
@@ -102,7 +102,7 @@ La pestaña **Chat** es la primera y la que abre la app (`#chat`). Usa la biblio
 
 ### Calidad y auditoría
 
-- **29 tests** con clientes falsos (sin red ni créditos): el wizard completo, los resúmenes, las bibliotecas con los dos motores, el chat local, las conversaciones, los filtros, los evals y el costo estimado.
+- **31 tests** con clientes falsos (sin red ni créditos): el wizard completo, los resúmenes, las bibliotecas con los dos motores, el chat local, las conversaciones, los filtros (también en la búsqueda híbrida), los evals y el costo estimado.
 - **Bitácora** con cada prueba, hallazgo y decisión, y **registro de créditos** con cada llamada paga.
 - **Datos crudos** de cada verificación en `backend/data/verificacion/` (fuera de git).
 
@@ -146,6 +146,7 @@ La pestaña **Chat** es la primera y la que abre la app (`#chat`). Usa la biblio
 - [x] Escribir un **guion corto de la demo**: [guion-demo.md](guion-demo.md).
 - [ ] **Capturas nuevas para el README** con la biblioteca de la materia.
 - [ ] **Volver a probar Docker** con el corpus nuevo (la imagen copia `data/samples/`: ahora son 57 MB de PDF y notebooks).
+  - Confirmar que `pystemmer` (el stemmer en español de BM25, se compila) instala en la imagen de Python 3.12.
 - [ ] **Decidir si el material de la materia va a git** (`backend/data/samples/aprendizaje-automatico-ii/`) o queda fuera, si el repo es público.
 
 ### 6. Detalles técnicos conocidos
@@ -171,7 +172,7 @@ La idea es que la transcripción de un audio se sume a una biblioteca, para que 
 
 - **Evals:** todo es nativo de LlamaIndex (`RetrieverEvaluator`, `FaithfulnessEvaluator`, `CorrectnessEvaluator`). LlamaCloud y Voyage AI no tienen un producto de evals propio (verificado el 21/11). [Ragas](https://docs.ragas.io/) queda solo si lo nativo no alcanza.
 - **Notebooks de las clases** con `IPYNBReader`, el lector nativo de LlamaIndex, si se quiere que el chat responda sobre el código de las prácticas.
-- **Índice de LlamaCloud** (el motor `library.py` ya está escrito) cuando haya un plan pago: comparar calidad, velocidad y costo contra el motor local.
+- **Índice de LlamaCloud** (el motor `libraries/llamacloud_engine.py` ya está escrito) cuando haya un plan pago: comparar calidad, velocidad y costo contra el motor local.
 - **Pasar la carpeta-DB a `agent_data`**, la base JSON nativa de LlamaCloud.
 - **Verify** (`alpha.verify`): detectar documentos adulterados, cuando salga de alpha.
 - **Webhooks** de LlamaCloud en lugar de consultar el estado (solo con el servidor publicado).

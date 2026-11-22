@@ -208,15 +208,16 @@ sequenceDiagram
     U->>A: "¿Qué problema resolvió ResNet?"
     A->>O: si hay historial, reescribir la pregunta para que se entienda sola
     A->>V: embedding de la pregunta (voyage-4)
-    A->>A: los 18 candidatos más parecidos del índice
+    A->>A: 18 candidatos: vectores + BM25 (palabras exactas), juntados con RRF
     A->>V: rerank-2.5 los reordena
     A->>O: gpt-5-nano responde con las 6 mejores páginas
     O-->>U: la respuesta en vivo, citando (documento, pág. N)
     A->>A: guarda el turno: consulta, páginas, prompts y tokens
 ```
 
-- **Motor local** (`local_library.py`, el que se usa): el **framework LlamaIndex** arma el índice y el chat (`CondensePlusContextChatEngine`) en nuestro servidor, con las integraciones oficiales de Voyage AI y OpenAI. Se usa porque el índice de LlamaCloud necesita un plan pago (con el plan gratis responde 403).
-- **Motor de LlamaCloud** (`library.py`): escrito y probado con el cliente falso; queda para cuando haya plan.
+- **Motor local** (`libraries/local/`, el que se usa): el **framework LlamaIndex** arma el índice y el chat (`CondensePlusContextChatEngine`) en nuestro servidor, con las integraciones oficiales de Voyage AI y OpenAI. Se usa porque el índice de LlamaCloud necesita un plan pago (con el plan gratis responde 403).
+- **Motor de LlamaCloud** (`libraries/llamacloud_engine.py`): escrito y probado con el cliente falso; queda para cuando haya plan.
+- **Búsqueda híbrida** (`LIBRARY_RETRIEVAL_MODE=hibrida`, por defecto): los vectores de voyage-4 entienden el sentido aunque cambien las palabras, y BM25 (`llama-index-retrievers-bm25`, en español) encuentra las palabras exactas, como "Bolukbasi" o "GRU". `QueryFusionRetriever` junta las dos listas con *reciprocal rank fusion* y después el reranker deja las 6 mejores. En los evals del 22/11 subió las respuestas correctas de 26 a 29 de 31, sin costo ni demora extra.
 - **Una página = un chunk** (`LIBRARY_SPLITTER=pagina`, por defecto). Se compararon los tres cortes nativos de LlamaIndex (`SentenceSplitter`, `MarkdownNodeParser` y página entera) y ganó el más simple: no separa una tabla de su encabezado, respeta las tablas que ya unió LlamaParse y deja la cita exacta. Las diapositivas son cortas, así que una página entra entera.
 - **El modelo:** `gpt-5-nano`, el más barato de OpenAI ([precios](https://developers.openai.com/api/docs/pricing)), con `reasoning_effort=minimal` para que casi no razone: el razonamiento se cobra como tokens de salida.
 - **Las instrucciones** piden responder solo con los fragmentos, decir que el dato no está cuando no está, citar *(documento, pág. N)* y copiar los números tal cual.
@@ -350,7 +351,7 @@ docker compose up --build -d     # http://localhost:8000
 
 Las claves se leen de `backend/.env` al arrancar y nunca entran en la imagen; los datos quedan en el volumen `parla-rag-data`. La primera sincronización baja los datos de NLTK (necesita internet). Si la cuenta de LlamaCloud es de la región EU: `LLAMA_CLOUD_BASE_URL=https://api.cloud.eu.llamaindex.ai`.
 
-**Las opciones de las bibliotecas** (en `.env`, todas con valor por defecto): `LIBRARY_ENGINE=local`, `LIBRARY_SPLITTER=pagina`, `LIBRARY_EMBED_MODEL=voyage-4`, `LIBRARY_RERANK_MODEL=rerank-2.5`, `LIBRARY_CHAT_MODEL=gpt-5-nano`, `LIBRARY_REASONING_EFFORT=minimal` y `LIBRARY_CHAT_TOP_K=6`.
+**Las opciones de las bibliotecas** (en `.env`, todas con valor por defecto): `LIBRARY_ENGINE=local`, `LIBRARY_SPLITTER=pagina`, `LIBRARY_EMBED_MODEL=voyage-4`, `LIBRARY_RERANK_MODEL=rerank-2.5`, `LIBRARY_CHAT_MODEL=gpt-5-nano`, `LIBRARY_REASONING_EFFORT=minimal`, `LIBRARY_CHAT_TOP_K=6`, `LIBRARY_RETRIEVAL_MODE=hibrida` (o `default`, `mmr`) y `LIBRARY_CHAT_ENGINE=contexto` (o `agente`, para comparar en los evals).
 
 ## Estructura del repositorio
 
@@ -361,11 +362,13 @@ Las claves se leen de `backend/.env` al arrancar y nunca entran en la imagen; lo
 │   │   ├── main.py                    # arma la app y conecta las rutas
 │   │   ├── core/                      # lo compartido: configuración, límites y runs/ (la carpeta-DB)
 │   │   └── pipelines/documents/       # todo el pipeline (ver su README)
-│   │       ├── pipeline.py            # el orden de los pasos: empezá a leer por acá
-│   │       ├── steps/                 # un archivo por paso del wizard
-│   │       ├── local_library.py       # bibliotecas con LlamaIndex + Voyage + OpenAI (el motor que se usa)
-│   │       ├── library_evals.py       # evals de las bibliotecas
-│   │       └── library.py             # bibliotecas con el índice de LlamaCloud (plan pago)
+│   │       ├── wizard/                # los 6 pasos sobre UN documento
+│   │       │   ├── wizard_flow.py     # el orden de los pasos: empezá a leer por acá
+│   │       │   └── steps/             # step1_upload.py … step6_extract.py
+│   │       └── libraries/             # el RAG: varios documentos, búsqueda y chat
+│   │           ├── local/             # el motor que se usa (LlamaIndex + Voyage + OpenAI), un archivo por etapa:
+│   │           │                      #   index_builder · retrieval · chat_engine · conversations · rag_evals
+│   │           └── llamacloud_engine.py  # el índice de LlamaCloud (plan pago)
 │   ├── data/                          # la "base de datos" en carpetas
 │   │   ├── samples/                   # los documentos de ejemplo y el set de evals de cada conjunto
 │   │   ├── documents/runs/            # las corridas del wizard (no van al repo)

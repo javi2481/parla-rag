@@ -20,7 +20,7 @@ Antes de cualquier cosa, leé [docs/estado.md](docs/estado.md): ahí está lo he
 
 - **No implementar nada que LlamaCloud, LlamaParse o LlamaIndex no hagan de forma nativa.** Nada de código innecesario. Si la plataforma no lo hace, se dice y se decide con el usuario.
 - El framework LlamaIndex (código abierto) y sus **integraciones oficiales** (Voyage AI, OpenAI) cuentan como nativos. No sumar otros frameworks ni herramientas.
-- Las bibliotecas usan el motor **local** (`local_library.py`) porque el índice v2 de LlamaCloud da 403 con el plan gratis. El motor de LlamaCloud (`library.py`) se mantiene para cuando haya plan.
+- Las bibliotecas usan el motor **local** (`libraries/local/`) porque el índice v2 de LlamaCloud da 403 con el plan gratis. El motor de LlamaCloud (`libraries/llamacloud_engine.py`) se mantiene para cuando haya plan.
 
 ## Traer todo, medir e interpretar
 

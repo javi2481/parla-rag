@@ -17,7 +17,7 @@ flowchart LR
     S5["5 Schema<br/>configurations"] --> S6["6 Extract"]
     J --> S6
     S3 -.->|"target_pages"| S6
-    J ==>|"Markdown por página"| B["Biblioteca<br/>local_library.py"]
+    J ==>|"Markdown por página"| B["Biblioteca<br/>libraries/local/"]
 
     classDef nube fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
     classDef local fill:#dcfce7,stroke:#16a34a,color:#14532d
@@ -29,12 +29,12 @@ El documento se parsea **una vez**: los pasos siguientes reciben solo el ID del 
 
 | Paso | Archivo | Qué hace | Producto de LlamaCloud | Créditos |
 |---|---|---|---|---|
-| 1 | `steps/s1_upload.py` | Sube el archivo y guarda una copia. Solo controla el tamaño. | `files.create` | 0 |
-| 2 | `steps/s2_parse.py` | Lee el documento pidiendo **todo**: Markdown, texto, items con cajas, confianza por página, tablas en Excel, gráficos convertidos en tablas, capturas de página y 3 salidas extra. | `parsing.create` / `get` | los informa |
-| 3 | `steps/s3_split.py` | Divide el documento en partes según categorías editables. | `split.create` / `get` | no los informa |
-| 4 | `steps/s4_classify.py` | Elige el tipo de documento según reglas editables, con confianza y razonamiento. | `classify.create` / `get` | 0 sobre un parse |
-| 5 | `steps/s5_schema.py` | Arma el schema: manual (tabla, plantilla o JSON) o automático (lo propone el agente). Lo valida y lo guarda con citas, confianza y tier agentic. | `extract.generate_schema`, `validate_schema`, `configurations` | no los informa |
-| 6 | `steps/s6_extract.py` | Saca los datos del schema con la cita (página, texto, caja) y la confianza de cada uno. Puede limitarse a una parte del Split. | `extract.create` / `get` | los informa (`extract_credits`) |
+| 1 | `wizard/steps/step1_upload.py` | Sube el archivo y guarda una copia. Solo controla el tamaño. | `files.create` | 0 |
+| 2 | `wizard/steps/step2_parse.py` | Lee el documento pidiendo **todo**: Markdown, texto, items con cajas, confianza por página, tablas en Excel, gráficos convertidos en tablas, capturas de página y 3 salidas extra. | `parsing.create` / `get` | los informa |
+| 3 | `wizard/steps/step3_split.py` | Divide el documento en partes según categorías editables. | `split.create` / `get` | no los informa |
+| 4 | `wizard/steps/step4_classify.py` | Elige el tipo de documento según reglas editables, con confianza y razonamiento. | `classify.create` / `get` | 0 sobre un parse |
+| 5 | `wizard/steps/step5_schema.py` | Arma el schema: manual (tabla, plantilla o JSON) o automático (lo propone el agente). Lo valida y lo guarda con citas, confianza y tier agentic. | `extract.generate_schema`, `validate_schema`, `configurations` | no los informa |
+| 6 | `wizard/steps/step6_extract.py` | Saca los datos del schema con la cita (página, texto, caja) y la confianza de cada uno. Puede limitarse a una parte del Split. | `extract.create` / `get` | los informa (`extract_credits`) |
 
 Cada paso tiene:
 - `EXPLICACION`: el texto para la clase.
@@ -43,7 +43,7 @@ Cada paso tiene:
 - `summarize()`: arma las métricas y la interpretación, solo con lo que devolvió la API.
 - `DEFAULTS` (Split, Classify, Schema): las opciones con las que arranca el editor del wizard.
 
-`steps/jobs.py` tiene lo que comparten los pasos con job: consultar el estado y leer las opciones.
+`wizard/steps/llamacloud_jobs.py` tiene lo que comparten los pasos con job: consultar el estado y leer las opciones.
 
 **Configuraciones nativas:** Parse (`parse_v2`), Split (`split_v1`), Classify (`classify_v2`) y el schema (`extract_v2`)
 se guardan en `configurations` de LlamaCloud. LlamaCloud crea una versión nueva cada vez que se guarda con el mismo nombre.
@@ -83,18 +83,30 @@ El resto son partes de esa respuesta separadas para leerlas fácil:
 
 ## Los archivos
 
-| Archivo | Para qué |
-|---|---|
-| `pipeline.py` | La lista ordenada de pasos (**empezá a leer por acá**) |
-| `steps/` | Un archivo por paso, más `jobs.py` |
-| `router.py` | Rutas HTTP: `/api/documents/runs/...` |
-| `settings.py` | API key, región, tier y versión de Parse, máximos |
-| `client.py` | Crea el cliente de LlamaCloud |
-| `errors.py` | `DocumentError`: errores con mensaje para el usuario |
-| `library_router.py` | Rutas HTTP de las bibliotecas: `/api/documents/libraries/...`. Elige el motor de cada biblioteca |
-| `local_library.py` | Bibliotecas con el motor local: LlamaIndex + Voyage AI + OpenAI (**el que se usa**) |
-| `library_evals.py` | Evals de las bibliotecas locales: búsqueda y respuestas, con lo nativo de LlamaIndex |
-| `library.py` | Bibliotecas con el índice de LlamaCloud (necesita un plan pago; con el gratis da 403) |
+```
+documents/
+├── settings.py · errors.py       API key, región, tier y versión de Parse, máximos · DocumentError (errores con mensaje para el usuario)
+├── llamacloud_client.py          crea el cliente de LlamaCloud
+├── route_dependencies.py         lo que comparten las rutas: configuración, cliente, carpeta-DB y errores de LlamaCloud
+├── number_format.py              números con formato argentino para las métricas
+├── wizard/                       los 6 pasos sobre UN documento
+│   ├── wizard_flow.py            la lista ordenada de pasos (empezá a leer por acá)
+│   ├── wizard_routes.py          rutas HTTP: /api/documents/runs/...
+│   └── steps/                    step1_upload.py … step6_extract.py, más llamacloud_jobs.py
+└── libraries/                    el RAG: varios documentos del wizard juntos, con búsqueda y chat
+    ├── library_routes.py         rutas HTTP: /api/documents/libraries/... Elige el motor de cada biblioteca
+    ├── document_metadata.py      lo que comparten los dos motores: metadata de identidad y resumen de búsqueda
+    ├── llamacloud_engine.py      motor de LlamaCloud (necesita un plan pago; con el gratis da 403)
+    └── local/                    motor local: LlamaIndex + Voyage AI + OpenAI (el que se usa), un archivo por etapa
+        ├── local_engine.py       la puerta de entrada: las funciones que llama la ruta
+        ├── ai_models.py          embeddings y reranker de Voyage, modelo de OpenAI y NLTK (lo que reemplazan los tests)
+        ├── index_builder.py      agregar documentos, páginas → chunks → índice, sincronizar
+        ├── retrieval.py          la búsqueda: vectores / MMR / híbrida + reranker + filtros
+        ├── chat_engine.py        las instrucciones, el chat de contexto, el agente y el turno del chat
+        ├── turn_recorder.py      qué buscó, cada llamada al modelo, tokens y costo (instrumentación de LlamaIndex)
+        ├── conversations.py      las pestañas del chat: crear, listar, cerrar, historial
+        └── rag_evals.py          evals de la búsqueda y de las respuestas
+```
 
 ## Bibliotecas
 
@@ -103,14 +115,15 @@ Una biblioteca junta corridas del wizard para **buscar y chatear con todas a la 
 y devuelven lo mismo, así la pantalla no cambia. Cada biblioteca guarda en `run.json` con qué motor se creó (`engine`);
 las nuevas usan `LIBRARY_ENGINE` del `.env` (`local` por defecto).
 
-### Motor local (`local_library.py`)
+### Motor local (`libraries/local/`)
 
 ```
 agregar     copia el Markdown de cada página del parse (2_parse/response.json) a documents/<corrida>.json,
             con la metadata de identidad: el tipo de Classify y los campos obligatorios del schema de Extract
 sincronizar una página = un Document de LlamaIndex → build_nodes corta según el separador de la biblioteca
             → VectorStoreIndex con embeddings voyage-4 → index/
-buscar      voyage-4 trae top_k × 3 candidatos → rerank-2.5 deja los top_k → searches/<fecha>.json
+buscar      vectores (voyage-4) + BM25 traen top_k × 3 candidatos, juntados con RRF
+            → rerank-2.5 deja los top_k → searches/<fecha>.json
 chatear     CondensePlusContextChatEngine: gpt-5-nano reescribe la pregunta si hay historial,
             se busca como arriba (6 páginas) y gpt-5-nano responde en vivo citando documento y página
             (se puede acotar con filtros por unidad o clase) → chats/local/<conversación>/turno_N.json
@@ -127,10 +140,11 @@ chatear     CondensePlusContextChatEngine: gpt-5-nano reescribe la pregunta si h
   - `markdown`: `MarkdownNodeParser`, un chunk por título.
 
   `pagina` ganó en los evals (MRR 0,84 y 13 de 13 respuestas correctas): ver el [README principal](../../../../README.md#5-chunking-oraciones-vs-markdown-vs-página).
-- **El chat engine** se arma en `make_chat_engine`, que usan el chat y los evals, así los evals miden exactamente el mismo chat.
+- **La búsqueda** (`LIBRARY_RETRIEVAL_MODE`, en `retrieval.py`): `hibrida` (por defecto) junta los vectores con `BM25Retriever` (en español) usando `QueryFusionRetriever` con *reciprocal rank fusion*; `default` usa solo vectores y `mmr`, vectores variados. Con filtros, BM25 se arma solo con las páginas que los cumplen.
+- **El chat engine** se arma en `make_chat_engine` (`chat_engine.py`), que usan el chat y los evals, así los evals miden exactamente el mismo chat. `LIBRARY_CHAT_ENGINE=agente` usa en cambio un `FunctionAgent` con la búsqueda como herramienta (por ahora solo en los evals).
 - **Modelos y opciones** (`settings.py`): `LIBRARY_EMBED_MODEL=voyage-4`, `LIBRARY_RERANK_MODEL=rerank-2.5`, `LIBRARY_CHAT_MODEL=gpt-5-nano`, `LIBRARY_CHAT_TOP_K=6`.
 
-### Evals (`library_evals.py`)
+### Evals (`libraries/local/rag_evals.py`)
 
 `POST /libraries/{id}/evals` con `conjunto` (el set de `data/samples/<conjunto>/evals/preguntas.json`), `candidatos` y `respuestas`:
 
@@ -138,7 +152,7 @@ chatear     CondensePlusContextChatEngine: gpt-5-nano reescribe la pregunta si h
 - **Respuestas** (si `respuestas` es `true`): el chat responde sin historial y `gpt-5-nano` sin streaming (`make_judge_llm`) hace de juez con `FaithfulnessEvaluator` y `CorrectnessEvaluator`.
 - Cada corrida queda en `evals/<fecha>/`: `request.json`, `resultados.json` y `metrics.json`.
 
-### Motor de LlamaCloud (`library.py`)
+### Motor de LlamaCloud (`libraries/llamacloud_engine.py`)
 
 Un directorio (`beta.directories`) con su índice (`indexes`), que parsea con nuestra configuración completa (`product_config_id`).
 Agregar usa el mismo `file_id` de la corrida (`unique_id` = la corrida). Al sincronizar mide con `parsing.list` si LlamaCloud volvió a parsear.

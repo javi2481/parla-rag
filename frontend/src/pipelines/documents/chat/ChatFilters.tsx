@@ -1,6 +1,6 @@
 import type { LibraryDocument } from '@/pipelines/documents/libraries/api';
 
-// Los nombres de las unidades para la pantalla. Las claves son las reglas de Classify (backend/.../steps/s4_classify.py).
+// Los nombres de las unidades para la pantalla. Las claves son las reglas de Classify (backend/.../wizard/steps/step4_classify.py).
 export const UNIDADES: Record<string, string> = {
   redes_neuronales: 'Redes neuronales',
   procesamiento_del_lenguaje_natural: 'PLN',

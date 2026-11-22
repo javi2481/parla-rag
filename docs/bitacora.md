@@ -355,3 +355,26 @@ Evals con respuestas, configuración por defecto (18 candidatos, 6 páginas, mod
   - Siguen fallando en cobertura `transformers-de-texto-a-imagen` y `clip-en-la-materia` (0,5) en todas las combinaciones.
 - **Errores de medición encontrados y arreglados:** el registrador de llamadas seguía escuchando mientras juzgaba el juez, así que **los tokens de los evals (también los del 21/11 y 22/11) incluían los del juez**, y la búsqueda interna de `FaithfulnessEvaluator` se contaba como búsqueda del chat. Ahora se deja de escuchar antes del juez y las búsquedas se cuentan por las llamadas a la herramienta. Los tokens de la tabla de arriba siguen incluyendo al juez.
 - **Costo:** 0 créditos de LlamaCloud. OpenAI: unos USD 0,075 las cuatro corridas (estimado con la lista de precios, con el juez incluido). Voyage, dentro de los tokens gratis.
+
+## 22/11 · Búsqueda híbrida por defecto y backend reorganizado
+
+- **La búsqueda híbrida queda por defecto** (`LIBRARY_RETRIEVAL_MODE=hibrida`), por los evals de la entrada anterior. El chat sigue con el motor de contexto; el agente queda como opción para comparar en los evals.
+- **Error encontrado al ponerla por defecto (los tests lo detectaron):** `BM25Retriever` con `filters` no saca las páginas que no cumplen: les pone peso 0 y las sigue devolviendo con puntaje 0, y si ninguna cumple tira un error. Ahora BM25 se arma solo con las páginas que cumplen los filtros y, si no queda ninguna, se usa la búsqueda por vectores sola. Test nuevo: `test_busqueda_hibrida_respeta_los_filtros`.
+- **Backend reorganizado** por wizard y bibliotecas, con nombres que dicen qué hacen. Solo se movió código (`git mv`); las rutas HTTP y las carpetas de `data/` no cambiaron.
+
+| Antes (`pipelines/documents/`) | Ahora |
+|---|---|
+| `router.py` | `wizard/wizard_routes.py` (lo compartido pasó a `route_dependencies.py`) |
+| `pipeline.py` | `wizard/wizard_flow.py` |
+| `steps/s1_upload.py` … `s6_extract.py` | `wizard/steps/step1_upload.py` … `step6_extract.py` |
+| `steps/jobs.py` | `wizard/steps/llamacloud_jobs.py` |
+| `number_es` y `percent` (en `s2_parse.py`) | `number_format.py` |
+| `client.py` | `llamacloud_client.py` |
+| `library_router.py` | `libraries/library_routes.py` |
+| `library.py` | `libraries/llamacloud_engine.py` (`identity_metadata` y `summarize_search` → `libraries/document_metadata.py`; `stamp` → `core/runs/store.py`) |
+| `local_library.py` | `libraries/local/`: `local_engine.py` (entrada), `ai_models.py`, `index_builder.py`, `retrieval.py`, `chat_engine.py`, `turn_recorder.py`, `conversations.py` |
+| `library_evals.py` | `libraries/local/rag_evals.py` |
+| `tests/.../test_library.py` | `tests/.../test_llamacloud_library.py` |
+
+- **Verificación:** 31 tests pasan, ruff sin avisos, `npm run build` compila. Con el backend reiniciado: `/api/config` y las 14 corridas responden, la búsqueda de prueba corre en modo `hibrida` (para la consulta sobre Bolukbasi trae las págs. 12 y 11 de la clase 13 y tres de la 04) y un turno real del chat ("¿Qué relación hay entre los embeddings de palabras de PLN y los problemas de sesgo?") usó páginas de las clases 13, 03 y 04. Esa conversación de prueba se cerró.
+- **Costo:** 0 créditos de LlamaCloud. OpenAI: USD 0,000315 (el turno de prueba). Voyage, dentro de los tokens gratis.
