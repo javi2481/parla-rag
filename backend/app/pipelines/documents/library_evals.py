@@ -29,10 +29,11 @@ from .steps.s2_parse import number_es
 
 
 # El juez de las respuestas: OpenAI sin streaming (el del chat pide los tokens en streaming, que acá no sirve).
+# Tiene su propio razonamiento (library_judge_reasoning_effort), fijo aunque cambie el del chat, para comparar con el mismo juez.
 # Está en una función para que los tests lo reemplacen por uno falso.
 def make_judge_llm(settings: DocumentsSettings):
     return OpenAI(model=settings.library_chat_model, api_key=settings.openai_api_key,
-                  reasoning_effort=settings.library_reasoning_effort)
+                  reasoning_effort=settings.library_judge_reasoning_effort)
 
 
 # Lee el set de preguntas de data/samples/<conjunto>/evals/preguntas.json.
@@ -232,7 +233,9 @@ async def run_evals(store: RunStore, settings: DocumentsSettings, library: dict,
                "modo": settings.library_retrieval_mode,
                "mmr_threshold": settings.library_mmr_threshold if settings.library_retrieval_mode == "mmr" else None,
                "embed_model": settings.library_embed_model, "rerank_model": settings.library_rerank_model,
-               "juez": settings.library_chat_model if with_answers else None}
+               "razonamiento": settings.library_reasoning_effort if with_answers else None,
+               "juez": settings.library_chat_model if with_answers else None,
+               "juez_razonamiento": settings.library_judge_reasoning_effort if with_answers else None}
     summary = summarize(library, results, candidates, with_answers)
     # Una carpeta por corrida. Si ya hay una con la misma fecha y hora (dos corridas en el mismo segundo), se le suma un número.
     base = name = stamp()

@@ -40,6 +40,9 @@ class DocumentsSettings(BaseSettings):
     library_chat_price_input_usd: float = 0.05
     library_chat_price_output_usd: float = 0.40
     library_reasoning_effort: str = "minimal"
+    # El razonamiento del juez de los evals, aparte del chat: así se puede cambiar el del chat y comparar
+    # con el mismo juez. Con "minimal" el juez se equivocaba más (ver la bitácora del 22/11).
+    library_judge_reasoning_effort: str = "low"
     # Cuántas páginas (las mejores según el reranker) se le pasan al modelo en cada pregunta.
     library_chat_top_k: int = 6
     # Cómo elige los candidatos la búsqueda por vectores: "default" (los más parecidos) o "mmr"

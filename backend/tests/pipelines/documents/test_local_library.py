@@ -163,6 +163,9 @@ def test_local_library_evals(setup, monkeypatch):
     result = client.post(f"{base}/evals", json={"conjunto": "prueba", "respuestas": True}).json()
     answer = result["resultados"][0]["respuesta"]
     assert answer["fiel_a_los_fragmentos"] is True and answer["correccion"] == 4.5 and answer["correcta"] is True
+    # El pedido anota el razonamiento del chat y el del juez, que son aparte.
+    assert result["request"]["razonamiento"] == settings.library_reasoning_effort
+    assert result["request"]["juez_razonamiento"] == settings.library_judge_reasoning_effort
 
     # Cada corrida queda en su carpeta: libraries/<id>/evals/<fecha>/.
     runs = sorted((tmp_path / "documents" / "libraries" / library["id"] / "evals").iterdir())
@@ -362,3 +365,11 @@ def test_usage_trae_costo_estimado():
     assert usage["costo_estimado_usd"] == 0.09
     assert usage["modelo"] == DocumentsSettings().library_chat_model
 
+
+# El juez tiene su propio razonamiento: cambiar el del chat no lo cambia (así se compara con el mismo juez).
+def test_el_juez_no_depende_del_razonamiento_del_chat():
+    from app.pipelines.documents.library_evals import make_judge_llm
+
+    settings = DocumentsSettings(openai_api_key="d", library_reasoning_effort="minimal", library_judge_reasoning_effort="low")
+    assert make_judge_llm(settings).reasoning_effort == "low"
+    assert make_judge_llm(settings.model_copy(update={"library_reasoning_effort": "high"})).reasoning_effort == "low"
