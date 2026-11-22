@@ -232,3 +232,98 @@ Con el backend en :8000 y el frontend de desarrollo en :5173, manejando el naveg
 
 - **Hallazgo:** el script falló dos veces por escribir antes de que la pestaña nueva terminara de cargar (el cuadro se deshabilita mientras carga y el texto se pierde). En la app real pasa lo mismo si se escribe muy rápido después del "+".
 - **Costo:** 0 créditos de LlamaCloud. OpenAI: 5 respuestas (2 corridas del script, la segunda completa), menos de USD 0,002 estimado. Voyage, dentro de los tokens gratis.
+
+## 22/11 · Segunda pasada e2e (chat, wizard y bibliotecas)
+
+Con el backend en :8000 y el frontend de desarrollo en :5173, otra vez con Playwright (`e2e-chat.js` y pasos sueltos para el wizard y Bibliotecas, sin parsear nada nuevo).
+
+| Prueba | Resultado |
+|---|---|
+| Script del chat (recorrido, cruce ResNet/U-Net, filtro PLN, trampa, cerrar y recargar) | ✅ igual que el 21/11; la captura de la clase 10 abre (3000 px). La trampa vuelve a sugerir clases para consultar |
+| Wizard, corrida 09: lista de corridas | ✅ 14 corridas; la suma de créditos da 7.250 |
+| Wizard, Parse: pestaña Páginas | ❌ → ✅ decía **"Páginas (0)"** y no se veían capturas ni cajas (ver hallazgo 1). Después del arreglo: 41 páginas, cajas sobre la página 6 y las de baja confianza en rojo |
+| Wizard, Parse: tiempo | ❌ → ✅ decía **"0,0 segundos"** (ver hallazgo 2). Ahora: 19,3 s |
+| Wizard, Classify / Extract / Biblioteca | ✅ `aprendizaje_profundo_en_imagenes` con 98 %, 0 créditos; Extract pide Schema; "Ya está en: Aprendizaje Automático II" |
+| Bibliotecas: documentos, sincronización, evals guardados | ✅ 14 documentos con su tipo, 410 páginas en 410 chunks, evals del 21/11 |
+| Bibliotecas: búsqueda de prueba | ❌ → ✅ decía "Cada búsqueda cuesta 1 crédito según la lista de precios de LlamaCloud", que es del motor de LlamaCloud. Con el motor local ahora dice que la hace Voyage AI con 0 créditos |
+
+**Hallazgos y arreglos:**
+
+1. **Rutas con `\` en Windows.** `RunStore.list_files` armaba la ruta con `str()`, y en Windows sale `2_parse\images\page_1.jpg`. El frontend busca `images/page_N.jpg`, así que no encontraba ninguna captura. Era también la causa del test que fallaba solo en Windows (`test_upload_parse_and_delete`). Arreglo: `as_posix()`. En Linux (Docker, CI) no pasaba.
+2. **El tiempo del parse era 0.** La API ya no manda `job_metadata.latency.total_ms`: manda `state_transitions` (`running_at`, `completed_at`). Ahora el tiempo sale de esas dos horas; si no viene ninguno de los dos datos, la métrica dice "—" y la frase no menciona el tiempo. Se recalcularon los `metrics.json` de las 14 corridas desde su `response.json` guardado (local, sin llamar a la API; los anteriores quedaron respaldados fuera del repo). Test nuevo en `test_parse_summary.py`.
+3. **Aviso de React en la consola** al mostrar el Markdown de la clase 09: LlamaParse devuelve una tabla HTML con texto suelto adentro ("One and two stage detectors"). No rompe nada; queda anotado.
+
+- **Tests:** 29 pasan en Windows (antes 27 de 28).
+- **Costo:** 0 créditos de LlamaCloud. OpenAI: 3 respuestas, menos de USD 0,001 estimado. Voyage, dentro de los tokens gratis.
+
+## 22/11 · Auditoría para pulir el proyecto
+
+Revisión solo de lectura de todo el código y la documentación, y después los arreglos. Sin llamadas pagas.
+
+| # | Hallazgo | Qué se hizo |
+|---|---|---|
+| 1 | **Docker arranca sin los datos:** el volumen nuevo de `compose.yaml` solo trae `samples/`; sin las 14 corridas ni el índice, el Chat abre vacío (rehacer los parses cuesta 7.250 créditos) | Se decide al armar la imagen |
+| 2 | 9 rutas de `library_router.py`, 15 funciones de `libraries/api.ts` y 3 funciones internas sin el comentario de arriba (regla del proyecto) | Comentadas; el chequeo automático da 0 funciones sin comentario |
+| 3 | Las métricas de los evals en formato inglés (`0.966`, `282010`, `4.553 s`) | `decimal_es` y `number_es`: `0,966`, `282.010`, `4,6 s`. Se recalcularon los `metrics.json` de los evals guardados que tienen cobertura de clases (los 2 más viejos no la tienen y quedan como estaban); respaldo fuera del repo |
+| 4 | El chat de Bibliotecas decía "Búsquedas del agente" con el motor local, que no tiene agente | Dice "Búsquedas" con el motor local |
+| 5 | `s2_parse.py` remitía a `docs/verificacion-1-parse.md`, que ya no existe | Remite al informe de la fase 1 y a la bitácora |
+| 6 | Parecía que el separador por defecto (`"oraciones"`) contradecía al de la configuración (`"pagina"`) | **Falso positivo:** las bibliotecas sin el dato se armaron con `"oraciones"` y el motor corta igual. Se agregó un comentario que lo explica |
+| 7 | El encabezado del paso 7 (Biblioteca) tenía otro estilo | Igual a los demás pasos: "PASO 7" y el título grande |
+| 8 | `.playwright-mcp/` y `.atl/` sin ignorar | Agregadas al `.gitignore` |
+
+- **Verificado:** 29 tests pasan, el frontend compila y en el navegador se ven los evals en formato argentino, "Búsquedas (1)", el texto nuevo de la búsqueda de prueba y el paso 7.
+- **Costo:** 0.
+
+## 22/11 · Preguntas que cruzan clases (prueba manual)
+
+Dos preguntas en el Chat, sin filtros. Se revisaron las páginas que llegaron al modelo (`turno_1.json` de cada conversación) contra el parse.
+
+| Pregunta | Páginas que llegaron al modelo | Qué pasó |
+|---|---|---|
+| *"¿Cómo se usa el mecanismo de atención en texto, en imágenes y en los modelos multimodales?"* | Las 6 de la clase **12** (págs. 25, 22, 10, 27, 7 y 5) | ❌ **Falla de la búsqueda:** no llegó ninguna página de la 05 (Transformers), la 07 (ViT) ni la 10, que hablan de atención. ⚠️ El modelo además **estira** el contexto: dice que CLIP usa "atención en el espacio compartido" (la pág. 10 habla de distancia entre embeddings, no de atención) |
+| *"¿Qué técnicas se mencionan en la materia para evitar el sobreajuste?"* | 08 pág. 15, 06 pág. 31, **02 pág. 6**, 13 págs. 24 y 30, 03 pág. 43 | ❌ **Falla del modelo:** la búsqueda trajo la 02 pág. 6 (tercera, rerank 0,71), que dice **"Regularización"** y **"Drop-out"**, y el modelo no las nombró. ⚠️ Puso como técnica contra el sobreajuste el learning rate bajo, que en la pág. 15 de la 08 es para el *catastrophic forgetting* |
+
+- **Lectura:** son dos fallas distintas. En la primera, la consulta junta tres temas y la búsqueda se va toda hacia "multimodales". En la segunda, la página correcta llegó y `gpt-5-nano` con razonamiento `minimal` no la usó.
+- **Costo:** 0 créditos de LlamaCloud. OpenAI: USD 0,000503 + 0,000163 (estimado). Voyage, dentro de los tokens gratis.
+
+**Misma pregunta del sobreajuste con `LIBRARY_REASONING_EFFORT=low`** (variable de entorno solo para esta prueba; el `.env` no se tocó):
+
+- **Llegaron las mismas 6 páginas** (06 pág. 31, 08 pág. 15, 02 pág. 6, 13 págs. 24 y 30, 03 pág. 43).
+- ✅ Ahora nombra **"Regularización mediante Drop-out"** (02 pág. 6) y el aumento de datos (06 pág. 31). ✅ Ya no pone el learning rate bajo como técnica contra el sobreajuste.
+- ⚠️ Le falta GlobalAveragePooling2D en lugar de Flatten (08 pág. 15 dice "menos sobreajuste").
+- **Tokens:** 1.261 de entrada y 314 de salida (192 de razonamiento), contra 249 de salida y 0 de razonamiento con `minimal`. **Costo:** USD 0,000189 contra 0,000163.
+- Es **una sola muestra** y el modelo no es determinístico: para decidir el valor por defecto hay que correr los evals con respuestas.
+- Además se gastó un turno de prueba con la pregunta "x" por un error de codificación del script (la consola de Windows rompía los acentos del pedido): menos de USD 0,0001. Esa conversación se cerró.
+
+## 22/11 · Evals con razonamiento `low`
+
+Evals con respuestas, configuración por defecto (18 candidatos, 6 páginas, modo `default`), con `LIBRARY_REASONING_EFFORT=low` (variable de entorno; el `.env` no se tocó). Carpeta `evals/2026-11-22_115912`.
+
+| | `minimal` (5 corridas del 21/11, misma configuración) | `low` (22/11) |
+|---|---|---|
+| Hit rate / MRR / cobertura de clases | 1 / 0,96 / 0,966 | 1 / 0,96 / 0,966 (la búsqueda es la misma) |
+| Respuestas correctas (4 o más de 5) | 22 a 25 de 31 | **28 de 31** |
+| Corrección promedio | 3,61 a 3,81 | **4,645** |
+| Fieles a los fragmentos | 29 a 30 de 31 | 27 de 31 |
+| Tiempo por respuesta (promedio) | 2,4 a 2,7 s | 3,7 s |
+| Tokens de OpenAI (entrada / salida) | ~131.000 / ~9.000 | 135.601 / 26.134 |
+
+- ⚠️ **La comparación no es limpia:** el juez usa la misma configuración que el chat (`library_evals.py`), así que también pasó a `low`. Cambiaron a la vez el que responde y el que corrige.
+- **Ruido del juez, visto en sus explicaciones:** marcó como no fieles 4 respuestas que dice correctas (5 de 5), entre ellas la trampa de la fecha del parcial, que responde que el dato no está. `FaithfulnessEvaluator` solo devuelve YES/NO, sin el motivo. A *"¿Cómo se engaña a una red?"* le puso 2 de 5 por motivos de seguridad, aunque es el tema de la clase 13.
+- **Costo:** 0 créditos de LlamaCloud. OpenAI: unos USD 0,017 (estimado con la lista de precios). Voyage, dentro de los tokens gratis.
+
+## 22/11 · El juez de los evals, aparte del chat
+
+- **Cambio:** `LIBRARY_JUDGE_REASONING_EFFORT` (por defecto `low`) para el juez, separado de `LIBRARY_REASONING_EFFORT` del chat. Cada corrida de evals anota los dos en su `request.json` (`razonamiento` y `juez_razonamiento`). Es una opción del cliente nativo de OpenAI de LlamaIndex. Tests: 30 pasan (uno nuevo verifica que cambiar el razonamiento del chat no cambia el del juez).
+- **Evals con el mismo juez (`low`), misma configuración (18 candidatos, 6 páginas):**
+
+| | Chat `minimal` (`evals/2026-11-22_121929`) | Chat `low` (`evals/2026-11-22_115912`) |
+|---|---|---|
+| Respuestas correctas (4 o más de 5) | **28 de 31** | **28 de 31** |
+| Corrección promedio | 4,516 | 4,645 |
+| Fieles a los fragmentos | **30 de 31** | 27 de 31 |
+| Tiempo por respuesta (promedio / máximo) | **2,9 s / 4,1 s** | 3,7 s / 5,8 s |
+| Tokens de OpenAI (entrada / salida) | 140.057 / 20.178 | 135.601 / 26.134 |
+
+- **Conclusión:** la mejora de 22–25 a 28 de 31 era **del juez**, no del chat. Con el mismo juez, el chat en `minimal` acierta lo mismo, es más fiel y más rápido. **El chat queda en `minimal`**; la mejora de la pregunta del sobreajuste con `low` fue una sola muestra.
+- **Costo:** 0 créditos de LlamaCloud. OpenAI: unos USD 0,015 (estimado). Voyage, dentro de los tokens gratis.

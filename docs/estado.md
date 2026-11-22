@@ -86,7 +86,7 @@ Una biblioteca junta documentos relacionados (por ejemplo, las 14 clases de "Apr
 - **14 corridas parseadas** (la presentación y las 13 clases): 410 páginas, **7.250 créditos** (17,7 por página en promedio, entre 15 y 25). Confianza del documento entre 78 % y 99 %.
 - **Sincronizada** en 6 s: 410 páginas en 410 chunks, 0 créditos de LlamaCloud.
 - **Set de evals** en [`samples/aprendizaje-automatico-ii/evals/preguntas.json`](../backend/data/samples/aprendizaje-automatico-ii/evals/preguntas.json): 31 preguntas (29 con fuente y 2 trampas; entre ellas, parafraseadas, de varias diapositivas y que cruzan clases), con las respuestas verificadas en el parse.
-- **Evals (configuración elegida: 6 páginas, búsqueda `default`):** hit rate 1,0 · MRR 0,96 · cobertura de clases 0,966 · entre 22 y 25 de 31 respuestas correctas según la corrida (el juez tiene ruido) · 2,7 s por respuesta. **MMR se probó y no mejoró la cobertura** (ver la bitácora del 21/11): queda como opción (`LIBRARY_RETRIEVAL_MODE=mmr`).
+- **Evals (configuración elegida: 6 páginas, búsqueda `default`, chat en `minimal`):** hit rate 1,0 · MRR 0,96 · cobertura de clases 0,966 · **28 de 31 respuestas correctas** con el juez en `low` (con el juez en `minimal` daba entre 22 y 25: el juez se equivocaba más) · 2,9 s por respuesta. El juez tiene su propio razonamiento (`LIBRARY_JUDGE_REASONING_EFFORT`); con el mismo juez, el chat en `low` no acierta más y es más lento (bitácora del 22/11). **MMR se probó y no mejoró la cobertura** (ver la bitácora del 21/11): queda como opción (`LIBRARY_RETRIEVAL_MODE=mmr`).
 
 ### La página principal: el chat (21/11)
 
@@ -102,7 +102,7 @@ La pestaña **Chat** es la primera y la que abre la app (`#chat`). Usa la biblio
 
 ### Calidad y auditoría
 
-- **28 tests** con clientes falsos (sin red ni créditos): el wizard completo, los resúmenes, las bibliotecas con los dos motores, el chat local, las conversaciones, los filtros, los evals y el costo estimado.
+- **29 tests** con clientes falsos (sin red ni créditos): el wizard completo, los resúmenes, las bibliotecas con los dos motores, el chat local, las conversaciones, los filtros, los evals y el costo estimado.
 - **Bitácora** con cada prueba, hallazgo y decisión, y **registro de créditos** con cada llamada paga.
 - **Datos crudos** de cada verificación en `backend/data/verificacion/` (fuera de git).
 
@@ -152,7 +152,7 @@ La pestaña **Chat** es la primera y la que abre la app (`#chat`). Usa la biblio
 
 - [ ] **`format: date` no se respeta:** Extract devuelve fechas en el formato del documento en lugar de AAAA-MM-DD. Es de LlamaCloud; documentarlo en la clase o ajustar la guía del campo.
 - [ ] **El chat local usa el despachador global de la instrumentación de LlamaIndex:** si dos personas chatean **a la vez**, los registros de los dos turnos se pueden mezclar. Para una demo alcanza; para uso real habría que filtrar por `span_id`.
-- [ ] **Un test falla en Windows** (`test_upload_parse_and_delete`): compara rutas con `/` y Windows las arma con `\`. En el CI (Linux) pasa.
+- [x] **Rutas con `\` en Windows:** rompían las capturas del wizard y un test. Arreglado el 22/11 con `as_posix()` (bitácora del 22/11).
 - [ ] **Las API keys de Voyage y DeepSeek se pegaron en el chat** con Claude en una sesión anterior: rotarlas. La de DeepSeek ya no se usa.
 
 ---
