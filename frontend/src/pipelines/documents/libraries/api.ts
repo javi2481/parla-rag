@@ -43,27 +43,42 @@ export type Library = {
 };
 
 const BASE = '/api/documents/libraries';
+// Arma un POST con cuerpo JSON.
 const json = (body: unknown) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
+// Lista las bibliotecas.
 export const listLibraries = () => api<Library[]>(BASE);
+// Crea una biblioteca vacía.
 export const createLibrary = (name: string, description: string) => api<Library>(BASE, json({ name, description }));
+// Trae una biblioteca con sus documentos, su sincronización, búsquedas, turnos y evals.
 export const getLibrary = (id: string) => api<Library>(`${BASE}/${id}`);
+// Borra la biblioteca (las corridas del wizard no se tocan).
 export const deleteLibrary = (id: string) => api<{ deleted: string }>(`${BASE}/${id}`, { method: 'DELETE' });
+// Suma una corrida del wizard a la biblioteca.
 export const addDocument = (id: string, runId: string) => api<Library>(`${BASE}/${id}/documents`, json({ run_id: runId }));
+// Saca un documento de la biblioteca.
 export const removeDocument = (id: string, runId: string) => api<Library>(`${BASE}/${id}/documents/${runId}`, { method: 'DELETE' });
+// Arma (o vuelve a armar) el índice de la biblioteca.
 export const startSync = (id: string) => api<Library>(`${BASE}/${id}/sync`, { method: 'POST' });
+// Consulta cómo va la sincronización.
 export const checkSync = (id: string) => api<Library>(`${BASE}/${id}/sync`);
+// Corre los evals con un set de preguntas; con respuestas = true, también responde el chat y juzga OpenAI.
 export const runEvals = (id: string, conjunto: string, respuestas: boolean) =>
   api<EvalRun>(`${BASE}/${id}/evals`, json({ conjunto, respuestas }));
+// La búsqueda de prueba: qué páginas recuperaría el chat, sin responder.
 export const search = (id: string, query: string, topK: number) => api<Search>(`${BASE}/${id}/search`, json({ query, top_k: topK }));
 
 // Una conversación del chat (una pestaña): su título sale de la primera pregunta.
 export type Conversation = { id: string; titulo: string; creada: string; turnos: number; cerrada: boolean };
 
+// Lista las conversaciones abiertas (las pestañas del chat).
 export const listConversations = (id: string) => api<Conversation[]>(`${BASE}/${id}/conversations`);
+// Crea una conversación nueva, vacía.
 export const createConversation = (id: string) => api<Conversation>(`${BASE}/${id}/conversations`, { method: 'POST' });
+// Trae una conversación con todos sus turnos.
 export const getConversation = (id: string, conversationId: string) =>
   api<Conversation & { turns: Turn[] }>(`${BASE}/${id}/conversations/${conversationId}`);
+// Cierra una conversación: solo la oculta, su carpeta queda en disco.
 export const closeConversation = (id: string, conversationId: string) =>
   api<unknown>(`${BASE}/${id}/conversations/${conversationId}/close`, { method: 'POST' });
 

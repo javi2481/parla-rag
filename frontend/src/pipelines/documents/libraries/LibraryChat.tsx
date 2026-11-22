@@ -57,7 +57,7 @@ export function TurnView({ turn, live, local }: { turn: Turn; live?: boolean; lo
       )}
       {calls.length > 0 && (
         <details>
-          <summary className="cursor-pointer text-xs text-muted-foreground">Búsquedas del agente ({calls.length})</summary>
+          <summary className="cursor-pointer text-xs text-muted-foreground">{local ? 'Búsquedas' : 'Búsquedas del agente'} ({calls.length})</summary>
           <ul className="mt-2 space-y-2">
             {calls.map((call, i) => (
               <li key={call.call_id ?? i} className="text-xs">

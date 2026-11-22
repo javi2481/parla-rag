@@ -201,6 +201,7 @@ def build_documents(store: RunStore, library: dict) -> list[Document]:
 #   - "pagina": no corta nada, cada página es un chunk. Respeta las tablas que LlamaParse unió entre páginas
 #     (merge_continued_tables las pone enteras en la primera página) y la cita por página queda exacta.
 def build_nodes(library: dict, documents: list[Document]) -> list:
+    # Las bibliotecas creadas antes de poder elegir el corte no lo tienen guardado: se armaron con "oraciones".
     splitter = library.get("splitter", "oraciones")
     if splitter == "pagina":
         # Un TextNode por página, con el mismo texto y la misma metadata (el reranker de Voyage pide TextNode).
@@ -311,6 +312,7 @@ async def search(client, store: RunStore, settings: DocumentsSettings, library: 
     prepare_nltk(data_dir_of(store))
     index = load_index(store, settings, library)
 
+    # Busca y rerankea (código bloqueante: corre en otro hilo). Guarda el score de la búsqueda por vectores para mostrarlo junto al del reranker.
     def run() -> list:
         retriever = make_retriever(index, settings, candidates=top_k * CANDIDATES_PER_RESULT, filters=metadata_filters)
         candidates = retriever.retrieve(query)
@@ -370,6 +372,7 @@ class TurnRecorder(BaseEventHandler):
     searches: list = Field(default_factory=list)
     llm_calls: list = Field(default_factory=list)
 
+    # LlamaIndex llama a esta función con cada evento: se anotan la búsqueda y las llamadas al modelo.
     def handle(self, event, **kwargs) -> None:
         if isinstance(event, RetrievalEndEvent):
             query = event.str_or_query_bundle

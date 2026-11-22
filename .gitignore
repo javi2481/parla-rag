@@ -15,3 +15,7 @@ backend/data/samples/aprendizaje-automatico-ii/*
 
 # Bocetos y registro de avance de los planes (superpowers)
 .superpowers/
+
+# Herramientas locales: logs y capturas de Playwright y el registro de skills
+.playwright-mcp/
+.atl/

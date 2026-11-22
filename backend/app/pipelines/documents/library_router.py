@@ -126,11 +126,13 @@ async def guarded(call):
         raise HTTPException(502, f"Voyage AI respondió con un error: {e}") from e
 
 
+# GET /libraries: lista las bibliotecas, de la más nueva a la más vieja.
 @router.get("")
 def list_libraries(store: LibrariesDep):
     return store.list_runs()
 
 
+# POST /libraries: crea una biblioteca vacía con el motor configurado (local o LlamaCloud).
 @router.post("")
 async def create_library(client: ClientDep, store: LibrariesDep, settings: SettingsDep,
                          name: Annotated[str, Body(embed=True)], description: Annotated[str, Body(embed=True)] = ""):
@@ -138,11 +140,13 @@ async def create_library(client: ClientDep, store: LibrariesDep, settings: Setti
     return describe(store, library)
 
 
+# GET /libraries/{id}: la biblioteca con sus documentos, su sincronización, búsquedas, turnos y evals.
 @router.get("/{library_id}")
 def get_library(library_id: str, store: LibrariesDep):
     return describe(store, find(store, library_id))
 
 
+# DELETE /libraries/{id}: borra la biblioteca (las corridas del wizard no se tocan).
 @router.delete("/{library_id}")
 async def delete_library(library_id: str, client: ClientDep, store: LibrariesDep, settings: SettingsDep):
     library = find(store, library_id)
@@ -150,6 +154,7 @@ async def delete_library(library_id: str, client: ClientDep, store: LibrariesDep
     return {"deleted": library_id}
 
 
+# POST /libraries/{id}/documents: suma una corrida del wizard, con su metadata de identidad.
 @router.post("/{library_id}/documents")
 async def add_document(library_id: str, client: ClientDep, store: LibrariesDep, settings: SettingsDep, runs: RunsDep,
                        run_id: Annotated[str, Body(embed=True)]):
@@ -158,6 +163,7 @@ async def add_document(library_id: str, client: ClientDep, store: LibrariesDep, 
     return describe(store, library)
 
 
+# DELETE /libraries/{id}/documents/{corrida}: saca un documento de la biblioteca.
 @router.delete("/{library_id}/documents/{run_id}")
 async def remove_document(library_id: str, run_id: str, client: ClientDep, store: LibrariesDep, settings: SettingsDep):
     library = find(store, library_id)
@@ -165,6 +171,7 @@ async def remove_document(library_id: str, run_id: str, client: ClientDep, store
     return describe(store, library)
 
 
+# POST /libraries/{id}/sync: arma (o vuelve a armar) el índice con los documentos de la biblioteca.
 @router.post("/{library_id}/sync")
 async def start_sync(library_id: str, client: ClientDep, store: LibrariesDep, settings: SettingsDep):
     library = find(store, library_id)
@@ -172,6 +179,7 @@ async def start_sync(library_id: str, client: ClientDep, store: LibrariesDep, se
     return describe(store, library)
 
 
+# GET /libraries/{id}/sync: consulta cómo va la sincronización y devuelve la biblioteca actualizada.
 @router.get("/{library_id}/sync")
 async def check_sync(library_id: str, client: ClientDep, store: LibrariesDep, settings: SettingsDep):
     library = find(store, library_id)
@@ -179,6 +187,7 @@ async def check_sync(library_id: str, client: ClientDep, store: LibrariesDep, se
     return describe(store, library)
 
 
+# POST /libraries/{id}/search: la búsqueda de prueba; muestra qué páginas recuperaría el chat, sin responder.
 @router.post("/{library_id}/search")
 async def search(library_id: str, client: ClientDep, store: LibrariesDep, settings: SettingsDep,
                  query: Annotated[str, Body(embed=True)], top_k: Annotated[int, Body(embed=True)] = 8,
@@ -256,6 +265,7 @@ async def chat(library_id: str, client: ClientDep, store: LibrariesDep, settings
         except ValueError as e:
             raise HTTPException(409, str(e)) from e
 
+    # Manda los eventos del turno a medida que llegan; si el motor o la API fallan en el medio, manda un evento de error.
     async def events():
         try:
             async for line in engine_of(library).chat_turn(client, store, settings, library, prompt,

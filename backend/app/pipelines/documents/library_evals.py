@@ -25,6 +25,7 @@ from app.core.runs.store import RunStore, now, read_json, write_json
 from . import local_library as engine
 from .library import stamp
 from .settings import DocumentsSettings
+from .steps.s2_parse import number_es
 
 
 # El juez de las respuestas: OpenAI sin streaming (el del chat pide los tokens en streaming, que acá no sirve).
@@ -133,6 +134,14 @@ def average(values: list) -> float | None:
     return round(sum(values) / len(values), 3) if values else None
 
 
+# Escribe un promedio con formato argentino y hasta 3 decimales, sin ceros de más: 0.966 → "0,966" y 1.0 → "1".
+def decimal_es(value: float | None) -> str:
+    if value is None:
+        return "—"
+    text = number_es(value, 3)
+    return text.rstrip("0").rstrip(",") if "," in text else text
+
+
 # Las métricas y la interpretación de una corrida de evals, armadas solo con los resultados.
 def summarize(library: dict, results: list[dict], candidates: int, with_answers: bool) -> dict:
     searched = [r["busqueda"] for r in results if r.get("busqueda")]
@@ -141,9 +150,9 @@ def summarize(library: dict, results: list[dict], candidates: int, with_answers:
         {"label": "Preguntas", "value": len(results)},
         {"label": "Separador", "value": library.get("splitter", "oraciones")},
         {"label": "Candidatos antes del reranker", "value": candidates},
-        {"label": "Búsqueda: hit rate", "value": average([r["hit_rate"] for r in searched])},
-        {"label": "Búsqueda: MRR", "value": average([r["mrr"] for r in searched])},
-        {"label": "Cobertura de clases (promedio)", "value": average([r["cobertura_de_clases"] for r in searched])},
+        {"label": "Búsqueda: hit rate", "value": decimal_es(average([r["hit_rate"] for r in searched]))},
+        {"label": "Búsqueda: MRR", "value": decimal_es(average([r["mrr"] for r in searched]))},
+        {"label": "Cobertura de clases (promedio)", "value": decimal_es(average([r["cobertura_de_clases"] for r in searched]))},
     ]
     interpretacion = [
         (f"La búsqueda trajo al menos una página correcta en {hits} de {len(searched)} preguntas con fuente "
@@ -161,11 +170,11 @@ def summarize(library: dict, results: list[dict], candidates: int, with_answers:
         metricas += [
             {"label": "Respuestas fieles a los fragmentos", "value": f"{faithful} de {len(answers)}"},
             {"label": "Respuestas correctas (4 o más de 5)", "value": f"{correct} de {len(answers)}"},
-            {"label": "Corrección promedio (1 a 5)", "value": average([a["correccion"] for a in answers])},
+            {"label": "Corrección promedio (1 a 5)", "value": decimal_es(average([a["correccion"] for a in answers]))},
             {"label": "Tokens de OpenAI (entrada / salida)",
-             "value": f"{sum(a['usage']['tokens_de_entrada'] for a in answers)} / {sum(a['usage']['tokens_de_salida'] for a in answers)}"},
+             "value": f"{number_es(sum(a['usage']['tokens_de_entrada'] for a in answers))} / {number_es(sum(a['usage']['tokens_de_salida'] for a in answers))}"},
             {"label": "Tiempo por respuesta (promedio / máximo)",
-             "value": f"{average([a['segundos'] for a in answers])} s / {max(a['segundos'] for a in answers)} s"},
+             "value": f"{number_es(average([a['segundos'] for a in answers]), 1)} s / {number_es(max(a['segundos'] for a in answers), 1)} s"},
         ]
         wrong = [r["id"] for r in results if not r["respuesta"]["correcta"]]
         if wrong:

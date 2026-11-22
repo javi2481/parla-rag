@@ -34,10 +34,11 @@ export function LibraryStep({ runId, parsed, libraries, onAdded }: {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-glass-border bg-glass/40 p-5">
-      <div>
-        <h3 className="flex items-center gap-2 font-medium"><LibraryIcon className="size-4" /> Paso 7 · Biblioteca</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <section className="space-y-4 rounded-2xl border border-glass-border bg-glass/40 p-5 sm:p-6" aria-label="Paso 7: Biblioteca">
+      <div className="max-w-2xl">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-mint">Paso 7</p>
+        <h2 className="mt-1 flex items-center gap-2 font-display text-3xl"><LibraryIcon className="size-6" /> Biblioteca</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
           Sumá este documento a una biblioteca para buscar y chatear con varios documentos a la vez.
           Se usa el Markdown de cada página del parse: no se vuelve a parsear y no gasta créditos.
         </p>

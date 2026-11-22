@@ -201,7 +201,7 @@ def test_evals_miden_cobertura_y_tiempo(setup, monkeypatch):
     assert busqueda["clases_esperadas"] == ["clase.pdf", "otra.pdf"]
     assert busqueda["clases_encontradas"] == ["clase.pdf"]
     assert busqueda["cobertura_de_clases"] == 0.5
-    assert any(m["label"] == "Cobertura de clases (promedio)" and m["value"] == 0.5 for m in resultado["metricas"])
+    assert any(m["label"] == "Cobertura de clases (promedio)" and m["value"] == "0,5" for m in resultado["metricas"])
 
     settings.openai_api_key = "d"
     con_respuestas = client.post(f"{base}/evals", json={"conjunto": "cobertura", "respuestas": True}).json()
@@ -361,3 +361,4 @@ def test_usage_trae_costo_estimado():
     usage = local_library.total_usage(calls, DocumentsSettings())
     assert usage["costo_estimado_usd"] == 0.09
     assert usage["modelo"] == DocumentsSettings().library_chat_model
+
