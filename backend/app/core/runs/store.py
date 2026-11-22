@@ -131,6 +131,7 @@ class RunStore:
         path.rename(history / f"{folder}_{stamp}")
 
     # Lista los archivos que guardó un paso, con su ruta relativa a la corrida y su tamaño.
+    # La ruta va siempre con "/" (as_posix): en Windows, str() la arma con "\" y el frontend no la reconoce.
     def list_files(self, run_id: str, folder: str) -> list[dict]:
         run_path = self.run_dir(run_id)
         step_path = run_path / folder
@@ -139,7 +140,7 @@ class RunStore:
         files = []
         for path in sorted(step_path.rglob("*")):
             if path.is_file():
-                files.append({"path": str(path.relative_to(run_path)), "size": path.stat().st_size})
+                files.append({"path": path.relative_to(run_path).as_posix(), "size": path.stat().st_size})
         return files
 
     # Devuelve la ruta de un archivo de la corrida, verificando que no se salga de su carpeta.
