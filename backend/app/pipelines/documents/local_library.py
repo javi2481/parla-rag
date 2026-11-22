@@ -286,6 +286,15 @@ def to_filters(filters: dict | None) -> MetadataFilters | None:
     return MetadataFilters(filters=exact)
 
 
+# ¿La metadata de una página cumple los filtros? (los mismos de to_filters: solo igualdad)
+def matches(metadata: dict, filters: dict | None) -> bool:
+    return all(metadata.get(key) == condition["value"] for key, condition in (filters or {}).items())
+
+
+# Lo que responde el chat cuando ninguna página cumple los filtros (sin llamar al modelo).
+NO_PAGES_WITH_FILTERS = "No encontré páginas con esos filtros."
+
+
 # Abre el índice guardado en la carpeta de la biblioteca.
 def load_index(store: RunStore, settings: DocumentsSettings, library: dict) -> VectorStoreIndex:
     folder = store.run_dir(library["id"]) / "index"
@@ -472,10 +481,10 @@ def sse(event: dict) -> str:
 # Lo usan el chat y los evals, así los evals miden exactamente el mismo chat.
 # "candidates" es cuántos candidatos trae la búsqueda por vectores antes del reranker (por defecto, top_k × 3).
 def make_chat_engine(index: VectorStoreIndex, settings: DocumentsSettings, history: list[ChatMessage],
-                     candidates: int | None = None) -> CondensePlusContextChatEngine:
+                     candidates: int | None = None, filters: MetadataFilters | None = None) -> CondensePlusContextChatEngine:
     top_k = settings.library_chat_top_k
     return CondensePlusContextChatEngine.from_defaults(
-        retriever=make_retriever(index, settings, candidates),
+        retriever=make_retriever(index, settings, candidates, filters),
         llm=make_llm(settings),
         chat_history=history,
         system_prompt=SYSTEM_PROMPT,
@@ -491,12 +500,14 @@ def make_chat_engine(index: VectorStoreIndex, settings: DocumentsSettings, histo
 #   3. OpenAI responde con esas páginas, citando documento y página. La respuesta llega en vivo.
 # Manda los mismos eventos que el chat de LlamaCloud (tool_call, tool_result, text_delta, stop) y guarda todo el turno
 # en la carpeta de su conversación. Sin conversation_id se crea una nueva; el evento "stop" dice cuál se usó.
-# "filters" lo usa la tarea de filtros por unidad; por ahora se recibe para que los dos motores tengan la misma firma.
+# "filters" acota la búsqueda por metadata (por ejemplo, una unidad o una clase). Si ninguna página los cumple,
+# se responde un mensaje fijo sin llamar a OpenAI: no tiene sentido pagar una respuesta sin páginas.
 async def chat_turn(client, store: RunStore, settings: DocumentsSettings, library: dict, prompt: str,
                     conversation_id: str | None = None, filters: dict | None = None):
     check_ready(settings)
     if not settings.openai_api_key:
         raise ValueError("Falta configurar OPENAI_API_KEY en backend/.env.")
+    metadata_filters = to_filters(filters)  # primero se validan, antes de abrir el índice
     if conversation_id is None:
         conversation_id = create_conversation(store, library)["id"]
     folder = conversation_folder(store, library, conversation_id)
@@ -504,26 +515,32 @@ async def chat_turn(client, store: RunStore, settings: DocumentsSettings, librar
     index = load_index(store, settings, library)
     history = chat_history(folder)
     top_k = settings.library_chat_top_k
-    engine = make_chat_engine(index, settings, history)
+    engine = make_chat_engine(index, settings, history, filters=metadata_filters)
     recorder = TurnRecorder()
     dispatcher = get_dispatcher()
     dispatcher.add_event_handler(recorder)
     events, answer, sources, error = [], "", [], None
+    has_pages = any(matches(node.metadata, filters) for node in index.docstore.docs.values())
+    if not has_pages:
+        answer = NO_PAGES_WITH_FILTERS
+        events.append({"type": "text_delta", "content": answer})
+        yield sse(events[-1])
     try:
-        response = await engine.astream_chat(prompt)
-        search_call = {"type": "tool_call", "call_id": "busqueda", "name": "buscar_en_la_biblioteca",
-                       "arguments": {"busquedas": recorder.searches, "paginas_para_el_modelo": top_k}}
-        sources = [{"documento": node.node.metadata.get("nombre"), "pagina": node.node.metadata.get("pagina"),
-                    "rerank_score": node.score, "metadata": node.node.metadata, "texto": node.node.get_content()}
-                   for node in response.source_nodes]
-        for event in (search_call, {"type": "tool_result", "call_id": "busqueda", "result": sources}):
-            events.append(event)
-            yield sse(event)
-        async for token in response.async_response_gen():
-            answer += token
-            event = {"type": "text_delta", "content": token}
-            events.append(event)
-            yield sse(event)
+        if has_pages:
+            response = await engine.astream_chat(prompt)
+            search_call = {"type": "tool_call", "call_id": "busqueda", "name": "buscar_en_la_biblioteca",
+                           "arguments": {"busquedas": recorder.searches, "paginas_para_el_modelo": top_k}}
+            sources = [{"documento": node.node.metadata.get("nombre"), "pagina": node.node.metadata.get("pagina"),
+                        "rerank_score": node.score, "metadata": node.node.metadata, "texto": node.node.get_content()}
+                       for node in response.source_nodes]
+            for event in (search_call, {"type": "tool_result", "call_id": "busqueda", "result": sources}):
+                events.append(event)
+                yield sse(event)
+            async for token in response.async_response_gen():
+                answer += token
+                event = {"type": "text_delta", "content": token}
+                events.append(event)
+                yield sse(event)
     except Exception as e:  # el error se muestra en el chat y queda guardado en el turno
         log.exception("Chat local")
         error = str(e)[:500]
@@ -531,19 +548,26 @@ async def chat_turn(client, store: RunStore, settings: DocumentsSettings, librar
         yield sse(events[-1])
     finally:
         dispatcher.event_handlers.remove(recorder)
+    yield finish_turn(folder, settings, prompt, answer, error, history, filters, recorder, sources, events,
+                      conversation_id)
 
+
+# Cierra un turno: manda el evento "stop" (con el uso de tokens y la conversación) y guarda todo en turno_N.json.
+def finish_turn(folder: Path, settings: DocumentsSettings, prompt: str, answer: str, error: str | None,
+                history: list, filters: dict | None, recorder, sources: list, events: list, conversation_id: str) -> str:
     usage = total_usage(recorder.llm_calls, settings.library_chat_model)
     stop = {"type": "stop", "usage": usage, "conversation_id": conversation_id}
     events.append(stop)
-    yield sse(stop)
     number = len(list(folder.glob("turno_*.json"))) + 1
     write_json(folder / f"turno_{number}.json", {
         "at": now(), "prompt": prompt, "answer": answer, "error": error, "engine": "local",
         "request": {"chat_model": settings.library_chat_model, "embed_model": settings.library_embed_model,
-                    "rerank_model": settings.library_rerank_model, "top_k": top_k, "historial": len(history) // 2},
+                    "rerank_model": settings.library_rerank_model, "top_k": settings.library_chat_top_k,
+                    "historial": len(history) // 2, "filters": filters},
         "searches": recorder.searches, "sources": sources, "llm_calls": recorder.llm_calls, "usage": usage,
         "events_raw": [sse(event).strip() for event in events],
     })
+    return sse(stop)
 
 
 # Borra la biblioteca: es solo la carpeta, no hay nada en LlamaCloud.

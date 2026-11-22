@@ -246,8 +246,15 @@ async def chat(library_id: str, client: ClientDep, store: LibrariesDep, settings
     if not prompt.strip():
         raise HTTPException(400, "Escribí una pregunta.")
     library = find(store, library_id)
-    if conversation_id is not None and library.get("engine") == "local":
-        find_conversation(store, library, conversation_id)  # antes de empezar a mandar: así puede responder 404
+    if library.get("engine") == "local":
+        # Antes de empezar a mandar, así puede responder con un error normal: 404 si no existe la conversación
+        # y 409 si un filtro está mal armado (como en la búsqueda de prueba).
+        if conversation_id is not None:
+            find_conversation(store, library, conversation_id)
+        try:
+            local_library.to_filters(filters)
+        except ValueError as e:
+            raise HTTPException(409, str(e)) from e
 
     async def events():
         try:

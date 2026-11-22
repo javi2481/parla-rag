@@ -318,3 +318,38 @@ def test_conversacion_cerrada_no_se_lista(setup):
     assert (tmp_path / "documents" / "libraries" / library["id"] / "chats" / "local" / vacia["id"] / "conversacion.json").is_file()
     assert client.post(f"{base}/conversations/no-existe/close").status_code == 404
     assert client.get(f"{base}/conversations/..%2F..%2Fx").status_code == 404
+
+
+# Manda una pregunta con filtros y devuelve los eventos.
+def ask_filtered(client, base: str, prompt: str, filters: dict) -> list[dict]:
+    with client.stream("POST", f"{base}/chat", json={"prompt": prompt, "filters": filters}) as response:
+        return [json.loads(line[5:]) for line in response.iter_lines() if line.startswith("data:")]
+
+
+# Con un filtro, el chat solo usa las páginas que cumplen (acá, solo la página 2) y el filtro queda en el turno.
+def test_chat_con_filtro_solo_usa_esa_clase(setup):
+    client, settings, tmp_path = setup
+    settings.openai_api_key = "d"
+    base, library = synced_library(client)
+    filters = {"pagina": {"operator": "eq", "value": 2}}
+    events = ask_filtered(client, base, "¿Qué pasó con los ingresos?", filters)
+    assert [source["pagina"] for source in events[1]["result"]] == [2]
+    folder = tmp_path / "documents" / "libraries" / library["id"] / "chats" / "local" / events[-1]["conversation_id"]
+    assert json.loads((folder / "turno_1.json").read_text())["request"]["filters"] == filters
+
+    # Un filtro mal armado se rechaza antes de empezar, como en la búsqueda de prueba.
+    response = client.post(f"{base}/chat", json={"prompt": "x", "filters": {"pagina": 2}})
+    assert response.status_code == 409 and "mal armado" in response.json()["detail"]
+
+
+# Si ninguna página cumple los filtros, el chat lo dice sin llamar al modelo, y el turno se guarda igual.
+def test_chat_con_filtros_sin_paginas(setup):
+    client, settings, tmp_path = setup
+    settings.openai_api_key = "d"
+    base, library = synced_library(client)
+    events = ask_filtered(client, base, "¿Qué es CLIP?", {"nombre": {"operator": "eq", "value": "otra.pdf"}})
+    assert [e["type"] for e in events] == ["text_delta", "stop"]
+    assert events[0]["content"] == "No encontré páginas con esos filtros."
+    folder = tmp_path / "documents" / "libraries" / library["id"] / "chats" / "local" / events[-1]["conversation_id"]
+    turn = json.loads((folder / "turno_1.json").read_text(encoding="utf-8"))
+    assert turn["answer"] == "No encontré páginas con esos filtros." and turn["llm_calls"] == []
