@@ -22,12 +22,26 @@ EXPLICACION = (
     "es decir, por qué eligió ese tipo y no otro. Sirve para mandar cada documento al proceso que le corresponde."
 )
 
+# Las reglas por defecto son las unidades de la materia Aprendizaje Automático II. Las 4 unidades del temario están
+# copiadas textuales de "00 Presentación.pdf", págs. 10 a 13; las otras dos cubren lo que el temario no nombra.
+# Classify elige una por documento y queda como "tipo" en la metadata: así se filtra la biblioteca por unidad.
 DEFAULTS = {
     "rules": [
-        {"type": "clase_teorica", "description": "Diapositivas de una clase teórica: conceptos, diagramas, fórmulas y bibliografía"},
-        {"type": "presentacion_de_la_materia", "description": "Presentación del curso: docentes, temario, unidades y condiciones de aprobación"},
-        {"type": "enunciado_de_practica", "description": "Consigna de un trabajo práctico o ejercicio, con lo que hay que entregar"},
-        {"type": "factura", "description": "Factura, ticket o recibo de una compra o servicio"},
+        {"type": "redes_neuronales", "description": "Unidad 1, Redes Neuronales: Modelo matemático de una neurona biológica. "
+         "Perceptrón simple y multicapa. Algoritmo de entrenamiento. Redes profundas (deep learning)."},
+        {"type": "procesamiento_del_lenguaje_natural", "description": "Unidad 2, Procesamiento del Lenguaje Natural: "
+         "Técnicas de procesamiento: tokenización, radicalización, lematización, etiquetado de partes del discurso, "
+         "reconocimiento de entidades nombradas. Modelos de Embeddings y Representación Vectorial. Transformers y aplicaciones."},
+        {"type": "procesamiento_digital_de_imagenes", "description": "Unidad 3, Procesamiento digital de imágenes: "
+         "Operaciones puntuales en el dominio espacial, filtrado espacial, manejo del color, transformaciones geométricas."},
+        {"type": "aprendizaje_profundo_en_imagenes", "description": "Unidad 4, Aprendizaje profundo aplicado a imágenes: "
+         "Redes neuronales tipo perceptrón y profundas. Detección de objetos, segmentación semántica, reconocimiento de "
+         "objetos y clasificación de imágenes. Transferencia de aprendizaje. Fotografía computacional: Generación de "
+         "imágenes, transferencia de estilo."},
+        {"type": "temas_complementarios", "description": "Temas de la materia que no están en el temario de las unidades: "
+         "modelos multimodales (visión y lenguaje), sesgo, ética y evaluación robusta de modelos"},
+        {"type": "presentacion_de_la_materia", "description": "Presentación del curso: docentes, temario completo, "
+         "unidades y condiciones de aprobación"},
     ],
 }
 

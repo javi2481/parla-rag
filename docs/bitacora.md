@@ -173,3 +173,31 @@ Lo que se construyó y se aprendió con el corpus anterior, y que sigue valiendo
 - **Decisión:** se queda **6 páginas, búsqueda `default`** (los valores por defecto de siempre): rinde igual, es la más rápida y gasta la mitad. MMR queda disponible (`LIBRARY_RETRIEVAL_MODE=mmr`, `LIBRARY_MMR_THRESHOLD`).
 - **Las trampas, con el prompt nuevo:** las tres corridas dicen que Q-learning no está y ya no ofrecen buscar en otros lados. El juez la sigue marcando como incorrecta: es el mismo error del juez de antes.
 - **Costo:** 0 créditos de LlamaCloud; 93 búsquedas de Voyage dentro de los tokens gratis.
+
+### 21/11 · Las unidades de la materia como reglas de Classify (0 créditos; tokens gratis de Voyage)
+
+- **Reglas nuevas** (`s4_classify.py`): las 4 unidades del temario, con la descripción copiada textual de `00 Presentación.pdf` (págs. 10 a 13), más `temas_complementarios` (multimodales, sesgo, ética y evaluación robusta) y `presentacion_de_la_materia`. Reemplazan a `clase_teorica`, `enunciado_de_practica` y `factura`.
+- **Classify en las 14 corridas:** las 14 terminaron con **0 créditos** cada una (`usage.credits` = 0, como se esperaba sobre un parse ya hecho). **Las 14 coinciden con la unidad esperada.** Lo que más podía fallar eran las clases 01 y 02, porque la unidad 4 también dice "Redes neuronales tipo perceptrón y profundas"; las dos quedaron en `redes_neuronales`.
+
+El razonamiento lo devuelve la API en inglés; va recortado y tal cual (sin el nombre del docente, porque la bitácora es pública).
+
+| Clase | Unidad que eligió Classify | Confianza | Razonamiento (resumido) |
+|---|---|---|---|
+| 00 Presentación | `presentacion_de_la_materia` ✅ | 100% | This document is clearly a course presentation. It contains: 1. Title "Presentación del curso" (Course Presentation) 2. Brief presentation of the professor […] with his academic and professional… |
+| 01 Introducción a Redes Neuronales | `redes_neuronales` ✅ | 100% | This document is a perfect match for the "redes_neuronales" category. It is clearly an introductory presentation on Neural Networks ("Introducción a Redes Neuronales") that covers all the key topics from Unit 1:  1.… |
+| 02 Perceptrón Multicapa y Deep Learning | `redes_neuronales` ✅ | 95% | This document is clearly about neural networks (Redes Neuronales), specifically covering the multilayer perceptron (Perceptrón Multicapa) and deep learning. The content directly matches Unit 1 topics including:… |
+| 03 PLN - Conceptos y técnicas de procesamiento | `procesamiento_del_lenguaje_natural` ✅ | 100% | This document is a comprehensive presentation on Natural Language Processing (PLN - Procesamiento del Lenguaje Natural). It covers all the key topics from Unit 2:  1. **Processing techniques**: The document… |
+| 04 PLN - Modelos estadísticos y Representaciones Vectoriales | `procesamiento_del_lenguaje_natural` ✅ | 95% | This document is clearly focused on Natural Language Processing (PLN - Procesamiento del Lenguaje Natural). It covers two main topics that are core to Unit 2:  1. **Statistical Models in NLP**: The document… |
+| 05 PLN - Redes neuronales | `procesamiento_del_lenguaje_natural` ✅ | 95% | This document is clearly focused on Natural Language Processing (PLN - Procesamiento del Lenguaje Natural) with neural networks. The content extensively covers:  1. **Recurrent Neural Networks (RNN, LSTM, GRU)** -… |
+| 06 Procesamiento digital de imágenes | `procesamiento_digital_de_imagenes` ✅ | 100% | This document is a perfect match for "procesamiento_digital_de_imagenes" (Unit 3: Digital Image Processing). The content extensively covers all the key topics specified in this category:  1. **Operaciones puntuales… |
+| 07 Clasificación de imágenes | `aprendizaje_profundo_en_imagenes` ✅ | 95% | This document is clearly focused on convolutional neural networks (CNNs) for image classification, which is a core topic of Unit 4 (Aprendizaje profundo aplicado a imágenes). The document covers:  1. Introduction to… |
+| 08 Transferencia de aprendizaje | `aprendizaje_profundo_en_imagenes` ✅ | 95% | This document is clearly about "Transferencia de aprendizaje" (Transfer Learning) applied to images, which is explicitly mentioned in the "aprendizaje_profundo_en_imagenes" category description as "Transferencia de… |
+| 09 Detección de objetos | `aprendizaje_profundo_en_imagenes` ✅ | 98% | This document is clearly focused on object detection in images, which is a core topic of Unit 4 (Aprendizaje profundo aplicado a imágenes). The content extensively covers:  1. Object detection architectures (R-CNN,… |
+| 10 Segmentación de imágenes | `aprendizaje_profundo_en_imagenes` ✅ | 100% | This document is a perfect match for "aprendizaje_profundo_en_imagenes" (Unit 4: Deep learning applied to images). The presentation explicitly covers:  1. **Semantic segmentation** - a core topic in image… |
+| 11 Generación de imágenes | `aprendizaje_profundo_en_imagenes` ✅ | 95% | This document is a presentation about "Generación de imágenes y transferencia de estilo" (Image Generation and Style Transfer) from the course "Aprendizaje automático 2". The content extensively covers:  1. Image… |
+| 12 Modelos multimodales | `temas_complementarios` ✅ | 95% | This document is clearly about multimodal models (modelos multimodales) that combine vision and language, which is explicitly mentioned in the "temas_complementarios" category as "modelos multimodales (visión y… |
+| 13 Sesgo, ética y evaluación robusta de modelos | `temas_complementarios` ✅ | 100% | This document is a perfect match for "temas_complementarios". The presentation is explicitly titled "Sesgo, ética y evaluación robusta de modelos" (Bias, ethics and robust evaluation of models), which directly… |
+
+- **Biblioteca:** se sacaron y se volvieron a sumar las 14 corridas, así cada página toma el `tipo` nuevo, y se volvió a sincronizar: 410 páginas, 410 chunks, 0 créditos de LlamaCloud.
+- **El filtro por unidad funciona:** *"¿Cómo funciona una red convolucional para clasificar imágenes?"* trae solo la clase 07 sin filtro y solo la 05 con `tipo = procesamiento_del_lenguaje_natural`.
+- **Costo:** 0 créditos de LlamaCloud (14 Classify); embeddings de la sincronización y 4 búsquedas de Voyage dentro de los tokens gratis.
