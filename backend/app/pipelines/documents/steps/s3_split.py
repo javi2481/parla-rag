@@ -16,6 +16,8 @@ from .jobs import option, parse_job_id, poll
 NAME = "split"
 FOLDER = "3_split"
 TITLE = "Split"
+# El paso que tiene que estar terminado antes de correr este: el parse.
+REQUIRES = "parse"
 EXPLICACION = (
     "Split divide el documento en partes y le pone una categoría a cada una, por ejemplo "
     "'teoría' de la página 3 a la 20. Las categorías las definimos nosotros. "

@@ -11,6 +11,7 @@ export type Step = {
   explicacion: string;
   folder: string;
   locked: boolean;
+  requires_title?: string | null; // el paso que tiene que terminar antes (por ejemplo, "Parse")
   state: 'pending' | 'running' | 'done' | 'failed';
   job_status?: string;
   started_at?: string;

@@ -9,7 +9,8 @@
 
 (Biblioteca se suma en la fase 4.)
 
-Cada paso es un módulo con NAME, FOLDER, TITLE y EXPLICACION. El paso 1 corre al subir el archivo;
+Cada paso es un módulo con NAME, FOLDER, TITLE, REQUIRES y EXPLICACION. REQUIRES es el paso que tiene que
+estar terminado antes (Split, Classify y Schema usan el parse; Extract usa el schema). El paso 1 corre al subir el archivo;
 los demás tienen start() para arrancar el job en LlamaCloud y check() para consultarlo
 (Schema no tiene check(): responde en el momento). Los que se configuran en el wizard tienen DEFAULTS.
 """
@@ -52,7 +53,6 @@ def step_state(run: dict, name: str) -> dict:
 # explicación, estado, si está bloqueado, lo que se pidió, las métricas, la interpretación y los archivos.
 def describe_run(store: RunStore, run: dict) -> dict:
     steps = []
-    previous_done = True
     for number, step in enumerate(STEPS, start=1):
         state = step_state(run, step.NAME)
         folder = store.run_dir(run["id"]) / step.FOLDER
@@ -63,7 +63,8 @@ def describe_run(store: RunStore, run: dict) -> dict:
             "title": step.TITLE,
             "explicacion": step.EXPLICACION,
             "folder": step.FOLDER,
-            "locked": not previous_done,  # un paso se desbloquea cuando termina el anterior
+            "locked": not requirement_done(run, step),  # se desbloquea cuando termina el paso que necesita
+            "requires_title": get_step(step.REQUIRES).TITLE if step.REQUIRES else None,
             **state,
             "request": read_if_exists(folder / "request.json"),
             "defaults": getattr(step, "DEFAULTS", None),
@@ -71,7 +72,6 @@ def describe_run(store: RunStore, run: dict) -> dict:
             "interpretacion": summary.get("interpretacion", []),
             "files": store.list_files(run["id"], step.FOLDER),
         })
-        previous_done = state["state"] == "done"
 
     total_credits = 0
     for state in run["steps"].values():
@@ -81,22 +81,26 @@ def describe_run(store: RunStore, run: dict) -> dict:
             "total_credits": total_credits, "steps": steps}
 
 
-# Arranca un paso. Solo se puede si el anterior terminó y si este no está corriendo.
+# ¿Ya terminó el paso que este necesita? (el paso 1 no necesita ninguno)
+def requirement_done(run: dict, step) -> bool:
+    return step.REQUIRES is None or step_state(run, step.REQUIRES)["state"] == "done"
+
+
+# Arranca un paso. Solo se puede si terminó el paso que necesita y si este no está corriendo.
 # `options` son las opciones elegidas en el wizard (categorías, reglas, schema, páginas…).
 async def start_step(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, run: dict, name: str,
                      options: dict | None = None) -> None:
     step = get_step(name)
-    index = STEP_NAMES.index(name)
-    if index == 0:
+    if step.REQUIRES is None:
         raise ValueError("El paso Subir corre solo al subir el archivo.")
-    if step_state(run, STEP_NAMES[index - 1])["state"] != "done":
-        raise ValueError("Primero tiene que terminar el paso anterior.")
+    if not requirement_done(run, step):
+        raise ValueError(f"Primero tiene que terminar el paso {get_step(step.REQUIRES).TITLE}.")
     if step_state(run, name)["state"] == "running":
         raise ValueError("Este paso ya está corriendo.")
     previous = dict(step_state(run, name))
     await step.start(client, store, run, settings, options)
     remember(run, name, previous)
-    reset_following(store, run, index)
+    reset_following(store, run, name)
 
 
 # Guarda en run["historial"] el estado anterior de un paso (con su job_id), para que quede auditado
@@ -106,15 +110,18 @@ def remember(run: dict, name: str, state: dict) -> None:
         run.setdefault("historial", []).append({"step": name, **state})
 
 
-# Cuando un paso se corre de nuevo, los que vienen después quedan desactualizados (usaban el resultado anterior).
+# Cuando un paso se corre de nuevo, los que lo necesitan quedan desactualizados (usaban el resultado anterior),
+# y también los que necesitan a esos (repetir Parse alcanza a Split, Classify, Schema y Extract; repetir Split, a nadie).
 # Vuelven a pendiente y su carpeta pasa al historial, así no se mezcla lo viejo con lo nuevo.
-def reset_following(store: RunStore, run: dict, index: int) -> None:
-    for later in STEPS[index + 1:]:
-        if step_state(run, later.NAME)["state"] == "pending":
+def reset_following(store: RunStore, run: dict, name: str) -> None:
+    for dependent in STEPS:
+        if dependent.REQUIRES != name:
             continue
-        store.archive(run["id"], later.FOLDER)
-        remember(run, later.NAME, run["steps"][later.NAME])
-        run["steps"][later.NAME] = {"state": "pending"}
+        if step_state(run, dependent.NAME)["state"] != "pending":
+            store.archive(run["id"], dependent.FOLDER)
+            remember(run, dependent.NAME, run["steps"][dependent.NAME])
+            run["steps"][dependent.NAME] = {"state": "pending"}
+        reset_following(store, run, dependent.NAME)
     store.save(run)
 
 

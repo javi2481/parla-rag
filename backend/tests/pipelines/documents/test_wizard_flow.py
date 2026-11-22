@@ -220,13 +220,61 @@ def test_split_classify_schema_extract(setup):
     assert boxes == [{"field": "ingresos", "value": 78124, "confidence": 0.95, "page": 3, "text": "78,124",
                       "page_width": 612, "page_height": 792, "x": 10, "y": 20, "w": 30, "h": 5}]
 
-    # Repetir Split: lo anterior va al historial y los pasos siguientes vuelven a pendiente.
+    # Repetir Split: lo anterior va al historial. Ningún paso necesita a Split, así que los demás quedan como estaban.
     client.post(f"{base}/steps/split", json={"categories": categories})
     run = client.get(f"{base}/steps/split").json()
-    assert [step["state"] for step in run["steps"]] == ["done", "done", "done", "pending", "pending", "pending"]
+    assert [step["state"] for step in run["steps"]] == ["done"] * 6
     history = sorted(p.name.rsplit("_", 3)[0] for p in (tmp_path / "documents" / "runs" / run["id"] / "historial").iterdir())
-    assert history == ["3_split", "4_classify", "5_schema", "5_schema", "6_extract"]
+    assert history == ["3_split", "5_schema"]  # el Schema se corrió dos veces (automático y manual)
+
+    # Repetir el Schema sí deja Extract en pendiente: lo usaba.
+    client.post(f"{base}/steps/schema", json={"mode": "manual"})
+    states = [step["state"] for step in client.get(base).json()["steps"]]
+    assert states == ["done", "done", "done", "done", "done", "pending"]
 
     # Al borrar la corrida se borran en LlamaCloud todos sus jobs.
     client.delete(base)
     assert ("delete_job", "spl-1") in fake.calls and ("delete_job", "clj-1") in fake.calls and ("delete_job", "ext-1") in fake.calls
+
+
+# Sube un archivo y termina el parse; devuelve la ruta base de la corrida.
+def parsed_run(client) -> str:
+    run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    base = f"/api/documents/runs/{run['id']}"
+    client.post(f"{base}/steps/parse")
+    client.get(f"{base}/steps/parse")
+    client.get(f"{base}/steps/parse")
+    return base
+
+
+# Classify usa el parse, no el Split: se puede correr sin haber hecho Split.
+def test_classify_corre_sin_split(setup):
+    client, _, _ = setup
+    base = parsed_run(client)
+    steps = {step["name"]: step for step in client.get(base).json()["steps"]}
+    assert not steps["split"]["locked"] and not steps["classify"]["locked"] and not steps["schema"]["locked"]
+    assert steps["extract"]["locked"] and steps["extract"]["requires_title"] == "Schema"
+    assert client.post(f"{base}/steps/classify").status_code == 200
+
+    # Extract necesita el Schema: el error dice qué paso falta.
+    response = client.post(f"{base}/steps/extract", json={})
+    assert response.status_code == 409 and response.json()["detail"] == "Primero tiene que terminar el paso Schema."
+
+
+# Repetir Split no toca Classify: no depende de él. Repetir Parse sí manda a pendiente a todos los que lo usan.
+def test_repetir_split_no_borra_classify(setup):
+    client, _, _ = setup
+    base = parsed_run(client)
+    categories = [{"name": "teoria", "description": "x"}]
+    client.post(f"{base}/steps/split", json={"categories": categories})
+    client.get(f"{base}/steps/split")
+    client.post(f"{base}/steps/classify")
+    client.get(f"{base}/steps/classify")
+
+    client.post(f"{base}/steps/split", json={"categories": categories})
+    states = {step["name"]: step["state"] for step in client.get(base).json()["steps"]}
+    assert states["classify"] == "done"
+
+    client.post(f"{base}/steps/parse")
+    states = {step["name"]: step["state"] for step in client.get(base).json()["steps"]}
+    assert states["split"] == "pending" and states["classify"] == "pending"

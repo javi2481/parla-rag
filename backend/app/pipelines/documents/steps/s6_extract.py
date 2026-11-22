@@ -18,6 +18,8 @@ from .s5_schema import leaf_fields
 NAME = "extract"
 FOLDER = "6_extract"
 TITLE = "Extract"
+# El paso que tiene que estar terminado antes de correr este: el schema (y el parse, que ya está porque el schema lo necesita).
+REQUIRES = "schema"
 EXPLICACION = (
     "Extract busca en el documento cada dato del schema y lo devuelve como JSON, con números como números. "
     "De cada valor dice de dónde lo sacó (página, texto y caja en la página) y con cuánta confianza. "

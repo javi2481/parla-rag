@@ -14,6 +14,8 @@ from .s2_parse import percent
 NAME = "classify"
 FOLDER = "4_classify"
 TITLE = "Classify"
+# El paso que tiene que estar terminado antes de correr este: el parse.
+REQUIRES = "parse"
 EXPLICACION = (
     "Classify decide de qué tipo es el documento eligiendo entre reglas que escribimos nosotros: "
     "un nombre y una descripción por tipo. Además de la respuesta devuelve la confianza y el razonamiento, "

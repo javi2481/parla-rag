@@ -26,6 +26,8 @@ from ..settings import DocumentsSettings
 NAME = "parse"
 FOLDER = "2_parse"
 TITLE = "Parse"
+# El paso que tiene que estar terminado antes de correr este: el archivo subido.
+REQUIRES = "upload"
 EXPLICACION = (
     "LlamaParse lee el documento y lo convierte en texto estructurado: Markdown con títulos, listas y tablas, "
     "más la ubicación de cada elemento en la página. Con IA (tier agentic) también entiende fotos, "

@@ -15,6 +15,8 @@ from ..errors import DocumentError
 NAME = "upload"
 FOLDER = "1_upload"
 TITLE = "Subir"
+# El paso que tiene que estar terminado antes de correr este: ninguno, es el primero.
+REQUIRES = None
 EXPLICACION = (
     "El archivo se sube a LlamaCloud Files, el almacenamiento de la plataforma. "
     "LlamaCloud le asigna un ID que usan todos los pasos siguientes. "

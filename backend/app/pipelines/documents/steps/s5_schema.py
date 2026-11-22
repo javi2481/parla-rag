@@ -26,6 +26,8 @@ from .jobs import option
 NAME = "schema"
 FOLDER = "5_schema"
 TITLE = "Schema"
+# El paso que tiene que estar terminado antes de correr este: el parse, porque Extract (que usa este schema) extrae sobre el parse.
+REQUIRES = "parse"
 EXPLICACION = (
     "El schema es la lista de datos que queremos sacar del documento: el nombre de cada campo, su tipo "
     "(texto, número, fecha…) y una guía que lee el modelo para saber qué buscar. Se puede escribir a mano "

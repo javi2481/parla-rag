@@ -9,6 +9,7 @@ export type PanelStep = {
   explicacion: string;
   state: string;
   locked: boolean;
+  requires_title?: string | null;
   job_status?: string;
   error?: string;
   request: unknown;
@@ -110,7 +111,7 @@ function StepAction({ step, onStart, canStart, busy }: { step: PanelStep; onStar
     return <span className="flex items-center gap-2 text-sm text-primary"><LoaderCircle className="size-4 animate-spin" /> Esperando a LlamaCloud…</span>;
   }
   if (step.locked) {
-    return <span className="flex items-center gap-2 text-sm text-muted-foreground"><Lock className="size-4" /> Primero terminá el paso anterior</span>;
+    return <span className="flex items-center gap-2 text-sm text-muted-foreground"><Lock className="size-4" /> Primero terminá el paso {step.requires_title ?? 'anterior'}</span>;
   }
   if (step.state === 'running') {
     return (
