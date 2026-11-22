@@ -1,6 +1,6 @@
 """Paso 2 · Parse: LlamaParse lee el documento y lo convierte en texto estructurado.
 
-Se pide TODO lo que ofrece Parse (ver docs/verificacion-1-parse.md):
+Se pide TODO lo que ofrece Parse (ver docs/informe-fase-1.md y la bitácora):
 Markdown, texto, items con cajas, confianza por página, tablas en Excel, gráficos convertidos
 en tablas, capturas de cada página y recortes de cada tabla o gráfico.
 
@@ -8,6 +8,7 @@ en tablas, capturas de cada página y recortes de cada tabla o gráfico.
     check()  consulta el job; cuando termina, guarda todo, mide e interpreta
 """
 import asyncio
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -235,6 +236,20 @@ def number_es(value: float, decimals: int = 0) -> str:
     return text.replace(",", "_").replace(".", ",").replace("_", ".")
 
 
+# Cuántos segundos tardó LlamaParse, solo con lo que informa la API: `latency.total_ms` si viene,
+# si no, la diferencia entre `running_at` y `completed_at` de `state_transitions`. Si no hay nada, None.
+def processing_seconds(job_metadata: dict) -> float | None:
+    total_ms = (job_metadata.get("latency") or {}).get("total_ms")
+    if total_ms:
+        return total_ms / 1000
+    transitions = job_metadata.get("state_transitions") or {}
+    if transitions.get("running_at") and transitions.get("completed_at"):
+        start = datetime.fromisoformat(transitions["running_at"].replace("Z", "+00:00"))
+        end = datetime.fromisoformat(transitions["completed_at"].replace("Z", "+00:00"))
+        return (end - start).total_seconds()
+    return None
+
+
 # Las dudas que informa LlamaParse en cada tabla (parse_concerns), en castellano.
 # "multi_table_page" es solo un aviso; las demás son cosas para revisar.
 CONCERN_LABELS = {
@@ -303,7 +318,6 @@ def summarize(response: dict) -> dict:
     pages = metadata.get("pages") or []
     document = metadata.get("document") or {}
     job_metadata = response.get("job_metadata") or {}
-    latency = job_metadata.get("latency") or {}
 
     page_count = len(pages)
     words = count_words(response)
@@ -311,7 +325,9 @@ def summarize(response: dict) -> dict:
     tables = items.get("table", 0)
     charts = count_charts(response)
     credits = (response["job"].get("usage") or {}).get("credits")
-    seconds = (latency.get("total_ms") or 0) / 1000
+    seconds = processing_seconds(job_metadata)
+    # Si la API no informa el tiempo, no se inventa: la frase no lo menciona y la métrica queda "—".
+    took = f" en {number_es(seconds, 1)} segundos" if seconds is not None else ""
 
     scored_pages = [page for page in pages if page.get("confidence") is not None]
     worst = min(scored_pages, key=lambda page: page["confidence"]) if scored_pages else None
@@ -332,18 +348,18 @@ def summarize(response: dict) -> dict:
         {"label": "Dudas de LlamaParse para revisar", "value": sum(len(found) for found in review_concerns.values())},
         {"label": "Confianza del documento", "value": percent(document.get("confidence"))},
         {"label": "Créditos", "value": credits},
-        {"label": "Tiempo de procesamiento", "value": f"{number_es(seconds, 1)} s"},
+        {"label": "Tiempo de procesamiento", "value": f"{number_es(seconds, 1)} s" if seconds is not None else "—"},
         {"label": "Tokens del modelo (entrada / salida)", "value": tokens_text(job_metadata)},
     ]
 
     sentences = []
     if page_count and credits:
         sentences.append(
-            f"LlamaParse leyó {page_count} {'página' if page_count == 1 else 'páginas'} en {number_es(seconds, 1)} segundos "
+            f"LlamaParse leyó {page_count} {'página' if page_count == 1 else 'páginas'}{took} "
             f"y cobró {credits:.0f} créditos ({credits / page_count:.0f} por página)."
         )
     elif page_count:
-        sentences.append(f"LlamaParse leyó {page_count} {'página' if page_count == 1 else 'páginas'} en {number_es(seconds, 1)} segundos.")
+        sentences.append(f"LlamaParse leyó {page_count} {'página' if page_count == 1 else 'páginas'}{took}.")
     if document.get("confidence") is not None:
         sentences.append(f"La confianza general del documento es {percent(document['confidence'])}.")
     # LlamaParse no dice por qué una página tiene confianza baja: no se inventa un motivo.

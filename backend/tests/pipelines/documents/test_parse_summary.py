@@ -55,3 +55,17 @@ def test_interpretation():
     assert "duda en la página 2: columna con un valor de otro tipo" in text
     assert "varias tablas" not in text  # el aviso informativo no se lista como duda
     assert "girada" in text
+
+
+# Sin `latency`, el tiempo sale de las horas de `state_transitions`; sin ninguna de las dos, no se inventa.
+def test_processing_time_from_state_transitions():
+    transitions = {"state_transitions": {"running_at": "2026-11-21T16:27:13.200000Z", "completed_at": "2026-11-21T16:27:32.500000Z"}}
+    summary = summarize({**RESPONSE, "job_metadata": transitions})
+    metrics = {m["label"]: m["value"] for m in summary["metricas"]}
+    assert metrics["Tiempo de procesamiento"] == "19,3 s"
+    assert "leyó 3 páginas en 19,3 segundos" in summary["interpretacion"][0]
+
+    summary = summarize({**RESPONSE, "job_metadata": {}})
+    metrics = {m["label"]: m["value"] for m in summary["metricas"]}
+    assert metrics["Tiempo de procesamiento"] == "—"
+    assert summary["interpretacion"][0].startswith("LlamaParse leyó 3 páginas y cobró")
