@@ -96,13 +96,15 @@ def test_local_library_end_to_end(setup):
 
     # Con la key: llegan la búsqueda, las páginas que encontró, la respuesta en pedacitos y el uso. Todo queda guardado.
     settings.openai_api_key = "d"
+    conversation_id = None  # la primera pregunta crea la conversación; la segunda va a la misma
     for prompt in ("¿Cuál fue el resultado neto?", "¿Y los ingresos?"):
-        with client.stream("POST", f"{base}/chat", json={"prompt": prompt}) as response:
+        with client.stream("POST", f"{base}/chat", json={"prompt": prompt, "conversation_id": conversation_id}) as response:
             events = [json.loads(line[5:]) for line in response.iter_lines() if line.startswith("data:")]
         types = [event["type"] for event in events]
         assert types[:2] == ["tool_call", "tool_result"] and "text_delta" in types and types[-1] == "stop"
         assert events[1]["result"][0]["pagina"] in (1, 2) and events[1]["result"][0]["documento"] == "clase.pdf"
-    second = json.loads((folder / "chats" / "local" / "turno_2.json").read_text())
+        conversation_id = events[-1]["conversation_id"]
+    second = json.loads((folder / "chats" / "local" / conversation_id / "turno_2.json").read_text())
     assert second["answer"] and second["request"]["historial"] == 1 and second["sources"]
     # Con historial, el modelo primero reescribe la pregunta y lo que se busca es la pregunta reescrita.
     assert second["searches"][0]["consulta"] != "¿Y los ingresos?" and second["usage"]["modelo"] == "gpt-5-nano"
@@ -251,3 +253,68 @@ def test_evals_aceptan_top_k_y_modo(setup):
     assert result["request"]["candidatos"] == 12 * local_library.CANDIDATES_PER_RESULT
     # La configuración del servidor no cambia: el cambio vale solo para esa corrida.
     assert settings.library_chat_top_k == 6 and settings.library_retrieval_mode == "default"
+
+
+# Arma una biblioteca local sincronizada con el parse de dos páginas y devuelve la ruta base de la API.
+def synced_library(client) -> tuple[str, dict]:
+    run = client.post("/api/documents/runs", files={"file": ("clase.pdf", b"%PDF-1.7", "application/pdf")}).json()
+    client.post(f"/api/documents/runs/{run['id']}/steps/parse")
+    client.get(f"/api/documents/runs/{run['id']}/steps/parse")
+    library = client.post("/api/documents/libraries", json={"name": "Prueba"}).json()
+    base = f"/api/documents/libraries/{library['id']}"
+    client.post(f"{base}/documents", json={"run_id": run["id"]})
+    client.post(f"{base}/sync")
+    return base, library
+
+
+# Manda una pregunta al chat y devuelve los eventos que llegaron en vivo.
+def ask(client, base: str, prompt: str, conversation_id: str | None = None) -> list[dict]:
+    with client.stream("POST", f"{base}/chat", json={"prompt": prompt, "conversation_id": conversation_id}) as response:
+        return [json.loads(line[5:]) for line in response.iter_lines() if line.startswith("data:")]
+
+
+# Cada conversación tiene su carpeta y su historial: lo que se habló en una no se ve en la otra.
+def test_conversaciones_separadas(setup):
+    client, settings, tmp_path = setup
+    settings.openai_api_key = "d"
+    base, library = synced_library(client)
+    a = client.post(f"{base}/conversations").json()
+    b = client.post(f"{base}/conversations").json()
+    assert a["id"] != b["id"]
+
+    ask(client, base, "¿Cuál fue el resultado neto de la empresa?", a["id"])
+    ask(client, base, "¿Y los ingresos?", a["id"])
+    stop = ask(client, base, "¿Qué dice la página dos?", b["id"])[-1]
+    assert stop["type"] == "stop" and stop["conversation_id"] == b["id"]
+
+    chats = tmp_path / "documents" / "libraries" / library["id"] / "chats" / "local"
+    assert json.loads((chats / a["id"] / "turno_2.json").read_text())["request"]["historial"] == 1
+    assert json.loads((chats / b["id"] / "turno_1.json").read_text())["request"]["historial"] == 0
+
+    listed = client.get(f"{base}/conversations").json()
+    assert [(c["id"], c["turnos"]) for c in listed] == [(a["id"], 2), (b["id"], 1)]
+    assert listed[0]["titulo"] == "¿Cuál fue el resultado neto de"  # las primeras 6 palabras
+    detail = client.get(f"{base}/conversations/{a['id']}").json()
+    assert [t["prompt"] for t in detail["turns"]] == ["¿Cuál fue el resultado neto de la empresa?", "¿Y los ingresos?"]
+
+    # Sin conversation_id se crea una nueva; con uno que no existe, 404.
+    nueva = ask(client, base, "Hola")[-1]["conversation_id"]
+    assert nueva not in (a["id"], b["id"])
+    assert client.post(f"{base}/chat", json={"prompt": "x", "conversation_id": "no-existe"}).status_code == 404
+    # La pestaña Bibliotecas sigue viendo todos los turnos.
+    assert len(client.get(base).json()["turns"]) == 4
+
+
+# Cerrar una conversación la saca de la lista, pero no borra nada del disco.
+def test_conversacion_cerrada_no_se_lista(setup):
+    client, settings, tmp_path = setup
+    base, library = synced_library(client)
+    vacia = client.post(f"{base}/conversations").json()
+    otra = client.post(f"{base}/conversations").json()
+    assert client.get(f"{base}/conversations").json()[0]["titulo"] == "Conversación nueva"
+
+    assert client.post(f"{base}/conversations/{vacia['id']}/close").json()["cerrada"] is True
+    assert [c["id"] for c in client.get(f"{base}/conversations").json()] == [otra["id"]]
+    assert (tmp_path / "documents" / "libraries" / library["id"] / "chats" / "local" / vacia["id"] / "conversacion.json").is_file()
+    assert client.post(f"{base}/conversations/no-existe/close").status_code == 404
+    assert client.get(f"{base}/conversations/..%2F..%2Fx").status_code == 404

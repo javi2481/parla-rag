@@ -395,7 +395,65 @@ def total_usage(llm_calls: list, model: str) -> dict:
     }
 
 
-# Las preguntas y respuestas anteriores del chat, para que el modelo entienda preguntas como "¿y el trimestre anterior?".
+# Las conversaciones del chat viven en libraries/<id>/chats/local/<conversación>/: conversacion.json y sus turno_N.json.
+# El id es la fecha y hora en que se creó, como las corridas. Cerrar una conversación solo la oculta: no se borra nada.
+CONVERSATIONS = "chats/local"
+
+
+# Crea una conversación vacía. Si ya hay una creada en el mismo segundo, se le suma un número al id.
+def create_conversation(store: RunStore, library: dict) -> dict:
+    base = conversation_id = stamp()
+    root = store.run_dir(library["id"]) / CONVERSATIONS
+    for n in range(2, 100):
+        if not (root / conversation_id).exists():
+            break
+        conversation_id = f"{base}_{n}"
+    conversation = {"id": conversation_id, "creada": now(), "cerrada": False}
+    write_json(store.step_dir(library["id"], f"{CONVERSATIONS}/{conversation_id}") / "conversacion.json", conversation)
+    return conversation
+
+
+# La carpeta de una conversación. Si no existe (o el id trae algo raro, como "../"), da LookupError.
+def conversation_folder(store: RunStore, library: dict, conversation_id: str) -> Path:
+    folder = store.run_dir(library["id"]) / CONVERSATIONS / conversation_id
+    if "/" in conversation_id or "\\" in conversation_id or ".." in conversation_id or not (folder / "conversacion.json").is_file():
+        raise LookupError("La conversación no existe.")
+    return folder
+
+
+# Los turnos guardados de una carpeta, en orden (turno_1, turno_2...).
+def saved_turns(folder: Path) -> list[dict]:
+    return [read_json(path) for path in sorted(folder.glob("turno_*.json"), key=lambda p: int(p.stem.split("_")[1]))]
+
+
+# Lo que muestra una pestaña: el id, el título (las primeras 6 palabras de la primera pregunta) y cuántos turnos tiene.
+def conversation_summary(folder: Path) -> dict:
+    conversation = read_json(folder / "conversacion.json")
+    turns = saved_turns(folder)
+    title = " ".join(turns[0]["prompt"].split()[:6]) if turns else "Conversación nueva"
+    return {"id": conversation["id"], "titulo": title, "creada": conversation["creada"], "turnos": len(turns),
+            "cerrada": conversation["cerrada"]}
+
+
+# Las conversaciones abiertas de una biblioteca, de la más vieja a la más nueva (el orden de las pestañas).
+# Los turnos sueltos de antes (chats/local/turno_N.json) no son una conversación y no aparecen.
+def list_conversations(store: RunStore, library: dict) -> list[dict]:
+    root = store.run_dir(library["id"]) / CONVERSATIONS
+    folders = sorted(path.parent for path in root.glob("*/conversacion.json"))
+    return [summary for summary in map(conversation_summary, folders) if not summary["cerrada"]]
+
+
+# Cierra una conversación: queda en disco, pero ya no aparece en las pestañas.
+def close_conversation(store: RunStore, library: dict, conversation_id: str) -> dict:
+    folder = conversation_folder(store, library, conversation_id)
+    conversation = read_json(folder / "conversacion.json")
+    conversation["cerrada"] = True
+    write_json(folder / "conversacion.json", conversation)
+    return conversation_summary(folder)
+
+
+# Las preguntas y respuestas anteriores de una conversación, para que el modelo entienda preguntas como "¿y el trimestre anterior?".
+# Lee solo los turnos de esa carpeta: cada conversación tiene su propio historial.
 def chat_history(folder: Path) -> list[ChatMessage]:
     history = []
     for path in sorted(folder.glob("turno_*.json"), key=lambda p: int(p.stem.split("_")[1])):
@@ -431,14 +489,19 @@ def make_chat_engine(index: VectorStoreIndex, settings: DocumentsSettings, histo
 #   1. si ya hubo preguntas, OpenAI reescribe la nueva para que se entienda sola;
 #   2. voyage-4 busca candidatos y rerank-2.5 deja las mejores páginas;
 #   3. OpenAI responde con esas páginas, citando documento y página. La respuesta llega en vivo.
-# Manda los mismos eventos que el chat de LlamaCloud (tool_call, tool_result, text_delta, stop) y guarda todo el turno.
-async def chat_turn(client, store: RunStore, settings: DocumentsSettings, library: dict, prompt: str):
+# Manda los mismos eventos que el chat de LlamaCloud (tool_call, tool_result, text_delta, stop) y guarda todo el turno
+# en la carpeta de su conversación. Sin conversation_id se crea una nueva; el evento "stop" dice cuál se usó.
+# "filters" lo usa la tarea de filtros por unidad; por ahora se recibe para que los dos motores tengan la misma firma.
+async def chat_turn(client, store: RunStore, settings: DocumentsSettings, library: dict, prompt: str,
+                    conversation_id: str | None = None, filters: dict | None = None):
     check_ready(settings)
     if not settings.openai_api_key:
         raise ValueError("Falta configurar OPENAI_API_KEY en backend/.env.")
+    if conversation_id is None:
+        conversation_id = create_conversation(store, library)["id"]
+    folder = conversation_folder(store, library, conversation_id)
     prepare_nltk(data_dir_of(store))
     index = load_index(store, settings, library)
-    folder = store.step_dir(library["id"], "chats/local", reset=False)
     history = chat_history(folder)
     top_k = settings.library_chat_top_k
     engine = make_chat_engine(index, settings, history)
@@ -470,7 +533,7 @@ async def chat_turn(client, store: RunStore, settings: DocumentsSettings, librar
         dispatcher.event_handlers.remove(recorder)
 
     usage = total_usage(recorder.llm_calls, settings.library_chat_model)
-    stop = {"type": "stop", "usage": usage}
+    stop = {"type": "stop", "usage": usage, "conversation_id": conversation_id}
     events.append(stop)
     yield sse(stop)
     number = len(list(folder.glob("turno_*.json"))) + 1

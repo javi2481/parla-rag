@@ -9,7 +9,11 @@
     POST   /libraries/{id}/sync                arranca la sincronización del índice
     GET    /libraries/{id}/sync                consulta la sincronización
     POST   /libraries/{id}/search              búsqueda de prueba
-    POST   /libraries/{id}/chat                un turno de chat (los eventos llegan en vivo)
+    POST   /libraries/{id}/chat                un turno de chat en una conversación (los eventos llegan en vivo)
+    GET    /libraries/{id}/conversations       las conversaciones abiertas (las pestañas del chat; solo locales)
+    POST   /libraries/{id}/conversations       crea una conversación vacía
+    GET    /libraries/{id}/conversations/{c}   una conversación con sus turnos
+    POST   /libraries/{id}/conversations/{c}/close  la cierra (no borra nada)
     POST   /libraries/{id}/evals               corre los evals con un set de preguntas (solo bibliotecas locales)
 """
 import json
@@ -75,12 +79,32 @@ def parse_events(lines: list[str]) -> list[dict]:
 def describe(store: RunStore, library: dict) -> dict:
     folder = store.run_dir(library["id"])
     searches = [read_json(path) for path in sorted((folder / "searches").glob("*.json"), reverse=True)]
-    turns = []
-    for path in sorted((folder / "chats").glob("*/turno_*.json"), key=lambda p: int(p.stem.split("_")[1])):
-        turn = read_json(path)
-        turns.append({"at": turn["at"], "prompt": turn["prompt"], "events": parse_events(turn["events_raw"]),
-                      "summary": turn.get("summary")})
-    return {**library, "searches": searches, "turns": turns, "evals": library_evals.saved_runs(folder)}
+    # Todos los turnos de la biblioteca, de todas las conversaciones, en el orden en que se hicieron.
+    turns = sorted((read_json(path) for path in (folder / "chats").glob("**/turno_*.json")), key=lambda turn: turn["at"])
+    return {**library, "searches": searches, "turns": [turn_view(turn) for turn in turns],
+            "evals": library_evals.saved_runs(folder)}
+
+
+# Un turno guardado, como lo muestra la pantalla: la pregunta, los eventos del chat y el resumen (si lo hay).
+def turn_view(turn: dict) -> dict:
+    return {"at": turn["at"], "prompt": turn["prompt"], "events": parse_events(turn["events_raw"]),
+            "summary": turn.get("summary")}
+
+
+# Las conversaciones (pestañas del chat) solo existen en las bibliotecas locales. Busca la biblioteca y lo revisa.
+def find_local(store: RunStore, library_id: str) -> dict:
+    library = find(store, library_id)
+    if library.get("engine") != "local":
+        raise HTTPException(409, "Las conversaciones solo están hechas para las bibliotecas locales.")
+    return library
+
+
+# La carpeta de una conversación; si no existe, responde 404.
+def find_conversation(store: RunStore, library: dict, conversation_id: str):
+    try:
+        return local_library.conversation_folder(store, library, conversation_id)
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
 
 
 # Ejecuta una llamada a LlamaCloud y traduce sus errores a HTTP.
@@ -181,17 +205,54 @@ async def run_evals(library_id: str, store: LibrariesDep, settings: SettingsDep,
     return await guarded(library_evals.run_evals(store, settings, library, conjunto, candidatos, respuestas, top_k, modo))
 
 
-# El turno de chat se manda en vivo: cada línea es lo que va enviando LlamaCloud (Server-Sent Events).
+# Las conversaciones abiertas de la biblioteca (las pestañas del chat), de la más vieja a la más nueva.
+@router.get("/{library_id}/conversations")
+def list_conversations(library_id: str, store: LibrariesDep):
+    return local_library.list_conversations(store, find_local(store, library_id))
+
+
+# Crea una conversación vacía (el "+" de las pestañas).
+@router.post("/{library_id}/conversations")
+def create_conversation(library_id: str, store: LibrariesDep):
+    library = find_local(store, library_id)
+    folder = local_library.conversation_folder(store, library, local_library.create_conversation(store, library)["id"])
+    return local_library.conversation_summary(folder)
+
+
+# Una conversación con todos sus turnos, para volver a mostrarla al recargar la página.
+@router.get("/{library_id}/conversations/{conversation_id}")
+def get_conversation(library_id: str, conversation_id: str, store: LibrariesDep):
+    library = find_local(store, library_id)
+    folder = find_conversation(store, library, conversation_id)
+    return {**local_library.conversation_summary(folder),
+            "turns": [turn_view(turn) for turn in local_library.saved_turns(folder)]}
+
+
+# Cierra una conversación (la "x" de la pestaña): deja de aparecer, pero queda en disco para auditar.
+@router.post("/{library_id}/conversations/{conversation_id}/close")
+def close_conversation(library_id: str, conversation_id: str, store: LibrariesDep):
+    library = find_local(store, library_id)
+    find_conversation(store, library, conversation_id)
+    return local_library.close_conversation(store, library, conversation_id)
+
+
+# El turno de chat se manda en vivo: cada línea es lo que va enviando el motor (Server-Sent Events).
+# "conversation_id" dice a qué conversación va (sin él, se crea una nueva) y "filters" acota la búsqueda.
 @router.post("/{library_id}/chat")
 async def chat(library_id: str, client: ClientDep, store: LibrariesDep, settings: SettingsDep,
-               prompt: Annotated[str, Body(embed=True)]):
+               prompt: Annotated[str, Body(embed=True)],
+               conversation_id: Annotated[str | None, Body(embed=True)] = None,
+               filters: Annotated[dict | None, Body(embed=True)] = None):
     if not prompt.strip():
         raise HTTPException(400, "Escribí una pregunta.")
     library = find(store, library_id)
+    if conversation_id is not None and library.get("engine") == "local":
+        find_conversation(store, library, conversation_id)  # antes de empezar a mandar: así puede responder 404
 
     async def events():
         try:
-            async for line in engine_of(library).chat_turn(client, store, settings, library, prompt):
+            async for line in engine_of(library).chat_turn(client, store, settings, library, prompt,
+                                                           conversation_id, filters):
                 yield line
         except ValueError as e:
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n"

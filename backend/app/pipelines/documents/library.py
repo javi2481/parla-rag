@@ -267,7 +267,10 @@ async def chat_session(client: AsyncLlamaCloud, store: RunStore, library: dict) 
 
 # Un turno de chat. Va devolviendo los eventos tal cual los manda LlamaCloud (Server-Sent Events), para verlos en vivo,
 # y al terminar guarda los eventos crudos y la transcripción completa de la sesión (chat.retrieve).
-async def chat_turn(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict, prompt: str):
+# LlamaCloud maneja una sola sesión por biblioteca: conversation_id y filters se reciben (para que los dos motores
+# tengan la misma firma) pero no se usan.
+async def chat_turn(client: AsyncLlamaCloud, store: RunStore, settings: DocumentsSettings, library: dict, prompt: str,
+                    conversation_id: str | None = None, filters: dict | None = None):
     session_id = await chat_session(client, store, library)  # settings no se usa: está para que las dos versiones sean iguales
     lines = []
     async with client.chat.with_streaming_response.stream(session_id, index_ids=[library["index_id"]], prompt=prompt) as response:
